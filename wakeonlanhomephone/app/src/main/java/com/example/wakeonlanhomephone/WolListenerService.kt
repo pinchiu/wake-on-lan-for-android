@@ -62,7 +62,7 @@ class WolListenerService : Service() {
     private fun listener() {
         try {
             socket = DatagramSocket(LISTENING_PORT)
-            socket?.setSoTimeout(SOCKET_TIMEOUT_MS)
+            socket?.soTimeout = SOCKET_TIMEOUT_MS
             Log.d(TAG, "開始在 UDP 埠 $LISTENING_PORT 上監聽")
             val buffer = ByteArray(256)
 
@@ -160,12 +160,18 @@ class WolListenerService : Service() {
             val macBytes = getMacBytes(macAddress) ?: return "MAC 位址格式錯誤"
             val magicPacket = ByteArray(102).apply {
                 (0..5).forEach { this[it] = 0xFF.toByte() }
-                (1..16).forEach { i -> macBytes.copyInto(this, i * 6) }
+                for (i in 1..16) {
+                    macBytes.copyInto(this, i * 6)
+                }
             }
-            val multicastAddress = Inet6Address.getByName("ff02::1")
-            val packet = DatagramPacket(magicPacket, magicPacket.size, multicastAddress, 9)
-            DatagramSocket().use { socket -> socket.send(packet) }
-            return "Magic Packet 已多點傳播到 ff02::1"
+
+            val broadcastAddr = "255.255.255.255"  // 請改為您的 LAN broadcast, 如 192.168.1.255
+            val packet = DatagramPacket(magicPacket, magicPacket.size, InetAddress.getByName(broadcastAddr), 9)
+            DatagramSocket().use { socket ->
+                socket.broadcast = true
+                socket.send(packet)
+            }
+            return "Magic Packet 已 broadcast 到 $broadcastAddr:9"
         } catch (e: Exception) {
             Log.e(TAG, "發送 Magic Packet 失敗", e)
             return "發送失敗: ${e.message}"

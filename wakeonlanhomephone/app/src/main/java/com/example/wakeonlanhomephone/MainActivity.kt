@@ -3,7 +3,6 @@ package com.example.wakeonlanhomephone
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.ComponentActivity
@@ -29,20 +28,18 @@ class MainActivity : ComponentActivity() {
             val binder = service as WolListenerService.LocalBinder
             wolService = binder.getService()
             isBound = true
-            println("服務已連接")
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {
             wolService = null
             isBound = false
-            println("服務已斷開")
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 0)
         }
 
@@ -55,7 +52,7 @@ class MainActivity : ComponentActivity() {
                 isRunning = isServiceRunning,
                 onStartService = {
                     Intent(this, WolListenerService::class.java).also { intent ->
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                             startForegroundService(intent)
                         } else {
                             startService(intent)
