@@ -20,6 +20,18 @@ def reboot_pc():
     else:  # Linux/Mac (需權限)
         subprocess.call(["sudo", "reboot"])
 
+def sleep_pc():
+    if sys.platform == "win32":
+        subprocess.call(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"])
+    else: # Linux/Mac (needs configuration)
+        subprocess.call(["sudo", "pm-suspend"])
+
+def hibernate_pc():
+    if sys.platform == "win32":
+        subprocess.call(["rundll32.exe", "powrprof.dll,SetSuspendState", "1,1,0"])
+    else: # Linux/Mac (needs configuration)
+        subprocess.call(["sudo", "pm-hibernate"])
+
 def main():
     print(f"監聽 {LISTEN_IP}:{LISTEN_PORT}，等待遠端命令...")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -35,6 +47,12 @@ def main():
             elif command == "reboot":
                 print("執行重新開機...")
                 reboot_pc()
+            elif command == "sleep":
+                print("執行睡眠...")
+                sleep_pc()
+            elif command == "hibernate":
+                print("執行休眠...")
+                hibernate_pc()
             else:
                 print(f"未知命令: {command}")
 

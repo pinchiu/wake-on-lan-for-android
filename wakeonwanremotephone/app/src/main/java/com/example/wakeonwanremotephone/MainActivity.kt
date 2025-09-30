@@ -127,6 +127,32 @@ fun RemoteControlScreen() {
                         ) {
                             Text("重啟")
                         }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Button(
+                            onClick = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
+                            enabled = helperIpv6Address.isNotBlank() && computerLocalIpv4.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("睡眠")
+                        }
+                        Button(
+                            onClick = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
+                            enabled = helperIpv6Address.isNotBlank() && computerLocalIpv4.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("休眠")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
                         Button(
                             onClick = { sendCommand("SHUTDOWN:${computerLocalIpv4.trim()}") },
                             enabled = helperIpv6Address.isNotBlank() && computerLocalIpv4.isNotBlank(),

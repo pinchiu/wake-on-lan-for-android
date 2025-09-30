@@ -112,6 +112,20 @@ class WolListenerService : Service() {
                                 Log.e(TAG, "無效 IP: $payload")
                             }
                         }
+                        "SLEEP" -> {
+                            if (isValidIpv4(payload)) {
+                                Thread { sendCommandToPC("sleep", payload) }.start()
+                            } else {
+                                Log.e(TAG, "無效 IP: $payload")
+                            }
+                        }
+                        "HIBERNATE" -> {
+                            if (isValidIpv4(payload)) {
+                                Thread { sendCommandToPC("hibernate", payload) }.start()
+                            } else {
+                                Log.e(TAG, "無效 IP: $payload")
+                            }
+                        }
                         "MAC" -> {
                             val result = sendMagicPacketIPv6(payload)
                             Log.d(TAG, "WoL 發送結果: $result")

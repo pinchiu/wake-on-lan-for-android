@@ -1,64 +1,64 @@
 # Wake-on-LAN Home Phone Remote Control
 
-一個遠端控制系統，使用 Android 手機作為助手，通過行動數據和本地網路，實現對電腦的 Wake-on-LAN (WoL)、關機和重啟。
+A remote control system that uses an Android phone as a helper to perform Wake-on-LAN (WoL), shutdown, and reboot operations on a computer over mobile data and a local network.
 
-## 功能特色
-- **Wake-on-LAN**：從遠端喚醒電腦（需網路支援）。
-- **遠端關機/重啟**：透過行動數據和本地網路控制電腦電源。
-- **跨平台電腦**：支援 Windows、Linux、macOS。
-- **安全監聽**：使用 UDP 埠，無需公開 IP。
+## Features
+- **Wake-on-LAN**: Remotely wake up your computer (requires network support).
+- **Remote Shutdown/Reboot**: Control your computer's power using mobile data and the local network.
+- **Cross-Platform**: The computer-side script supports Windows, Linux, and macOS.
+- **Secure Listening**: Uses a UDP port without needing a public IP address.
 
-## 先決條件
-- **Android 手機**：一支作為助手（在同一 LAN 網路），一支遠端控制（行動數據）。
-- **電腦**：安裝 Python 3，且 BIOS/網路卡啟用 WoL（電腦需 Wake-on-LAN 支援）。
-- **網路**：助手手機和電腦在同一 Wi-Fi 子網路。關機/重啟支援行動數據路由。
+## Prerequisites
+- **Android Phones**: One phone to act as a helper (on the same LAN as the computer) and another for remote control (using mobile data).
+- **Computer**: Python 3 installed, and WoL enabled in the BIOS/network card (the computer must support Wake-on-LAN).
+- **Network**: The helper phone and the computer must be on the same Wi-Fi subnet.
 
-## 安裝與設定
+## Installation and Setup
 
-### 1. 安裝電腦端 Python 監聽器
-下載 `Python/remote_control_listener.py` 到電腦。
+### 1. Install the Python Listener on the Computer
+Download `computer/pc_onoff.py` to your computer. You can test it manually first.
+
 ```bash
-cd Python
-python pc_onoff.py  # 手動測試
+cd computer
+python pc_onoff.py
 ```
 
-#### 自動啟動（開機時）
-- **Windows**：用 schtasks 加入開機（確保 Python 在 PATH）：
+#### Automatic Startup (on boot)
+- **Windows**: Use `schtasks` to add it to startup (make sure Python is in your PATH):
   ```
-  schtasks /create /tn "RemoteControlListener" /tr "python \"C:\path\to\remote_control_listener.py\"" /sc onlogon /rl highest /f
+  schtasks /create /tn "RemoteControlListener" /tr "python "C:\path\to\pc_onoff.py"" /sc onlogon /rl highest /f
   ```
-- **Linux/macOS**：參閱 systemd 或 Launch Agents 設定。
+- **Linux/macOS**: Refer to `systemd` or `Launch Agents` for setup.
 
-### 2. 安裝 Android App
-- 將 `Android/` 專案匯入 Android Studio。
-- 編譯安裝到助手手機（支援 API 24+）。
-- 啟動 App，自動監聽 UDP 埠 9876。
+### 2. Install the Android App
+- Import the `wakeonlanhomephone/` project into Android Studio.
+- Compile and install it on the helper phone (supports API 24+).
+- Start the app, and it will automatically listen on UDP port 9876.
 
-### 3. 取得網路資訊
-- 電腦 IP（e.g., 192.168.1.100）。
-- 電腦 MAC 位址（e.g., `ipconfig /all` on Windows）。
+### 3. Get Network Information
+- **Computer IP address**: e.g., `192.168.1.100`.
+- **Computer MAC address**: e.g., use `ipconfig /all` on Windows or `ifconfig` on macOS/Linux.
 
-## 使用方法
-1. 啟動 Android App 服務。
-2. 從遠端手機發送 UDP 資料到助手手機的 IPv6:9876：
-   - WoL： `WAKE:你的MAC位址` (e.g., `WAKE:AA:BB:CC:DD:EE:FF`)
-   - 關機： `SHUTDOWN:電腦IP` (e.g., `SHUTDOWN:192.168.1.100`)
-   - 重啟： `REBOOT:電腦IP`
+## Usage
+1. Start the Android app service on the helper phone.
+2. From the remote phone, send a UDP packet to the helper phone's public IPv6 address on port 9876 with one of the following commands:
+   - **WoL**: `WAKE:YOUR_MAC_ADDRESS` (e.g., `WAKE:AA:BB:CC:DD:EE:FF`)
+   - **Shutdown**: `SHUTDOWN:COMPUTER_IP` (e.g., `SHUTDOWN:192.168.1.100`)
+   - **Reboot**: `REBOOT:COMPUTER_IP`
+3. Check the phone's logcat or the app's logs to confirm execution.
 
-3. 檢查手機 logcat 或 App 日誌，確認執行。
+## Resource Usage
+- **Network**: The helper phone listens on IPv6 port 9876 and sends UDP packets to the computer on port 9877 (WoL broadcast).
+- **Permissions**: The phone requires network permissions, and the computer script requires shutdown permissions.
+- **Conditions**: Depending on the computer's configuration, administrator privileges may be required for the Python script.
 
-## 佔用資源
-- **網路**：助手手機監聽 IPv6:9876，發送 UDP 到電腦:9877 (WoL broadcast)。
-- **權限**：手機需網路權限，電腦腳本需關機權限。
-- **條件**：依電腦設定，可能需管理員。
+## Troubleshooting
+- **WoL Doesn't Work**: Check that WoL is enabled in the BIOS and that your network supports broadcast packets.
+- **UDP Fails**: Make sure the helper phone's IPv6 is reachable from the remote phone and that the computer's firewall allows UDP traffic on port 9877.
+- **Error Messages**: Check the app's logs or the Python console for errors.
 
-## 疑難排解
-- **WoL 不動**：檢查 BIOS 啟用 WoL，網路廣播支援。
-- **UDP 失敗**：確保手機 IPv6 可達，電腦防火牆開放埠。
-- **錯誤訊息**：查看 App 日誌或 Python console。
+## Contributing
+Contributions are welcome! Please submit an Issue or Pull Request and adhere to the MIT License.
 
-## 貢獻
-歡迎提交 Issue 或 Pull Request！請遵守 MIT Licence。
-
-## 授權
-MIT Licence。詳見 [LICENSE](LICENSE)。
+## License
+This project is licensed under the MIT License.
