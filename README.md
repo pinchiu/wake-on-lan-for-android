@@ -31,16 +31,51 @@ python pc_onoff.py
 ```
 
 #### Automatic Startup (on boot)
-- **Windows**: Use `schtasks` to add it to startup (make sure Python is in your PATH):
-  ```
-  schtasks /create /tn "RemoteControlListener" /tr "python "C:\path\to\pc_onoff.py"" /sc onlogon /rl highest /f
-  ```
-- **Linux/macOS**: Refer to `systemd` or `Launch Agents` for setup.
 
-### 2. Install the Android App
-- Import the `wakeonlanhomephone/` project into Android Studio.
-- Compile and install it on the helper phone (supports API 24+).
-- Start the app, and it will automatically listen on UDP port 9876.
+To have the Python script run automatically when you log in to your computer, follow these instructions.
+
+- **Windows**:
+  You can use the Windows Task Scheduler to create a new task. Open a Command Prompt as an administrator and run the following command. Make sure to replace `C:\path\to\pc_onoff.py` with the actual path to the `pc_onoff.py` file on your computer.
+  ```
+  schtasks /create /tn "RemoteControlListener" /tr "pythonw \"C:\path\to\pc_onoff.py\"" /sc onlogon /rl highest /f
+  ```
+  *Note: We use `pythonw.exe` instead of `python.exe` to run the script without a visible console window.*
+
+- **Linux**:
+  You can use `cron` to run the script at startup. Open your crontab by running `crontab -e` and add the following line at the end. Make sure to replace `/path/to/pc_onoff.py` with the actual path to the file.
+  ```
+  @reboot /usr/bin/python3 /path/to/pc_onoff.py
+  ```
+
+- **macOS**:
+  You can use `launchd` to create a Launch Agent. Create a new file named `com.remotecontrol.listener.plist` in `~/Library/LaunchAgents/` with the following content. Make sure to replace `/path/to/pc_onoff.py` with the actual path to the file.
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  <plist version="1.0">
+  <dict>
+      <key>Label</key>
+      <string>com.remotecontrol.listener</string>
+      <key>ProgramArguments</key>
+      <array>
+          <string>/usr/bin/python3</string>
+          <string>/path/to/pc_onoff.py</string>
+      </array>
+      <key>RunAtLoad</key>
+      <true/>
+  </dict>
+  </plist>
+  ```
+  Then, load the agent by running `launchctl load ~/Library/LaunchAgents/com.remotecontrol.listener.plist`.
+
+### 2. Install the Android Apps
+
+You can download the pre-built APK files from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-andoiriod/releases/tag/v20250930).
+
+- **`wakeonlan-home-phone.apk`**: Install this on the phone that is connected to the same Wi-Fi network as your computer. This phone will act as the "helper".
+- **`wakeonwan-remote-phone.apk`**: Install this on the phone you will use to send the commands from anywhere. This is your "remote".
+
+You will need to enable "Install from unknown sources" on your Android phone to install the APK files.
 
 ### 3. Get Network Information
 - **Computer IP address**: e.g., `192.168.1.100`.
