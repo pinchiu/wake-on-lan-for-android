@@ -1,4 +1,4 @@
-package com.example.wakeonwanremotephone // 請確認 package 名稱與您的專案一致
+package com.example.wakeonwanremotephone // Please make sure the package name is consistent with your project
 
 import android.content.Context
 import android.os.Bundle
@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// 用於儲存設定的常數
+// Constants for saving settings
 private const val PREFS_NAME = "RemoteControlPrefs"
 private const val KEY_IPV6 = "helperIpv6Address"
 private const val KEY_MAC = "computerMacAddress"
@@ -36,13 +36,13 @@ private const val KEY_IPV4 = "computerLocalIpv4"
 
 @Composable
 fun RemoteControlScreen() {
-    // 獲取 context 以存取 SharedPreferences
+    // Get context to access SharedPreferences
     val context = LocalContext.current
     val sharedPrefs = remember {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // 從 SharedPreferences 載入初始值
+    // Load initial values from SharedPreferences
     var helperIpv6Address by remember { mutableStateOf(sharedPrefs.getString(KEY_IPV6, "") ?: "") }
     var computerMacAddress by remember { mutableStateOf(sharedPrefs.getString(KEY_MAC, "") ?: "") }
     var computerLocalIpv4 by remember { mutableStateOf(sharedPrefs.getString(KEY_IPV4, "") ?: "") }
@@ -68,17 +68,17 @@ fun RemoteControlScreen() {
                 modifier = Modifier.fillMaxSize().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("終極遠端控制器", style = MaterialTheme.typography.headlineMedium)
+                Text("Ultimate Remote Controller", style = MaterialTheme.typography.headlineMedium)
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedTextField(
                     value = helperIpv6Address,
                     onValueChange = {
                         helperIpv6Address = it
-                        // 當數值變更時，儲存到 SharedPreferences
+                        // When the value changes, save it to SharedPreferences
                         sharedPrefs.edit().putString(KEY_IPV6, it).apply()
                     },
-                    label = { Text("助手手機的 IPv6 位址") },
+                    label = { Text("Helper phone's IPv6 address") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -87,10 +87,10 @@ fun RemoteControlScreen() {
                     value = computerMacAddress,
                     onValueChange = {
                         computerMacAddress = it
-                        // 當數值變更時，儲存到 SharedPreferences
+                        // When the value changes, save it to SharedPreferences
                         sharedPrefs.edit().putString(KEY_MAC, it).apply()
                     },
-                    label = { Text("電腦的 MAC 位址 (用於喚醒)") },
+                    label = { Text("Computer's MAC address (for Wake-on-LAN)") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -99,10 +99,10 @@ fun RemoteControlScreen() {
                     value = computerLocalIpv4,
                     onValueChange = {
                         computerLocalIpv4 = it
-                        // 當數值變更時，儲存到 SharedPreferences
+                        // When the value changes, save it to SharedPreferences
                         sharedPrefs.edit().putString(KEY_IPV4, it).apply()
                     },
-                    label = { Text("電腦的區域網路 IPv4 (用於關機/重啟)") },
+                    label = { Text("Computer's local network IPv4 (for shutdown/reboot)") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(32.dp))
@@ -118,14 +118,14 @@ fun RemoteControlScreen() {
                             onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") },
                             enabled = helperIpv6Address.isNotBlank() && computerMacAddress.isNotBlank()
                         ) {
-                            Text("喚醒")
+                            Text("Wake")
                         }
                         Button(
                             onClick = { sendCommand("REBOOT:${computerLocalIpv4.trim()}") },
                             enabled = helperIpv6Address.isNotBlank() && computerLocalIpv4.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                         ) {
-                            Text("重啟")
+                            Text("Reboot")
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -138,14 +138,14 @@ fun RemoteControlScreen() {
                             enabled = helperIpv6Address.isNotBlank() && computerLocalIpv4.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("睡眠")
+                            Text("Sleep")
                         }
                         Button(
                             onClick = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
                             enabled = helperIpv6Address.isNotBlank() && computerLocalIpv4.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("休眠")
+                            Text("Hibernate")
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -158,7 +158,7 @@ fun RemoteControlScreen() {
                             enabled = helperIpv6Address.isNotBlank() && computerLocalIpv4.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Text("關機")
+                            Text("Shutdown")
                         }
                     }
                 }
@@ -173,7 +173,7 @@ fun RemoteControlScreen() {
 private suspend fun sendUdpCommand(host: String, command: String): String {
     return withContext(Dispatchers.IO) {
         if (host.isBlank() || command.isBlank()) {
-            return@withContext "位址或指令不得為空！"
+            return@withContext "Address or command cannot be empty!"
         }
         try {
             val serverAddr = Inet6Address.getByName(host)
@@ -182,9 +182,9 @@ private suspend fun sendUdpCommand(host: String, command: String): String {
             DatagramSocket().use { socket ->
                 socket.send(packet)
             }
-            "指令已發送: $command"
+            "Command sent: $command"
         } catch (e: Exception) {
-            "發送失敗: ${e.message}"
+            "Send failed: ${e.message}"
         }
     }
 }

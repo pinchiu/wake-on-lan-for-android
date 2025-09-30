@@ -3,21 +3,21 @@ import os
 import subprocess
 import sys
 
-# 設定
-LISTEN_IP = "0.0.0.0"  # 監聽所有 IP（若要安全，可改為特定 IP）
+# Settings
+LISTEN_IP = "0.0.0.0"  # Listen on all IPs (for security, change to a specific IP)
 LISTEN_PORT = 9877
 BUFFER_SIZE = 1024
 
 def shutdown_pc():
     if sys.platform == "win32":
         subprocess.call(["shutdown", "/s", "/t", "0"])
-    else:  # Linux/Mac (需權限)
+    else:  # Linux/Mac (requires permissions)
         subprocess.call(["sudo", "shutdown", "now"])
 
 def reboot_pc():
     if sys.platform == "win32":
         subprocess.call(["shutdown", "/r", "/t", "0"])
-    else:  # Linux/Mac (需權限)
+    else:  # Linux/Mac (requires permissions)
         subprocess.call(["sudo", "reboot"])
 
 def sleep_pc():
@@ -33,28 +33,28 @@ def hibernate_pc():
         subprocess.call(["sudo", "pm-hibernate"])
 
 def main():
-    print(f"監聽 {LISTEN_IP}:{LISTEN_PORT}，等待遠端命令...")
+    print(f"Listening on {LISTEN_IP}:{LISTEN_PORT}, waiting for remote commands...")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind((LISTEN_IP, LISTEN_PORT))
         while True:
             data, addr = sock.recvfrom(BUFFER_SIZE)
             command = data.decode('utf-8').strip().lower()
-            print(f"收到命令: '{command}' 來自 {addr}")
+            print(f"Received command: '{command}' from {addr}")
 
             if command == "shutdown":
-                print("執行關機...")
+                print("Executing shutdown...")
                 shutdown_pc()
             elif command == "reboot":
-                print("執行重新開機...")
+                print("Executing reboot...")
                 reboot_pc()
             elif command == "sleep":
-                print("執行睡眠...")
+                print("Executing sleep...")
                 sleep_pc()
             elif command == "hibernate":
-                print("執行休眠...")
+                print("Executing hibernate...")
                 hibernate_pc()
             else:
-                print(f"未知命令: {command}")
+                print(f"Unknown command: {command}")
 
 if __name__ == "__main__":
     main()

@@ -44,10 +44,10 @@ class WolListenerService : Service() {
         if (!_isRunning.value) {
             _isRunning.value = true
             _logs.value = emptyList()
-            Log.d(TAG, "服務啟動")
+            Log.d(TAG, "Service started")
 
             createNotificationChannel()
-            startForeground(NOTIFICATION_ID, createNotification("正在監聽喚醒指令..."))
+            startForeground(NOTIFICATION_ID, createNotification("Listening for wake-up commands..."))
 
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WoLHelper::CpuWakeLock")
@@ -63,7 +63,7 @@ class WolListenerService : Service() {
         try {
             socket = DatagramSocket(LISTENING_PORT)
             socket?.soTimeout = SOCKET_TIMEOUT_MS
-            Log.d(TAG, "開始在 UDP 埠 $LISTENING_PORT 上監聽")
+            Log.d(TAG, "Started listening on UDP port $LISTENING_PORT")
             val buffer = ByteArray(256)
 
             while (_isRunning.value && socket != null) {
@@ -71,14 +71,14 @@ class WolListenerService : Service() {
                     val packet = DatagramPacket(buffer, buffer.size)
                     socket?.receive(packet) ?: break
 
-                    val senderAddress = packet.address?.hostAddress ?: "未知來源"
+                    val senderAddress = packet.address?.hostAddress ?: "Unknown source"
                     val commandData = String(packet.data, 0, packet.length)
 
                     val (action, payload) = parseCommand(commandData.trim())
                     val timestamp = SimpleDateFormat("HH:mm:ss", Locale.TAIWAN).format(Date())
-                    val logMessage = "[$timestamp] 收到 [$senderAddress] [$action]"
+                    val logMessage = "[$timestamp] Received [$action] from [$senderAddress]"
 
-                    Log.d(TAG, "$logMessage, 內容: $payload")
+                    Log.d(TAG, "$logMessage, Payload: $payload")
 
                     mainHandler.post {
                         val currentLogs = _logs.value.toMutableList()
@@ -87,66 +87,66 @@ class WolListenerService : Service() {
                         _logs.value = currentLogs
                     }
 
-                    updateNotification("最後 [$action] 來自: $senderAddress")
+                    updateNotification("Last [$action] from: $senderAddress")
 
                     when (action) {
                         "WAKE" -> {
                             if (isValidMac(payload)) {
                                 val result = sendMagicPacketIPv6(payload)
-                                Log.d(TAG, "WoL 發送結果: $result")
+                                Log.d(TAG, "WoL send result: $result")
                             } else {
-                                Log.e(TAG, "無效 MAC: $payload")
+                                Log.e(TAG, "Invalid MAC: $payload")
                             }
                         }
                         "SHUTDOWN" -> {
                             if (isValidIpv4(payload)) {
                                 Thread { sendCommandToPC("shutdown", payload) }.start()
                             } else {
-                                Log.e(TAG, "無效 IP: $payload")
+                                Log.e(TAG, "Invalid IP: $payload")
                             }
                         }
                         "REBOOT" -> {
                             if (isValidIpv4(payload)) {
                                 Thread { sendCommandToPC("reboot", payload) }.start()
                             } else {
-                                Log.e(TAG, "無效 IP: $payload")
+                                Log.e(TAG, "Invalid IP: $payload")
                             }
                         }
                         "SLEEP" -> {
                             if (isValidIpv4(payload)) {
                                 Thread { sendCommandToPC("sleep", payload) }.start()
                             } else {
-                                Log.e(TAG, "無效 IP: $payload")
+                                Log.e(TAG, "Invalid IP: $payload")
                             }
                         }
                         "HIBERNATE" -> {
                             if (isValidIpv4(payload)) {
                                 Thread { sendCommandToPC("hibernate", payload) }.start()
                             } else {
-                                Log.e(TAG, "無效 IP: $payload")
+                                Log.e(TAG, "Invalid IP: $payload")
                             }
                         }
                         "MAC" -> {
                             val result = sendMagicPacketIPv6(payload)
-                            Log.d(TAG, "WoL 發送結果: $result")
+                            Log.d(TAG, "WoL send result: $result")
                         }
                         else -> {
-                            Log.w(TAG, "未知動作: $action")
+                            Log.w(TAG, "Unknown action: $action")
                         }
                     }
 
                 } catch (timeout: SocketTimeoutException) {
                 } catch (e: Exception) {
-                    Log.e(TAG, "監聽時發生錯誤，或被強制關閉: ${e.message}", e)
+                    Log.e(TAG, "Error while listening or socket was closed: ${e.message}", e)
                     break
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "無法綁定監聽埠 $LISTENING_PORT", e)
+            Log.e(TAG, "Could not bind to port $LISTENING_PORT", e)
         } finally {
             socket?.close()
             socket = null
-            Log.d(TAG, "監聽執行緒結束")
+            Log.d(TAG, "Listener thread finished")
         }
     }
 
@@ -171,7 +171,7 @@ class WolListenerService : Service() {
 
     private fun sendMagicPacketIPv6(macAddress: String): String {
         try {
-            val macBytes = getMacBytes(macAddress) ?: return "MAC 位址格式錯誤"
+            val macBytes = getMacBytes(macAddress) ?: return "Invalid MAC address format"
             val magicPacket = ByteArray(102).apply {
                 (0..5).forEach { this[it] = 0xFF.toByte() }
                 for (i in 1..16) {
@@ -179,16 +179,16 @@ class WolListenerService : Service() {
                 }
             }
 
-            val broadcastAddr = "255.255.255.255"  // 請改為您的 LAN broadcast, 如 192.168.1.255
+            val broadcastAddr = "255.255.255.255"  // Change to your LAN broadcast address, e.g., 192.168.1.255
             val packet = DatagramPacket(magicPacket, magicPacket.size, InetAddress.getByName(broadcastAddr), 9)
             DatagramSocket().use { socket ->
                 socket.broadcast = true
                 socket.send(packet)
             }
-            return "Magic Packet 已 broadcast 到 $broadcastAddr:9"
+            return "Magic Packet broadcasted to $broadcastAddr:9"
         } catch (e: Exception) {
-            Log.e(TAG, "發送 Magic Packet 失敗", e)
-            return "發送失敗: ${e.message}"
+            Log.e(TAG, "Failed to send Magic Packet", e)
+            return "Send failed: ${e.message}"
         }
     }
 
@@ -206,10 +206,10 @@ class WolListenerService : Service() {
         try {
             val packet = DatagramPacket(command.toByteArray(), command.length, InetAddress.getByName(pcIp), PC_COMMAND_PORT)
             DatagramSocket().use { socket -> socket.send(packet) }
-            return "命令 '$command' 已發送至 $pcIp:$PC_COMMAND_PORT"
+            return "Command '$command' sent to $pcIp:$PC_COMMAND_PORT"
         } catch (e: Exception) {
-            Log.e(TAG, "發送命令失敗", e)
-            return "發送失敗: ${e.message}"
+            Log.e(TAG, "Failed to send command", e)
+            return "Send failed: ${e.message}"
         }
     }
 
@@ -218,7 +218,7 @@ class WolListenerService : Service() {
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("遠端助手服務")
+            .setContentTitle("Remote Helper Service")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
@@ -241,7 +241,7 @@ class WolListenerService : Service() {
             }
             wakeLock?.release()
             mainHandler.removeCallbacksAndMessages(null)
-            Log.d(TAG, "服務停止")
+            Log.d(TAG, "Service stopped")
         }
     }
 
@@ -252,7 +252,7 @@ class WolListenerService : Service() {
                 "WoL Listener Service Channel",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "WoL 助手服務的常駐通知"
+                description = "Persistent notification for the WoL Helper Service"
             }
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(serviceChannel)
         }

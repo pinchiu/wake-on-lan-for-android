@@ -8,6 +8,13 @@ A remote control system that uses an Android phone as a helper to perform Wake-o
 - **Cross-Platform**: The computer-side script supports Windows, Linux, and macOS.
 - **Secure Listening**: Uses a UDP port without needing a public IP address.
 
+## Downloads
+
+You can download the latest APKs from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-andoiriod/releases/tag/v20250930).
+
+- `wakeonlan-home-phone.apk`: The app to be installed on the phone connected to the same network as the computer.
+- `wakeonwan-remote-phone.apk`: The app to be installed on the phone that will be used for remote control.
+
 ## Prerequisites
 - **Android Phones**: One phone to act as a helper (on the same LAN as the computer) and another for remote control (using mobile data).
 - **Computer**: Python 3 installed, and WoL enabled in the BIOS/network card (the computer must support Wake-on-LAN).
