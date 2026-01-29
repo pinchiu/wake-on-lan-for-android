@@ -22,13 +22,17 @@ def reboot_pc():
 
 def sleep_pc():
     if sys.platform == "win32":
-        subprocess.call(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"])
+        subprocess.call("rundll32.exe user32.dll,LockWorkStation", shell=True)
+        subprocess.call("powercfg.exe /hibernate off", shell=True)
+        subprocess.call("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", shell=True)
+        subprocess.call("powercfg.exe /hibernate on", shell=True)
     else: # Linux/Mac (needs configuration)
         subprocess.call(["sudo", "pm-suspend"])
 
 def hibernate_pc():
     if sys.platform == "win32":
-        subprocess.call(["rundll32.exe", "powrprof.dll,SetSuspendState", "1,1,0"])
+        subprocess.call("rundll32.exe user32.dll,LockWorkStation", shell=True)
+        subprocess.call("rundll32.exe powrprof.dll,SetSuspendState 1,1,0", shell=True)
     else: # Linux/Mac (needs configuration)
         subprocess.call(["sudo", "pm-hibernate"])
 

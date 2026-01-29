@@ -21,8 +21,7 @@ class WolListenerService : Service() {
     private val _isRunning = MutableStateFlow(false)
     val isRunning = _isRunning.asStateFlow()
 
-    private val _logs = MutableStateFlow<List<String>>(emptyList())
-    val logs = _logs.asStateFlow()
+
 
     private lateinit var serverThread: Thread
     private var wakeLock: PowerManager.WakeLock? = null
@@ -43,7 +42,7 @@ class WolListenerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!_isRunning.value) {
             _isRunning.value = true
-            _logs.value = emptyList()
+            AppLogger.clear()
             Log.d(TAG, "Service started")
 
             createNotificationChannel()
@@ -75,17 +74,10 @@ class WolListenerService : Service() {
                     val commandData = String(packet.data, 0, packet.length)
 
                     val (action, payload) = parseCommand(commandData.trim())
-                    val timestamp = SimpleDateFormat("HH:mm:ss", Locale.TAIWAN).format(Date())
-                    val logMessage = "[$timestamp] Received [$action] from [$senderAddress]"
+                    val logMessage = "Received [$action] from [$senderAddress]"
 
                     Log.d(TAG, "$logMessage, Payload: $payload")
-
-                    mainHandler.post {
-                        val currentLogs = _logs.value.toMutableList()
-                        currentLogs.add(logMessage)
-                        if (currentLogs.size > 100) currentLogs.removeAt(0)
-                        _logs.value = currentLogs
-                    }
+                    AppLogger.log(logMessage)
 
                     updateNotification("Last [$action] from: $senderAddress")
 

@@ -1,0 +1,1160 @@
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+
+> Task :app:compileDebugKotlin FAILED
+.\gradlew.bat : e: fil
+e:///C:/Users/poo/Desk
+top/my-repo/wakeonlanh
+omephone/app/src/main/
+java/com/example/wakeo
+nlanhomephone/MqttWolS
+ervice.kt:50:9 Unresol
+ved reference 'connect
+Mqtt'.
+At line:1 char:63
++ ... oid Studio\jbr";
+ .\gradlew.bat :app:in
+stallDebug > build_log
+.txt 2>&1
++                     
+ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (e: file://   
+ /C:/U... 'connect    
+Mqtt'.:String) []    ,
+ RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:9 S
+yntax error: Expecting
+ member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:12 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:24 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:27 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:32 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:35 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:45 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:47 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:48 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:53 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:54 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:65 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:67 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:53:67 
+Function declaration m
+ust have a name.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:9 S
+yntax error: Expecting
+ member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:12 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:14 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:15 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:18 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:20 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:21 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:35 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:37 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:43 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:44 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:48 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:49 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:50 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:52 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:58 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:59 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:63 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:64 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:68 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:70 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:76 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:77 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:85 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:86 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:59:87 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:9 S
+yntax error: Expecting
+ member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:12 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:19 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:20 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:26 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:28 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:67:28 
+Function declaration m
+ust have a name.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:71:9 S
+yntax error: Expecting
+ member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:71:20 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:71:22 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:71:29 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:71:30 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:71:40 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:71:41 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:73:36 
+'return' is prohibited
+ here.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:75:9 S
+yntax error: Expecting
+ member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:75:15 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:75:16 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:75:27 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:75:28 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:76:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:76:14 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:76:24 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:76:25 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:77:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:77:14 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:77:22 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:77:23 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:77:29 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:77:30 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:77:38 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:14 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:22 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:23 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:29 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:30 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:38 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:39 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:50 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:51 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:67 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:68 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:73 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:78:74 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:79:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:79:14 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:79:29 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:79:30 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:80:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:80:14 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:80:18 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:80:19 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:81:13 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:81:14 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:81:27 
+Syntax error: Expectin
+g member declaration.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:81:27 
+Function declaration m
+ust have a name.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:81:29 
+Unresolved reference '
+connAck'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:81:36 
+Syntax error: Unexpect
+ed tokens (use ';' to 
+separate expressions o
+n the same line).
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:82:21 
+Unresolved reference '
+throwable'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:83:53 
+Unresolved reference '
+throwable'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:94:22 
+Unresolved reference '
+mqttClient'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:96:26 
+Unresolved reference '
+TOPIC'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:97:25 
+Cannot infer type for 
+this parameter. Please
+ specify it explicitly
+.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:98:46 
+Unresolved reference '
+payloadAsBytes'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:99:23 
+Unresolved reference '
+TAG'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:104:28
+ Unresolved reference 
+'TAG'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:109:29
+ Cannot infer type for
+ this parameter. Pleas
+e specify it explicitl
+y.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:109:37
+ Cannot infer type for
+ this parameter. Pleas
+e specify it explicitl
+y.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:111:28
+ Unresolved reference 
+'TAG'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:111:56
+ Argument type mismatc
+h: actual type is 'kot
+lin.Any', but 'kotlin.
+Throwable?' was expect
+ed.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:113:28
+ Unresolved reference 
+'TAG'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:113:49
+ Unresolved reference 
+'TOPIC'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:119:41
+ 'this' is not defined
+ in this context.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:120:55
+ 'this' is not defined
+ in this context.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:122:43
+ 'this' is not defined
+ in this context.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:122:49
+ Unresolved reference 
+'NOTIFICATION_CHANNEL_
+ID'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:123:14
+ Unresolved reference 
+'setContentTitle'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:132:35
+ Unresolved reference 
+'getSystemService'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:132:52
+ Unresolved reference 
+'NOTIFICATION_SERVICE'
+.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:133:36
+ Unresolved reference 
+'NOTIFICATION_ID'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:139:17
+ Unresolved reference 
+'NOTIFICATION_CHANNEL_
+ID'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:143:13
+ Unresolved reference 
+'getSystemService'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:147:5 
+Modifier 'override' is
+ not applicable to 'to
+p level function'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:148:9 
+No supertypes are acce
+ssible in this context
+.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:149:9 
+Unresolved reference '
+mqttClient'.
+28 actionable tasks: 1 executed, 27 up-to-date
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:150:9 
+Unresolved reference '
+wakeLock'.
+e: file:///C:/Users/po
+o/Desktop/my-repo/wake
+onlanhomephone/app/src
+/main/java/com/example
+/wakeonlanhomephone/Mq
+ttWolService.kt:152:1 
+Syntax error: Expectin
+g a top level declarat
+ion.
+
+FAILURE: Build failed 
+with an exception.
+
+* What went wrong:
+Execution failed for t
+ask ':app:compileDebug
+Kotlin'.
+> A failure occurred w
+hile executing org.jet
+brains.kotlin.compiler
+Runner.GradleCompilerR
+unnerWithWorkers$Gradl
+eKotlinCompilerWorkAct
+ion
+   > Compilation error
+. See log for more det
+ails
+
+* Try:
+> Run with --stacktrac
+e option to get the st
+ack trace.
+> Run with --info or -
+-debug option to get m
+ore log output.
+> Run with --scan to g
+et full insights.
+> Get more help at htt
+ps://help.gradle.org.
+
+BUILD FAILED in 1s
