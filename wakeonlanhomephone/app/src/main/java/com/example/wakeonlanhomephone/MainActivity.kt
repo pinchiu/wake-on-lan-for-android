@@ -17,6 +17,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Done
 
 class MainActivity : ComponentActivity() {
 
@@ -57,6 +81,13 @@ class MainActivity : ComponentActivity() {
                             startService(intent)
                         }
                     }
+                    Intent(this, MqttWolService::class.java).also { intent ->
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                    }
                 },
                 onStopService = {
                     Intent(this, WolListenerService::class.java).also { intent ->
@@ -66,6 +97,9 @@ class MainActivity : ComponentActivity() {
                             isBound = false
                             wolService = null
                         }
+                    }
+                    Intent(this, MqttWolService::class.java).also { intent ->
+                        stopService(intent)
                     }
                 },
                 configManager = configManager
@@ -90,6 +124,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+
 @Composable
 fun MainScreen(
     wolService: WolListenerService?,
@@ -111,9 +147,14 @@ fun MainScreen(
                 SettingsScreen(
                     configManager = configManager,
                     onSave = {
-                        // Save config is handled inside SettingsScreen
-                        currentScreen = Screen.Monitor
+                        // After save, go to connection animation
+                        currentScreen = Screen.ConnectionStatus
                     }
+                )
+            }
+            Screen.ConnectionStatus -> {
+                ConnectionStatusScreen(
+                    onDone = { currentScreen = Screen.Monitor }
                 )
             }
             Screen.Monitor -> {
@@ -131,75 +172,332 @@ fun MainScreen(
 
 enum class Screen {
     Settings,
-    Monitor
+    Monitor,
+    ConnectionStatus
 }
 
+@Composable
+fun ConnectionStatusScreen(onDone: () -> Unit) {
+    val connectionState by AppGlobalState.connectionState.collectAsState()
+    val lastError by AppGlobalState.lastErrorMessage.collectAsState()
+    val brokerUrl by AppGlobalState.brokerUrl.collectAsState()
+    
+    val backgroundColor = Color(0xFF11161C)
+    val textColor = Color.White
+    val accentColor = Color(0xFF6ea2f5)
+    val errorColor = Color(0xFFCF6679)
+    val successColor = Color(0xFF03DAC5)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundColor)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        
+        Spacer(Modifier.weight(1f))
+
+        // Status Text
+        Text(
+            text = when(connectionState) {
+                MqttConnectionState.CONNECTED -> "MQTT Broker Connected!"
+                MqttConnectionState.FAILED -> "Connection Failed"
+                MqttConnectionState.CONNECTING -> "Connecting..."
+                else -> "Initializing..."
+            },
+            style = MaterialTheme.typography.headlineMedium,
+            color = textColor,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(Modifier.height(8.dp))
+        
+        if (brokerUrl.isNotEmpty()) {
+             Text(text = brokerUrl, color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
+        }
+        
+        Spacer(Modifier.height(48.dp))
+        
+        // Animation Area
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+             // Icon 1: Phone
+            Icon(
+                imageVector = Icons.Default.Phone,
+                contentDescription = "Phone",
+                tint = Color.Gray,
+                modifier = Modifier.size(48.dp)
+            )
+            
+            Spacer(Modifier.width(24.dp))
+            
+            // Center Piece: Animation / Check / Error
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(48.dp)) {
+                AnimatedContent(
+                    targetState = connectionState,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(500)) togetherWith fadeOut(animationSpec = tween(500))
+                    }, label = "ConnectionStateAnimation"
+                ) { targetState ->
+                    when (targetState) {
+                         MqttConnectionState.CONNECTING -> {
+                             // Simple loading indicator would be good, or just a dashed line
+                             // For now, let's just make the checkmark gray/faded or pulsing
+                             // Or a CircularProgressIndicator
+                             CircularProgressIndicator(color = accentColor, modifier = Modifier.size(32.dp))
+                         }
+                         MqttConnectionState.CONNECTED -> {
+                             // Checkmark
+                              Icon(
+                                imageVector = Icons.Default.Done,
+                                contentDescription = "Success",
+                                tint = successColor,
+                                modifier = Modifier.size(48.dp)
+                            )
+                         }
+                         MqttConnectionState.FAILED -> {
+                             // Error X
+                             Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Error",
+                                tint = errorColor,
+                                modifier = Modifier.size(48.dp)
+                             )
+                         }
+                         else -> {}
+                    }
+                }
+            }
+
+            Spacer(Modifier.width(24.dp))
+
+            // Icon 2: Server
+            Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "Server",
+                tint = Color.Gray,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+
+         // Error Message Display
+        AnimatedContent(
+            targetState = lastError,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "ErrorDetail"
+        ) { error ->
+            if (error != null && connectionState == MqttConnectionState.FAILED) {
+                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 32.dp)) {
+                    Text("Error Details:", color = errorColor, fontWeight = FontWeight.Bold)
+                    Text(error, color = errorColor, textAlign = TextAlign.Center)
+                 }
+            }
+        }
+        
+        Spacer(Modifier.weight(1f))
+
+        Button(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+            shape = RoundedCornerShape(25.dp)
+        ) {
+            Text("Done", color = Color.White)
+        }
+        
+        Spacer(Modifier.height(32.dp))
+    }
+}
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     configManager: MqttConfigManager,
     onSave: () -> Unit
 ) {
+
+
     // Config State
+    var brokerName by remember { mutableStateOf("") }
     var host by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("") }
+    var clientId by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var topic by remember { mutableStateOf("") }
     var targetMac by remember { mutableStateOf("") }
     var useSsl by remember { mutableStateOf(true) }
+    var protocol by remember { mutableStateOf("TCP") }
+    var timeout by remember { mutableStateOf("30") }
+    var keepAlive by remember { mutableStateOf("60") }
+    var autoConnect by remember { mutableStateOf(true) }
 
     // Load config on init
     LaunchedEffect(Unit) {
         val config = configManager.getConfig()
+        brokerName = config.brokerName
         host = config.host
         port = config.port.toString()
+        clientId = config.clientId
         username = config.username
         password = config.password
         topic = config.topic
         targetMac = config.targetMac
         useSsl = config.useSsl
+        protocol = config.protocol
+        timeout = config.timeout.toString()
+        keepAlive = config.keepAlive.toString()
+        autoConnect = config.autoConnect
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("MQTT 設定 (Level 2)", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(24.dp))
+    val backgroundColor = Color(0xFF11161C)
+    val cardBorderColor = Color(0xFF404855)
+    val textColor = Color.White
+    val labelColor = Color(0xFFAAB2BB)
+    val accentColor = Color(0xFF6ea2f5)
 
-        OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("Host") }, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = port, onValueChange = { port = it }, label = { Text("Port") }, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = topic, onValueChange = { topic = it }, label = { Text("Topic (e.g. poochen/feeds/pc-power)") }, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = targetMac, onValueChange = { targetMac = it }, label = { Text("Target MAC (for WAKE command)") }, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = useSsl, onCheckedChange = { useSsl = it })
-            Text("Enable SSL/TLS")
+    Scaffold(
+        containerColor = backgroundColor,
+        topBar = {
+            TopAppBar(
+                title = { Text("Edit Broker", color = textColor) },
+                navigationIcon = {
+                     IconButton(onClick = { onSave() }) { // Using onSave as back for now or add explicit back
+                         // Icon not strictly available without deps, using simple text "<"
+                         Text("<", color = textColor, style = MaterialTheme.typography.titleLarge)
+                     }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
+            )
         }
-        
-        Spacer(Modifier.height(24.dp))
-        
-        Button(
-            onClick = {
-                configManager.saveConfig(MqttConfig(host, port.toIntOrNull() ?: 8883, username, password, useSsl, topic, targetMac))
-                onSave()
-            },
-            modifier = Modifier.fillMaxWidth()
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("儲存並返回")
+            item {
+                SectionCard(cardBorderColor) {
+                    StyledTextField("Name", brokerName, { brokerName = it }, textColor, labelColor)
+                    StyledTextField("Client ID", clientId, { clientId = it }, textColor, labelColor)
+                }
+            }
+
+            item {
+                SectionCard(cardBorderColor) {
+                    StyledTextField("URL", host, { host = it }, textColor, labelColor)
+                    StyledTextField("Port", port, { port = it }, textColor, labelColor)
+                    
+                    // Protocol & SSL
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Protocol", color = labelColor, style = MaterialTheme.typography.labelSmall)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = protocol == "TCP", onClick = { protocol = "TCP" }, colors = RadioButtonDefaults.colors(selectedColor = accentColor, unselectedColor = labelColor))
+                                Text("TCP", color = textColor, modifier = Modifier.padding(end = 8.dp))
+                                RadioButton(selected = protocol == "WebSocket", onClick = { protocol = "WebSocket" }, colors = RadioButtonDefaults.colors(selectedColor = accentColor, unselectedColor = labelColor))
+                                Text("WS", color = textColor)
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                             Text("SSL/TLS", color = labelColor, style = MaterialTheme.typography.labelSmall)
+                             Switch(checked = useSsl, onCheckedChange = { useSsl = it }, colors = SwitchDefaults.colors(checkedThumbColor = accentColor))
+                        }
+                    }
+
+                     StyledTextField("Connection Timeout", timeout, { timeout = it }, textColor, labelColor)
+                     StyledTextField("Keep Alive Interval", keepAlive, { keepAlive = it }, textColor, labelColor)
+                }
+            }
+
+            item {
+                SectionCard(cardBorderColor, title = "Authentication") {
+                    StyledTextField("Username", username, { username = it }, textColor, labelColor)
+                    StyledTextField("Password", password, { password = it }, textColor, labelColor, isPassword = true)
+                }
+            }
+
+             item {
+                 SectionCard(cardBorderColor) {
+                     Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Auto Connect", color = textColor)
+                        Switch(checked = autoConnect, onCheckedChange = { autoConnect = it }, colors = SwitchDefaults.colors(checkedThumbColor = accentColor))
+                    }
+                     StyledTextField("Topic", topic, { topic = it }, textColor, labelColor)
+                     StyledTextField("Target MAC", targetMac, { targetMac = it }, textColor, labelColor)
+                 }
+             }
+
+            item {
+                Button(
+                    onClick = {
+                        configManager.saveConfig(MqttConfig(
+                            brokerName, host, port.toIntOrNull() ?: 8883, clientId, username, password, useSsl, topic, targetMac, protocol,
+                            timeout.toIntOrNull() ?: 30, keepAlive.toIntOrNull() ?: 60, autoConnect
+                        ))
+                        onSave()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                    shape = RoundedCornerShape(25.dp)
+                ) {
+                    Text("Done", color = Color.White)
+                }
+            }
         }
     }
 }
 
+@Composable
+fun SectionCard(borderColor: Color, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (title != null) {
+            Text(title, color = Color.White, modifier = Modifier.padding(bottom = 8.dp, start = 4.dp))
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(8.dp))
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+fun StyledTextField(label: String, value: String, onValueChange: (String) -> Unit, textColor: Color, labelColor: Color, isPassword: Boolean = false) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Text(label, color = labelColor, style = MaterialTheme.typography.labelSmall)
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
+            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+        Divider(color = Color(0xFF2C333A))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MonitorScreen(
     logs: List<String>,
@@ -209,57 +507,79 @@ fun MonitorScreen(
     onToSettings: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val backgroundColor = Color(0xFF11161C)
+    val textColor = Color.White
+    val cardBorderColor = Color(0xFF404855)
+    val accentColor = Color(0xFF6ea2f5)
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // Top Bar with Settings Button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-             IconButton(onClick = onToSettings) {
-                // Using a standard icon or simple text if icon not available immediately
-                // To keep it simple without adding deps, using a Text button or default icon
-                 Text("⚙\uFE0F") // Gear emoji as simple icon
-            }
-        }
-        
-        Text("監控介面", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(16.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("服務狀態：", style = MaterialTheme.typography.titleMedium)
-            Text(
-                if (isRunning) "執行中" else "已停止",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    Scaffold(
+        containerColor = backgroundColor,
+        topBar = {
+            TopAppBar(
+                title = { Text("Monitor", color = textColor) },
+                actions = {
+                    IconButton(onClick = onToSettings) {
+                        Text("⚙\uFE0F", color = textColor)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
             )
         }
-        Spacer(Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Button(onClick = onStartService, enabled = !isRunning) { Text("啟動服務") }
-            Button(onClick = onStopService, enabled = isRunning) { Text("停止服務") }
-        }
-        Spacer(Modifier.height(24.dp))
-
-        Text("即時日誌", style = MaterialTheme.typography.titleLarge)
-        Divider(modifier = Modifier)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (logs.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("尚未收到任何指令")
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            
+            // Service Status Card
+            SectionCard(cardBorderColor) {
+               Column(modifier = Modifier.padding(16.dp)) {
+                   Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Service Status:", style = MaterialTheme.typography.titleMedium, color = textColor)
+                        Text(
+                            if (isRunning) "RUNNING" else "STOPPED",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isRunning) accentColor else Color.Red
+                        )
+                   }
+                   Spacer(Modifier.height(16.dp))
+                   Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = onStartService, 
+                            enabled = !isRunning, 
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor, disabledContainerColor = Color.Gray),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Start", color = Color.White) }
+                        
+                        Button(
+                            onClick = onStopService, 
+                            enabled = isRunning,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679), disabledContainerColor = Color.Gray),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Stop", color = Color.White) }
+                   }
+               }
             }
-        } else {
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                items(logs.reversed()) { log ->
-                    Text(log, modifier = Modifier.padding(vertical = 4.dp))
-                    Divider()
+            
+            Spacer(Modifier.height(24.dp))
+
+            Text("Live Logs", style = MaterialTheme.typography.titleLarge, color = textColor, modifier = Modifier.align(Alignment.Start))
+            Divider(color = cardBorderColor, modifier = Modifier.padding(vertical = 8.dp))
+            
+            if (logs.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                    Text("No logs yet...", color = Color.Gray)
+                }
+            } else {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize().weight(1f)) {
+                    items(logs.reversed()) { log ->
+                        Text(log, color = textColor, modifier = Modifier.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
+                        Divider(color = cardBorderColor, thickness = 0.5.dp)
+                    }
                 }
             }
         }

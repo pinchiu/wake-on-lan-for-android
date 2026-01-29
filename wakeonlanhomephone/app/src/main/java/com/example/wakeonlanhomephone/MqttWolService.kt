@@ -54,21 +54,37 @@ class MqttWolService : Service() {
     private fun connectMqtt() {
         if (mqttClient != null && mqttClient!!.state.isConnected) {
             Log.d(TAG, "Already connected")
+            AppGlobalState.updateState(MqttConnectionState.CONNECTED)
             return
         }
 
         val config = MqttConfigManager(this).getConfig()
         Log.d(TAG, "Connecting to ${config.host}:${config.port} as ${config.username}")
         AppLogger.log("Connecting to MQTT: ${config.host}")
+        
+        // Report Connecting State
+        val protocolPrefix = if (config.useSsl) "ssl://" else "tcp://"
+        AppGlobalState.updateState(MqttConnectionState.CONNECTING, url = "$protocolPrefix${config.host}:${config.port}")
 
         val builder = MqttClient.builder()
             .useMqttVersion3()
-            .identifier(UUID.randomUUID().toString())
+            .identifier(if (config.clientId.isNotEmpty()) config.clientId else UUID.randomUUID().toString())
             .serverHost(config.host)
             .serverPort(config.port)
 
         if (config.useSsl) {
             builder.sslWithDefaultConfig()
+        }
+
+        if (config.protocol.equals("WebSocket", ignoreCase = true)) {
+            builder.webSocketWithDefaultConfig()
+            Log.d(TAG, "Using WebSocket Protocol")
+        } else {
+             Log.d(TAG, "Using TCP Protocol")
+        }
+        
+        if (config.autoConnect) {
+            builder.automaticReconnectWithDefaultConfig()
         }
 
         mqttClient = builder.buildAsync()
@@ -80,16 +96,19 @@ class MqttWolService : Service() {
             .username(config.username)
             .password(config.password.toByteArray(StandardCharsets.UTF_8))
             .applySimpleAuth()
+            .keepAlive(config.keepAlive)
             .send()
             .whenComplete { connAck: Mqtt3ConnAck?, throwable: Throwable? ->
                 if (throwable != null) {
                     Log.e(TAG, "Connection failed", throwable)
                     updateNotification("MQTT Connection Failed. Retrying...")
                     AppLogger.log("MQTT Connection Failed: ${throwable.message}")
+                    AppGlobalState.updateState(MqttConnectionState.FAILED, error = throwable.message ?: "Unknown Error")
                 } else {
                     Log.d(TAG, "Connected to MQTT")
                     updateNotification("Connected to MQTT. Listening on ${config.topic}")
                     AppLogger.log("MQTT Connected. Listening on ${config.topic}")
+                    AppGlobalState.updateState(MqttConnectionState.CONNECTED)
                     subscribeToTopic(config.topic)
                 }
             }
