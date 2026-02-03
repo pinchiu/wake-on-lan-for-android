@@ -1,4 +1,6 @@
 # Wake-on-LAN Home Phone Remote Control
+[🇨🇳 中文說明 (Chinese)](README_zh.md)
+
 
 A remote control system that uses an Android phone as a helper to perform Wake-on-LAN (WoL), shutdown, and reboot operations on a computer over mobile data and a local network.
 

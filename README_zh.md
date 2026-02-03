@@ -1,4 +1,5 @@
 # Wake-on-LAN Home Phone Remote Control
+[🇺🇸 English README](README.md)
 
 一個遠端控制系統，使用 Android 手機作為助手，通過行動數據和本地網路，實現對電腦的 Wake-on-LAN (WoL)、關機和重啟。
 
