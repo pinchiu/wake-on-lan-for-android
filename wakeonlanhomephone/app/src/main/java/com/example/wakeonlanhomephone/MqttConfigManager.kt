@@ -40,12 +40,12 @@ class MqttConfigManager(context: Context) {
         // Defaults
         const val DEFAULT_BROKER_NAME = "My Broker"
         const val DEFAULT_HOST = ""
-        const val DEFAULT_PORT = 8883
+        const val DEFAULT_PORT = 1883
         const val DEFAULT_CLIENT_ID = "" // Empty = generate random
         const val DEFAULT_USER = ""
         const val DEFAULT_PASS = ""
-        const val DEFAULT_SSL = true
-        const val DEFAULT_TOPIC = ""
+        const val DEFAULT_SSL = false
+        const val DEFAULT_TOPIC = "home/pc/wake"
         const val DEFAULT_TARGET_MAC = ""
         const val DEFAULT_PROTOCOL = "TCP"
         const val DEFAULT_TIMEOUT = 30

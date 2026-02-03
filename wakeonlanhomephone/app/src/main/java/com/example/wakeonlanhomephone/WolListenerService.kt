@@ -63,6 +63,10 @@ class WolListenerService : Service() {
             socket = DatagramSocket(LISTENING_PORT)
             socket?.soTimeout = SOCKET_TIMEOUT_MS
             Log.d(TAG, "Started listening on UDP port $LISTENING_PORT")
+            
+            // Log listening addresses to AppLogger for user visibility
+            logListeningAddresses()
+
             val buffer = ByteArray(256)
 
             while (_isRunning.value && socket != null) {
@@ -234,6 +238,33 @@ class WolListenerService : Service() {
             wakeLock?.release()
             mainHandler.removeCallbacksAndMessages(null)
             Log.d(TAG, "Service stopped")
+        }
+    }
+
+    private fun logListeningAddresses() {
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val networkInterface = interfaces.nextElement()
+                if (networkInterface.isLoopback || !networkInterface.isUp) continue
+
+                val addresses = networkInterface.inetAddresses
+                while (addresses.hasMoreElements()) {
+                    val addr = addresses.nextElement()
+                    if (!addr.isLoopbackAddress) {
+                        val ip = addr.hostAddress
+                        // Filter out generic IPv6 scope IDs if confusing, but usually good to show
+                        if (addr is Inet6Address) {
+                             AppLogger.log("Listening on [IPv6]: $ip port $LISTENING_PORT")
+                        } else if (addr is Inet4Address) {
+                             AppLogger.log("Listening on [IPv4]: $ip port $LISTENING_PORT")
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to retrieve network interfaces", e)
+            AppLogger.log("Error: Could not determine local IP addresses")
         }
     }
 

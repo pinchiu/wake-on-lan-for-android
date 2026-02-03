@@ -60,6 +60,13 @@ class MqttWolService : Service() {
 
         val config = MqttConfigManager(this).getConfig()
         Log.d(TAG, "Connecting to ${config.host}:${config.port} as ${config.username}")
+        
+        if (config.host.isEmpty()) {
+            Log.e(TAG, "Host is empty, skipping connection")
+            AppGlobalState.updateState(MqttConnectionState.FAILED, error = "Host not configured")
+            return
+        }
+
         AppLogger.log("Connecting to MQTT: ${config.host}")
         
         // Report Connecting State

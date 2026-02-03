@@ -10,11 +10,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.border
@@ -102,6 +105,17 @@ class MainActivity : ComponentActivity() {
                         stopService(intent)
                     }
                 },
+                onRestartMqttService = {
+                    Intent(this, MqttWolService::class.java).also { intent ->
+                        stopService(intent)
+                        // Small delay or just start immediately? Android services handle partial restarts fine usually.
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                    }
+                },
                 configManager = configManager
             )
         }
@@ -132,6 +146,7 @@ fun MainScreen(
     isBound: Boolean,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
+    onRestartMqttService: () -> Unit,
     configManager: MqttConfigManager
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Monitor) }
@@ -143,13 +158,28 @@ fun MainScreen(
 
     MaterialTheme {
         when (currentScreen) {
-            Screen.Settings -> {
+            Screen.SettingsMenu -> {
+                SettingsMenuScreen(
+                    onMqttSettings = { currentScreen = Screen.MqttSettings },
+                    onAppUpdate = { currentScreen = Screen.AppUpdate },
+                    onBack = { currentScreen = Screen.Monitor }
+                )
+            }
+            Screen.MqttSettings -> {
                 SettingsScreen(
                     configManager = configManager,
                     onSave = {
+                        // Restart service to apply new config
+                        onRestartMqttService()
                         // After save, go to connection animation
                         currentScreen = Screen.ConnectionStatus
-                    }
+                    },
+                    onBack = { currentScreen = Screen.SettingsMenu }
+                )
+            }
+             Screen.AppUpdate -> {
+                AppUpdateScreen(
+                    onBack = { currentScreen = Screen.SettingsMenu }
                 )
             }
             Screen.ConnectionStatus -> {
@@ -163,7 +193,7 @@ fun MainScreen(
                     isRunning = isServiceRunning,
                     onStartService = onStartService,
                     onStopService = onStopService,
-                    onToSettings = { currentScreen = Screen.Settings } // Navigate to Level 2
+                    onToSettings = { currentScreen = Screen.SettingsMenu } // Navigate to Level 2
                 )
             }
         }
@@ -171,7 +201,9 @@ fun MainScreen(
 }
 
 enum class Screen {
-    Settings,
+    SettingsMenu,
+    MqttSettings,
+    AppUpdate,
     Monitor,
     ConnectionStatus
 }
@@ -318,9 +350,147 @@ fun ConnectionStatusScreen(onDone: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun SettingsMenuScreen(
+    onMqttSettings: () -> Unit,
+    onAppUpdate: () -> Unit,
+    onBack: () -> Unit
+) {
+    val backgroundColor = Color(0xFF11161C)
+    val textColor = Color.White
+    val accentColor = Color(0xFF6ea2f5)
+
+    Scaffold(
+        containerColor = backgroundColor,
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings Menu", color = textColor) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Text("<", color = textColor, style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = onMqttSettings,
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C333A)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                 Row(
+                     modifier = Modifier.fillMaxWidth(),
+                     horizontalArrangement = Arrangement.Start,
+                     verticalAlignment = Alignment.CenterVertically
+                 ) {
+                     Icon(Icons.Default.Home, contentDescription = null, tint = accentColor)
+                     Spacer(modifier = Modifier.width(16.dp))
+                     Text("MQTT Settings", color = textColor, style = MaterialTheme.typography.titleMedium)
+                 }
+            }
+
+            Button(
+                onClick = onAppUpdate,
+                modifier = Modifier.fillMaxWidth().height(60.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C333A)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                     modifier = Modifier.fillMaxWidth(),
+                     horizontalArrangement = Arrangement.Start,
+                     verticalAlignment = Alignment.CenterVertically
+                 ) {
+                     Icon(Icons.Default.Phone, contentDescription = null, tint = accentColor) // reuse phone icon or update
+                     Spacer(modifier = Modifier.width(16.dp))
+                     Text("App Update", color = textColor, style = MaterialTheme.typography.titleMedium)
+                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppUpdateScreen(onBack: () -> Unit) {
+    val backgroundColor = Color(0xFF11161C)
+    val textColor = Color.White
+    val cardBorderColor = Color(0xFF404855)
+
+    Scaffold(
+        containerColor = backgroundColor,
+        topBar = {
+            TopAppBar(
+                title = { Text("App Update", color = textColor) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Text("<", color = textColor, style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Top
+        ) {
+            SectionCard(cardBorderColor, title = "Check for Update") {
+                 val context = LocalContext.current
+                 val updateManager = remember { UpdateManager(context) }
+                 var isChecking by remember { mutableStateOf(false) }
+                 
+                 Button(
+                    onClick = {
+                        isChecking = true
+                        // Get version name programmatically
+                        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                        val versionName = pInfo.versionName ?: "1.0"
+                        
+                        updateManager.checkForUpdate(versionName) { hasUpdate, url ->
+                            isChecking = false
+                            if (hasUpdate && url != null) {
+                                Toast.makeText(context, "New version found! Downloading...", Toast.LENGTH_SHORT).show()
+                                updateManager.downloadAndInstall(url)
+                            } else {
+                                Toast.makeText(context, "No update available.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006C4C)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp).height(50.dp),
+                    enabled = !isChecking
+                ) {
+                    if (isChecking) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                    } else {
+                        Text("Check Now", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun SettingsScreen(
     configManager: MqttConfigManager,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onBack: () -> Unit
 ) {
 
 
@@ -367,10 +537,9 @@ fun SettingsScreen(
         containerColor = backgroundColor,
         topBar = {
             TopAppBar(
-                title = { Text("Edit Broker", color = textColor) },
+                title = { Text("MQTT Settings", color = textColor) },
                 navigationIcon = {
-                     IconButton(onClick = { onSave() }) { // Using onSave as back for now or add explicit back
-                         // Icon not strictly available without deps, using simple text "<"
+                     IconButton(onClick = { onBack() }) { 
                          Text("<", color = textColor, style = MaterialTheme.typography.titleLarge)
                      }
                 },
@@ -436,7 +605,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
-                    ) {
+                     ) {
                         Text("Auto Connect", color = textColor)
                         Switch(checked = autoConnect, onCheckedChange = { autoConnect = it }, colors = SwitchDefaults.colors(checkedThumbColor = accentColor))
                     }
@@ -458,7 +627,7 @@ fun SettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                     shape = RoundedCornerShape(25.dp)
                 ) {
-                    Text("Done", color = Color.White)
+                    Text("Save & Connect", color = Color.White)
                 }
             }
         }
