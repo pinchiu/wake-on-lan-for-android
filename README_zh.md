@@ -3,10 +3,11 @@
 一個遠端控制系統，使用 Android 手機作為助手，通過行動數據和本地網路，實現對電腦的 Wake-on-LAN (WoL)、關機和重啟。
 
 ## 功能特色
-- **Wake-on-LAN**：從遠端喚醒電腦（需網路支援）。
-- **遠端關機/重啟**：透過行動數據和本地網路控制電腦電源。
-- **跨平台電腦**：支援 Windows、Linux、macOS。
-- **安全監聽**：使用 UDP 埠，無需公開 IP。
+- **Wake-on-LAN**: 透過 UDP (區域網路) 或 MQTT (網際網路) 遠端喚醒電腦。
+- **遠端關機/重啟**: 透過區域網路或 MQTT 指令控制電源狀態。
+- **MQTT 支援**: 連接至任何 MQTT Broker (如 Adafruit IO, HiveMQ)，無需設定連接埠轉發即可真正遠端控制。
+- **跨平台電腦腳本**: Python 腳本支援 Windows, Linux, 和 macOS。
+- **安全監聽**: 使用本地 UDP 埠與加密 MQTT 連線 (SSL/TLS)。
 
 ## 下載
 
@@ -77,18 +78,36 @@ python pc_onoff.py
 
 您需要在您的 Android 手機上啟用「安裝未知來源的應用程式」才能安裝 APK 檔案。
 
-### 3. 取得網路資訊
+### 3. 設定 App (MQTT 與 設定選項)
+1. 開啟 App 並點擊右上角的 **齒輪圖示 (⚙️)**。
+2. 您會看到 **設定選單**：
+   - **MQTT 設定**：設定您的 MQTT Broker 連線。
+   - **App 更新**：檢查並安裝最新版本的 App。
+3. **MQTT 設定內容**：
+   - **Broker/Host**：您的 MQTT Broker 位址 (例如 `io.adafruit.com`)。
+   - **Port**：通常是 `1883` (TCP) 或 `8883` (SSL)。
+   - **Username/Password**：您的 Broker 帳號密碼。
+   - **Topic**：要監聽的主題 (例如 `home/pc/control`)。
+   - **Target MAC**：(選填) 用於簡易 "WAKE" 指令的預設 MAC 位址。
+
+### 4. 取得網路資訊
 - 電腦 IP（e.g., 192.168.1.100）。
 - 電腦 MAC 位址（e.g., `ipconfig /all` on Windows）。
 
 ## 使用方法
-1. 啟動 Android App 服務。
-2. 從遠端手機發送 UDP 資料到助手手機的 IPv6:9876：
-   - WoL： `WAKE:你的MAC位址` (e.g., `WAKE:AA:BB:CC:DD:EE:FF`)
-   - 關機： `SHUTDOWN:電腦IP` (e.g., `SHUTDOWN:192.168.1.100`)
-   - 重啟： `REBOOT:電腦IP`
 
-3. 檢查手機 logcat 或 App 日誌，確認執行。
+### 本地控制 (UDP)
+App 監聽 IPv6 port 9876。您可以從區域網路內的其他裝置發送 UDP 封包。
+
+### 遠端控制 (MQTT)
+發送訊息到您設定的 MQTT Topic：
+- **喚醒 (Wake)**: 內容 `WAKE` (使用設定的目標 MAC) 或 `WAKE,AA:BB:CC:DD:EE:FF`。
+- **關機 (Shutdown)**: 內容 `SHUTDOWN,192.168.1.100` (需搭配電腦腳本)。
+- **重啟 (Reboot)**: 內容 `REBOOT,192.168.1.100` (需搭配電腦腳本)。
+- **睡眠 (Sleep)**: 內容 `SLEEP,192.168.1.100`。
+- **休眠 (Hibernate)**: 內容 `HIBERNATE,192.168.1.100`。
+
+請檢查主畫面的 **即時日誌 (Live Logs)** 確認是否收到指令。
 
 ## 佔用資源
 - **網路**：助手手機監聽 IPv6:9876，發送 UDP 到電腦:9877 (WoL broadcast)。

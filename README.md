@@ -3,10 +3,11 @@
 A remote control system that uses an Android phone as a helper to perform Wake-on-LAN (WoL), shutdown, and reboot operations on a computer over mobile data and a local network.
 
 ## Features
-- **Wake-on-LAN**: Remotely wake up your computer (requires network support).
-- **Remote Shutdown/Reboot**: Control your computer's power using mobile data and the local network.
-- **Cross-Platform**: The computer-side script supports Windows, Linux, and macOS.
-- **Secure Listening**: Uses a UDP port without needing a public IP address.
+- **Wake-on-LAN**: Remotely wake up your computer using UDP (LAN) or MQTT (WAN).
+- **Remote Shutdown/Reboot**: Control your power state via local network or MQTT commands.
+- **MQTT Support**: Connects to any MQTT broker (e.g., Adafruit IO, HiveMQ) for true remote control over the internet without port forwarding.
+- **Cross-Platform PC Script**: Python script supports Windows, Linux, and macOS.
+- **Secure Listening**: Uses local UDP ports and encrypted MQTT connections (SSL/TLS).
 
 ## Downloads
 
@@ -77,17 +78,36 @@ You can download the pre-built APK files from the [GitHub Releases page](https:/
 
 You will need to enable "Install from unknown sources" on your Android phone to install the APK files.
 
-### 3. Get Network Information
+### 3. Configure the App (MQTT & Settings)
+1. Open the app and click the **Gear Icon (⚙️)**.
+2. You will see the **Settings Menu**:
+   - **MQTT Settings**: Configure your broker connection.
+   - **App Update**: Check for and install the latest version of the app.
+3. **MQTT Configuration**:
+   - **Broker/Host**: Address of your MQTT broker (e.g., `io.adafruit.com`).
+   - **Port**: Usually `1883` (TCP) or `8883` (SSL).
+   - **Username/Password**: Your broker credentials.
+   - **Topic**: The topic to listen on (e.g., `home/pc/control`).
+   - **Target MAC**: (Optional) Default MAC address for simple "WAKE" commands.
+
+### 4. Get Network Information
 - **Computer IP address**: e.g., `192.168.1.100`.
 - **Computer MAC address**: e.g., use `ipconfig /all` on Windows or `ifconfig` on macOS/Linux.
 
 ## Usage
-1. Start the Android app service on the helper phone.
-2. From the remote phone, send a UDP packet to the helper phone's public IPv6 address on port 9876 with one of the following commands:
-   - **WoL**: `WAKE:YOUR_MAC_ADDRESS` (e.g., `WAKE:AA:BB:CC:DD:EE:FF`)
-   - **Shutdown**: `SHUTDOWN:COMPUTER_IP` (e.g., `SHUTDOWN:192.168.1.100`)
-   - **Reboot**: `REBOOT:COMPUTER_IP`
-3. Check the phone's logcat or the app's logs to confirm execution.
+
+### Local Control (UDP)
+The app listens on IPv6 port 9876. You can send UDP packets from another device on the LAN.
+
+### Remote Control (MQTT)
+Send messages to your configured MQTT Topic:
+- **Wake**: Payload `WAKE` (uses configured Target MAC) or `WAKE,AA:BB:CC:DD:EE:FF`.
+- **Shutdown**: Payload `SHUTDOWN,192.168.1.100` (requires PC script).
+- **Reboot**: Payload `REBOOT,192.168.1.100` (requires PC script).
+- **Sleep**: Payload `SLEEP,192.168.1.100`.
+- **Hibernate**: Payload `HIBERNATE,192.168.1.100`.
+
+Check the **Live Logs** on the main screen to verify commands are received.
 
 ## Resource Usage
 - **Network**: The helper phone listens on IPv6 port 9876 and sends UDP packets to the computer on port 9877 (WoL broadcast).
