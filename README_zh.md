@@ -43,13 +43,15 @@ python pc_onoff.py
   ```
   *注意：我們使用 `pythonw.exe` 而非 `python.exe` 來執行腳本，這樣就不會顯示主控台視窗。*
 
-- **Linux**：
+- **Linux (未測試 / Untested)**：
+  > **注意**：此腳本尚未在 Linux 上完全驗證。使用風險請自負。
   您可以使用 `cron` 在啟動時執行腳本。執行 `crontab -e` 來開啟您的 crontab，然後在檔案結尾新增以下這一行。請務必將 `/path/to/pc_onoff.py` 取代為檔案的實際路徑。
   ```
   @reboot /usr/bin/python3 /path/to/pc_onoff.py
   ```
 
-- **macOS**：
+- **macOS (未測試 / Untested)**：
+  > **注意**：此腳本尚未在 macOS 上完全驗證。使用風險請自負。
   您可以使用 `launchd` 來建立啟動代理。在 `~/Library/LaunchAgents/` 中建立一個名為 `com.remotecontrol.listener.plist` 的新檔案，並填入以下內容。請務必將 `/path/to/pc_onoff.py` 取代為檔案的實際路徑。
   ```xml
   <?xml version="1.0" encoding="UTF-8"?>

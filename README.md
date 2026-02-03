@@ -44,13 +44,15 @@ To have the Python script run automatically when you log in to your computer, fo
   ```
   *Note: We use `pythonw.exe` instead of `python.exe` to run the script without a visible console window.*
 
-- **Linux**:
+- **Linux (Untested)**:
+  > **Note**: This script has not been fully verified on Linux. Use at your own risk.
   You can use `cron` to run the script at startup. Open your crontab by running `crontab -e` and add the following line at the end. Make sure to replace `/path/to/pc_onoff.py` with the actual path to the file.
   ```
   @reboot /usr/bin/python3 /path/to/pc_onoff.py
   ```
 
-- **macOS**:
+- **macOS (Untested)**:
+  > **Note**: This script has not been fully verified on macOS. Use at your own risk.
   You can use `launchd` to create a Launch Agent. Create a new file named `com.remotecontrol.listener.plist` in `~/Library/LaunchAgents/` with the following content. Make sure to replace `/path/to/pc_onoff.py` with the actual path to the file.
   ```xml
   <?xml version="1.0" encoding="UTF-8"?>
