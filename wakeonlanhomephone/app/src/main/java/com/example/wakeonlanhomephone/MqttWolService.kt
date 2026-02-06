@@ -27,6 +27,9 @@ class MqttWolService : Service() {
         const val NOTIFICATION_CHANNEL_ID = "MqttWolServiceChannel"
         const val NOTIFICATION_ID = 2
         const val TOPIC = "home/pc/power"
+        const val ACTION_PUBLISH = "com.example.wakeonlanhomephone.action.PUBLISH"
+        const val EXTRA_TOPIC = "com.example.wakeonlanhomephone.extra.TOPIC"
+        const val EXTRA_MESSAGE = "com.example.wakeonlanhomephone.extra.MESSAGE"
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -46,10 +49,40 @@ class MqttWolService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_PUBLISH) {
+            val topic = intent.getStringExtra(EXTRA_TOPIC) ?: ""
+            val message = intent.getStringExtra(EXTRA_MESSAGE) ?: ""
+            if (topic.isNotEmpty()) {
+                publishMessage(topic, message)
+            }
+            return START_STICKY
+        }
+
         Log.d(TAG, "Service Started")
         AppLogger.log("MQTT Service Started")
         connectMqtt()
         return START_STICKY
+    }
+
+    private fun publishMessage(topic: String, message: String) {
+         val client = mqttClient ?: return
+         if (!client.state.isConnected) {
+             AppLogger.log("Cannot publish: MQTT Disconnected")
+             return
+         }
+         client.publishWith()
+             .topic(topic)
+             .payload(message.toByteArray(StandardCharsets.UTF_8))
+             .send()
+             .whenComplete { _, throwable ->
+                 if (throwable != null) {
+                     Log.e(TAG, "Publish failed", throwable)
+                     AppLogger.log("Publish Failed: ${throwable.message}")
+                 } else {
+                     Log.d(TAG, "Published to $topic: $message")
+                     AppLogger.log("Published to $topic: $message")
+                 }
+             }
     }
     private fun connectMqtt() {
         if (mqttClient != null && mqttClient!!.state.isConnected) {
@@ -117,6 +150,14 @@ class MqttWolService : Service() {
                     AppLogger.log("MQTT Connected. Listening on ${config.topic}")
                     AppGlobalState.updateState(MqttConnectionState.CONNECTED)
                     subscribeToTopic(config.topic)
+                    
+                    // Subscribe to Devices
+                    val deviceManager = DeviceManager(this)
+                    val devices = deviceManager.getDevices()
+                    AppGlobalState.updateDevices(devices) // Sync state
+                    devices.forEach { device ->
+                        subscribeToDevice(device)
+                    }
                 }
             }
     }
@@ -214,6 +255,30 @@ class MqttWolService : Service() {
             )
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(serviceChannel)
         }
+    }
+
+    private fun subscribeToDevice(device: MqttDevice) {
+        val client = mqttClient ?: return
+        client.subscribeWith()
+            .topicFilter(device.topic)
+            .callback { publish ->
+                val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
+                Log.d(TAG, "Device ${device.name} status: $payload")
+                
+                if (payload == device.onlinePayload) {
+                    AppGlobalState.updateDeviceStatus(device.id, true)
+                } else if (payload == device.offlinePayload) {
+                    AppGlobalState.updateDeviceStatus(device.id, false)
+                }
+            }
+            .send()
+            .whenComplete { _, throwable ->
+                if (throwable != null) {
+                    Log.e(TAG, "Failed to subscribe to device: ${device.name}", throwable)
+                } else {
+                    Log.d(TAG, "Subscribed to device: ${device.name}")
+                }
+            }
     }
 
     override fun onDestroy() {

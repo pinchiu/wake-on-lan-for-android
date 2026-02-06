@@ -5,11 +5,11 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.IBinder
+import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
@@ -22,17 +22,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.Crossfade
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
+import com.example.wakeonlanhomephone.ui.theme.*
+import com.example.wakeonlanhomephone.ui.components.*
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Path
@@ -44,6 +48,17 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.geometry.CornerRadius
 
 class MainActivity : ComponentActivity() {
 
@@ -72,19 +87,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val configManager = remember { MqttConfigManager(this) }
+            val deviceManager = remember { DeviceManager(this) }
+
+            // Load initial devices to state
+            LaunchedEffect(Unit) {
+                AppGlobalState.updateDevices(deviceManager.getDevices())
+            }
 
             MainScreen(
                 wolService = wolService,
                 isBound = isBound,
                 onStartService = {
                     Intent(this, WolListenerService::class.java).also { intent ->
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                            startForegroundService(intent)
-                        } else {
-                            startService(intent)
-                        }
-                    }
-                    Intent(this, MqttWolService::class.java).also { intent ->
                         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                             startForegroundService(intent)
                         } else {
@@ -101,6 +115,17 @@ class MainActivity : ComponentActivity() {
                             wolService = null
                         }
                     }
+                },
+                onStartMqtt = {
+                    Intent(this, MqttWolService::class.java).also { intent ->
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            startForegroundService(intent)
+                        } else {
+                            startService(intent)
+                        }
+                    }
+                },
+                onStopMqtt = {
                     Intent(this, MqttWolService::class.java).also { intent ->
                         stopService(intent)
                     }
@@ -116,7 +141,8 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 },
-                configManager = configManager
+                configManager = configManager,
+                deviceManager = deviceManager
             )
         }
     }
@@ -146,344 +172,193 @@ fun MainScreen(
     isBound: Boolean,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
+    onStartMqtt: () -> Unit,
+    onStopMqtt: () -> Unit,
     onRestartMqttService: () -> Unit,
-    configManager: MqttConfigManager
+    configManager: MqttConfigManager,
+    deviceManager: DeviceManager
 ) {
-    var currentScreen by remember { mutableStateOf(Screen.Monitor) }
+    val context = LocalContext.current
+    var currentTab by remember { mutableStateOf(Tab.Server) }
+    var showAddDevice by remember { mutableStateOf(false) } 
+    var deviceToEdit by remember { mutableStateOf<MqttDevice?>(null) } 
 
-    // Service State
+    // Service & Data State
     val isServiceRunning by wolService?.isRunning?.collectAsState() ?: remember { mutableStateOf(false) }
-    // Use AppLogger for logs instead of getting them from the service instance
     val logs by AppLogger.logs.collectAsState()
-
-    MaterialTheme {
-        when (currentScreen) {
-            Screen.SettingsMenu -> {
-                SettingsMenuScreen(
-                    onMqttSettings = { currentScreen = Screen.MqttSettings },
-                    onAppUpdate = { currentScreen = Screen.AppUpdate },
-                    onBack = { currentScreen = Screen.Monitor }
-                )
-            }
-            Screen.MqttSettings -> {
-                SettingsScreen(
-                    configManager = configManager,
-                    onSave = {
-                        // Restart service to apply new config
-                        onRestartMqttService()
-                        // After save, go to connection animation
-                        currentScreen = Screen.ConnectionStatus
-                    },
-                    onBack = { currentScreen = Screen.SettingsMenu }
-                )
-            }
-             Screen.AppUpdate -> {
-                AppUpdateScreen(
-                    onBack = { currentScreen = Screen.SettingsMenu }
-                )
-            }
-            Screen.ConnectionStatus -> {
-                ConnectionStatusScreen(
-                    onDone = { currentScreen = Screen.Monitor }
-                )
-            }
-            Screen.Monitor -> {
-                MonitorScreen(
-                    logs = logs,
-                    isRunning = isServiceRunning,
-                    onStartService = onStartService,
-                    onStopService = onStopService,
-                    onToSettings = { currentScreen = Screen.SettingsMenu } // Navigate to Level 2
-                )
-            }
-        }
-    }
-}
-
-enum class Screen {
-    SettingsMenu,
-    MqttSettings,
-    AppUpdate,
-    Monitor,
-    ConnectionStatus
-}
-
-@Composable
-fun ConnectionStatusScreen(onDone: () -> Unit) {
-    val connectionState by AppGlobalState.connectionState.collectAsState()
-    val lastError by AppGlobalState.lastErrorMessage.collectAsState()
+    val devices by AppGlobalState.devices.collectAsState()
+    val deviceStatuses by AppGlobalState.deviceStatuses.collectAsState()
     val brokerUrl by AppGlobalState.brokerUrl.collectAsState()
-    
-    val backgroundColor = Color(0xFF11161C)
-    val textColor = Color.White
-    val accentColor = Color(0xFF6ea2f5)
-    val errorColor = Color(0xFFCF6679)
-    val successColor = Color(0xFF03DAC5)
+    val mqttState by AppGlobalState.connectionState.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundColor)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        
-        Spacer(Modifier.weight(1f))
-
-        // Status Text
-        Text(
-            text = when(connectionState) {
-                MqttConnectionState.CONNECTED -> "MQTT Broker Connected!"
-                MqttConnectionState.FAILED -> "Connection Failed"
-                MqttConnectionState.CONNECTING -> "Connecting..."
-                else -> "Initializing..."
-            },
-            style = MaterialTheme.typography.headlineMedium,
-            color = textColor,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(Modifier.height(8.dp))
-        
-        if (brokerUrl.isNotEmpty()) {
-             Text(text = brokerUrl, color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
-        }
-        
-        Spacer(Modifier.height(48.dp))
-        
-        // Animation Area
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-             // Icon 1: Phone
-            Icon(
-                imageVector = Icons.Default.Phone,
-                contentDescription = "Phone",
-                tint = Color.Gray,
-                modifier = Modifier.size(48.dp)
+    WakeOnLanTheme {
+        if (showAddDevice) {
+            AddDeviceScreen(
+                deviceToEdit = deviceToEdit,
+                onCancel = { 
+                    showAddDevice = false
+                    deviceToEdit = null
+                },
+                onSave = { newDevice ->
+                    if (deviceToEdit != null) {
+                        deviceManager.updateDevice(newDevice)
+                    } else {
+                        deviceManager.addDevice(newDevice)
+                    }
+                    onRestartMqttService()
+                    showAddDevice = false
+                    deviceToEdit = null
+                }
             )
-            
-            Spacer(Modifier.width(24.dp))
-            
-            // Center Piece: Animation / Check / Error
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(48.dp)) {
-                AnimatedContent(
-                    targetState = connectionState,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(500)) togetherWith fadeOut(animationSpec = tween(500))
-                    }, label = "ConnectionStateAnimation"
-                ) { targetState ->
-                    when (targetState) {
-                         MqttConnectionState.CONNECTING -> {
-                             // Simple loading indicator would be good, or just a dashed line
-                             // For now, let's just make the checkmark gray/faded or pulsing
-                             // Or a CircularProgressIndicator
-                             CircularProgressIndicator(color = accentColor, modifier = Modifier.size(32.dp))
-                         }
-                         MqttConnectionState.CONNECTED -> {
-                             // Checkmark
-                              Icon(
-                                imageVector = Icons.Default.Done,
-                                contentDescription = "Success",
-                                tint = successColor,
-                                modifier = Modifier.size(48.dp)
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(BackroundDark)
+            ) {
+                // Main content area
+                Crossfade(targetState = currentTab, label = "TabSwitch") { tab ->
+                    when (tab) {
+                        Tab.Server -> {
+                            ServerScreen(
+                                isRunning = isServiceRunning,
+                                onStartService = {
+                                    onStartService()
+                                    onStartMqtt()
+                                },
+                                onStopService = {
+                                    onStopService()
+                                    onStopMqtt()
+                                },
+                                logs = logs,
+                                onSettings = { currentTab = Tab.Settings }
                             )
-                         }
-                         MqttConnectionState.FAILED -> {
-                             // Error X
-                             Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = "Error",
-                                tint = errorColor,
-                                modifier = Modifier.size(48.dp)
-                             )
-                         }
-                         else -> {}
+                        }
+                        Tab.Connections -> {
+                            ConnectionsScreen(
+                                devices = devices,
+                                deviceStatuses = deviceStatuses,
+                                onAddDevice = { showAddDevice = true },
+                                onDeleteDevice = { 
+                                    deviceManager.removeDevice(it)
+                                    onRestartMqttService()
+                                },
+                                onEditDevice = { device ->
+                                    deviceToEdit = device
+                                    showAddDevice = true
+                                },
+                                onToggleDevice = { device ->
+                                    val isOnline = deviceStatuses[device.id] ?: false
+                                    val payload = if (isOnline) device.offlinePayload else device.onlinePayload
+                                    
+                                    Intent(context, MqttWolService::class.java).also { intent ->
+                                        intent.action = MqttWolService.ACTION_PUBLISH
+                                        intent.putExtra(MqttWolService.EXTRA_TOPIC, device.topic)
+                                        intent.putExtra(MqttWolService.EXTRA_MESSAGE, payload)
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                            context.startForegroundService(intent)
+                                        } else {
+                                            context.startService(intent)
+                                        }
+                                    }
+                                    val action = if(isOnline) "Disconnecting" else "Connecting"
+                                    Toast.makeText(context, "$action...", Toast.LENGTH_SHORT).show()
+                                },
+                                onSettings = { currentTab = Tab.Settings },
+                                brokerUrl = brokerUrl
+                            )
+                        }
+                        Tab.Settings -> {
+                            NewSettingsScreen(
+                                configManager = configManager,
+                                onSave = { onRestartMqttService() }
+                            )
+                        }
                     }
                 }
-            }
-
-            Spacer(Modifier.width(24.dp))
-
-            // Icon 2: Server
-            Icon(
-                imageVector = Icons.Default.Home,
-                contentDescription = "Server",
-                tint = Color.Gray,
-                modifier = Modifier.size(48.dp)
-            )
-        }
-
-         // Error Message Display
-        AnimatedContent(
-            targetState = lastError,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "ErrorDetail"
-        ) { error ->
-            if (error != null && connectionState == MqttConnectionState.FAILED) {
-                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 32.dp)) {
-                    Text("Error Details:", color = errorColor, fontWeight = FontWeight.Bold)
-                    Text(error, color = errorColor, textAlign = TextAlign.Center)
-                 }
-            }
-        }
-        
-        Spacer(Modifier.weight(1f))
-
-        Button(
-            onClick = onDone,
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-            shape = RoundedCornerShape(25.dp)
-        ) {
-            Text("Done", color = Color.White)
-        }
-        
-        Spacer(Modifier.height(32.dp))
-    }
-}
-
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SettingsMenuScreen(
-    onMqttSettings: () -> Unit,
-    onAppUpdate: () -> Unit,
-    onBack: () -> Unit
-) {
-    val backgroundColor = Color(0xFF11161C)
-    val textColor = Color.White
-    val accentColor = Color(0xFF6ea2f5)
-
-    Scaffold(
-        containerColor = backgroundColor,
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings Menu", color = textColor) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Text("<", color = textColor, style = MaterialTheme.typography.titleLarge)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Button(
-                onClick = onMqttSettings,
-                modifier = Modifier.fillMaxWidth().height(60.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C333A)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                 Row(
-                     modifier = Modifier.fillMaxWidth(),
-                     horizontalArrangement = Arrangement.Start,
-                     verticalAlignment = Alignment.CenterVertically
-                 ) {
-                     Icon(Icons.Default.Home, contentDescription = null, tint = accentColor)
-                     Spacer(modifier = Modifier.width(16.dp))
-                     Text("MQTT Settings", color = textColor, style = MaterialTheme.typography.titleMedium)
-                 }
-            }
-
-            Button(
-                onClick = onAppUpdate,
-                modifier = Modifier.fillMaxWidth().height(60.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C333A)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                     modifier = Modifier.fillMaxWidth(),
-                     horizontalArrangement = Arrangement.Start,
-                     verticalAlignment = Alignment.CenterVertically
-                 ) {
-                     Icon(Icons.Default.Phone, contentDescription = null, tint = accentColor) // reuse phone icon or update
-                     Spacer(modifier = Modifier.width(16.dp))
-                     Text("App Update", color = textColor, style = MaterialTheme.typography.titleMedium)
-                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AppUpdateScreen(onBack: () -> Unit) {
-    val backgroundColor = Color(0xFF11161C)
-    val textColor = Color.White
-    val cardBorderColor = Color(0xFF404855)
-
-    Scaffold(
-        containerColor = backgroundColor,
-        topBar = {
-            TopAppBar(
-                title = { Text("App Update", color = textColor) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Text("<", color = textColor, style = MaterialTheme.typography.titleLarge)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Top
-        ) {
-            SectionCard(cardBorderColor, title = "Check for Update") {
-                 val context = LocalContext.current
-                 val updateManager = remember { UpdateManager(context) }
-                 var isChecking by remember { mutableStateOf(false) }
-                 
-                 Button(
-                    onClick = {
-                        isChecking = true
-                        // Get version name programmatically
-                        val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                        val versionName = pInfo.versionName ?: "1.0"
-                        
-                        updateManager.checkForUpdate(versionName) { hasUpdate, url ->
-                            isChecking = false
-                            if (hasUpdate && url != null) {
-                                Toast.makeText(context, "New version found! Downloading...", Toast.LENGTH_SHORT).show()
-                                updateManager.downloadAndInstall(url)
-                            } else {
-                                Toast.makeText(context, "No update available.", Toast.LENGTH_SHORT).show()
+                
+                // Floating glassmorphic navigation bar
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 24.dp, vertical = 24.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+                        color = SurfaceGlass.copy(alpha = 0.8f),
+                        tonalElevation = 0.dp
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            // Top gradient line
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                NeonGreen.copy(alpha = 0.6f),
+                                                Color.Transparent
+                                            )
+                                        )
+                                    )
+                            )
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Server tab
+                                GlassNavItem(
+                                    selected = currentTab == Tab.Server,
+                                    onClick = { currentTab = Tab.Server },
+                                    icon = { Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(26.dp)) },
+                                    label = "Server",
+                                    selectedColor = NeonGreen
+                                )
+                                
+                                // MQTT tab
+                                GlassNavItem(
+                                    selected = currentTab == Tab.Connections,
+                                    onClick = { currentTab = Tab.Connections },
+                                    icon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(26.dp)) },
+                                    label = "MQTT",
+                                    selectedColor = NeonBlue
+                                )
+                                
+                                // Settings tab
+                                GlassNavItem(
+                                    selected = currentTab == Tab.Settings,
+                                    onClick = { currentTab = Tab.Settings },
+                                    icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(26.dp)) },
+                                    label = "Settings",
+                                    selectedColor = SettingsPrimary
+                                )
                             }
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006C4C)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp).height(50.dp),
-                    enabled = !isChecking
-                ) {
-                    if (isChecking) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
-                    } else {
-                        Text("Check Now", color = Color.White)
                     }
                 }
             }
         }
     }
 }
+
+enum class Tab {
+    Server,
+    Connections,
+    Settings
+}
+        
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -662,92 +537,279 @@ fun StyledTextField(label: String, value: String, onValueChange: (String) -> Uni
             visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
-        Divider(color = Color(0xFF2C333A))
+        HorizontalDivider(color = Color(0xFF2C333A))
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * New glassmorphic Settings screen with cyberpunk styling
+ */
 @Composable
-fun MonitorScreen(
-    logs: List<String>,
-    isRunning: Boolean,
-    onStartService: () -> Unit,
-    onStopService: () -> Unit,
-    onToSettings: () -> Unit
+fun NewSettingsScreen(
+    configManager: MqttConfigManager,
+    onSave: () -> Unit
 ) {
-    val listState = rememberLazyListState()
-    val backgroundColor = Color(0xFF11161C)
-    val textColor = Color.White
-    val cardBorderColor = Color(0xFF404855)
-    val accentColor = Color(0xFF6ea2f5)
-
-    Scaffold(
-        containerColor = backgroundColor,
-        topBar = {
-            TopAppBar(
-                title = { Text("Monitor", color = textColor) },
-                actions = {
-                    IconButton(onClick = onToSettings) {
-                        Text("⚙\uFE0F", color = textColor)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
-            )
+    val context = LocalContext.current
+    val updateManager = remember { UpdateManager(context) }
+    
+    // Get actual app version
+    val versionName = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
+        } catch (e: Exception) {
+            "1.0"
         }
-    ) { paddingValues ->
+    }
+    
+    var isChecking by remember { mutableStateOf(false) }
+    var updateAvailable by remember { mutableStateOf<String?>(null) }
+    var updateMessage by remember { mutableStateOf<String?>(null) }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundDeepNavy)
+    ) {
+        // Background gradient blobs
+        Box(
+            modifier = Modifier
+                .offset(x = (-50).dp, y = (-50).dp)
+                .size(500.dp)
+                .blur(120.dp)
+                .background(
+                    androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(
+                            SettingsPrimary.copy(alpha = 0.2f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = 100.dp, y = 100.dp)
+                .size(400.dp)
+                .blur(100.dp)
+                .background(
+                    androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(
+                            PurpleAccent.copy(alpha = 0.2f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+        
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(bottom = 120.dp)
         ) {
-            
-            // Service Status Card
-            SectionCard(cardBorderColor) {
-               Column(modifier = Modifier.padding(16.dp)) {
-                   Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Service Status:", style = MaterialTheme.typography.titleMedium, color = textColor)
-                        Text(
-                            if (isRunning) "RUNNING" else "STOPPED",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isRunning) accentColor else Color.Red
-                        )
-                   }
-                   Spacer(Modifier.height(16.dp))
-                   Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-                        Button(
-                            onClick = onStartService, 
-                            enabled = !isRunning, 
-                            colors = ButtonDefaults.buttonColors(containerColor = accentColor, disabledContainerColor = Color.Gray),
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Start", color = Color.White) }
-                        
-                        Button(
-                            onClick = onStopService, 
-                            enabled = isRunning,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679), disabledContainerColor = Color.Gray),
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Stop", color = Color.White) }
-                   }
-               }
+            // Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(BackgroundDeepNavy.copy(alpha = 0.7f))
+                    .padding(top = 48.dp, bottom = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "Settings",
+                    color = Color.White.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
             }
             
-            Spacer(Modifier.height(24.dp))
-
-            Text("Live Logs", style = MaterialTheme.typography.titleLarge, color = textColor, modifier = Modifier.align(Alignment.Start))
-            Divider(color = cardBorderColor, modifier = Modifier.padding(vertical = 8.dp))
-            
-            if (logs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("No logs yet...", color = Color.Gray)
-                }
-            } else {
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize().weight(1f)) {
-                    items(logs.reversed()) { log ->
-                        Text(log, color = textColor, modifier = Modifier.padding(vertical = 4.dp), style = MaterialTheme.typography.bodyMedium)
-                        Divider(color = cardBorderColor, thickness = 0.5.dp)
+            // Content
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                contentPadding = PaddingValues(top = 24.dp, bottom = 24.dp)
+            ) {
+                // App Update Section
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
+                        color = SurfaceGlass.copy(alpha = 0.4f),
+                        tonalElevation = 0.dp
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            // Top highlight line
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color.White.copy(alpha = 0.2f),
+                                                Color.Transparent
+                                            )
+                                        )
+                                    )
+                            )
+                            
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Icon with glow
+                                Box(contentAlignment = Alignment.Center) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .blur(16.dp)
+                                            .background(SettingsPrimary.copy(alpha = 0.3f), CircleShape)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = SettingsPrimary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                                
+                                Spacer(Modifier.height(16.dp))
+                                
+                                Text(
+                                    "App Update",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                
+                                Spacer(Modifier.height(4.dp))
+                                
+                                Text(
+                                    "Version $versionName",
+                                    color = Slate400,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                
+                                // Update status message
+                                updateMessage?.let { message ->
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        message,
+                                        color = if (updateAvailable != null) NeonGreen else Slate400,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                
+                                Spacer(Modifier.height(16.dp))
+                                
+                                // Check for updates / Download button
+                                if (updateAvailable != null) {
+                                    // Update available - show download button
+                                    Button(
+                                        onClick = {
+                                            updateManager.downloadAndInstall(updateAvailable!!)
+                                            Toast.makeText(context, "Downloading update...", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.height(44.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = NeonGreen.copy(alpha = 0.2f)
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            NeonGreen.copy(alpha = 0.6f)
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = null,
+                                            tint = NeonGreen,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "Download Update",
+                                            color = NeonGreen,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                } else {
+                                    // Check for updates button
+                                    Button(
+                                        onClick = {
+                                            isChecking = true
+                                            updateMessage = "Checking..."
+                                            updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl ->
+                                                isChecking = false
+                                                if (hasUpdate && downloadUrl != null) {
+                                                    updateAvailable = downloadUrl
+                                                    updateMessage = "New version available!"
+                                                } else {
+                                                    updateMessage = "You're up to date!"
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.height(44.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SettingsPrimary.copy(alpha = 0.1f)
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            SettingsPrimary.copy(alpha = 0.4f)
+                                        ),
+                                        enabled = !isChecking
+                                    ) {
+                                        if (isChecking) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(18.dp),
+                                                color = SettingsPrimary,
+                                                strokeWidth = 2.dp
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Done,
+                                                contentDescription = null,
+                                                tint = SettingsPrimary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            if (isChecking) "Checking..." else "Check for Updates",
+                                            color = SettingsPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(Modifier.height(12.dp))
+                                
+                                // GitHub link
+                                TextButton(
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases"))
+                                        context.startActivity(intent)
+                                    }
+                                ) {
+                                    Text(
+                                        "View on GitHub",
+                                        color = Slate400,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
