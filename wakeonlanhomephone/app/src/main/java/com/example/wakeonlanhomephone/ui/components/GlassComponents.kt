@@ -22,7 +22,7 @@ import androidx.compose.foundation.clickable
 import com.example.wakeonlanhomephone.ui.theme.*
 
 /**
- * Glassmorphic panel with blur effect and border
+ * Glassmorphic panel with blur effect, border and inner glow
  */
 @Composable
 fun GlassPanel(
@@ -31,12 +31,33 @@ fun GlassPanel(
 ) {
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
-        color = SurfaceGlass.copy(alpha = 0.7f),
+            .clip(RoundedCornerShape(20.dp))
+            .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
+        color = SurfaceGlass.copy(alpha = 0.65f),
         tonalElevation = 0.dp
     ) {
-        Column(content = content)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Subtle top highlight for glass 3D effect
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.2f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+            
+            Column(
+                modifier = Modifier.padding(16.dp),
+                content = content
+            )
+        }
     }
 }
 

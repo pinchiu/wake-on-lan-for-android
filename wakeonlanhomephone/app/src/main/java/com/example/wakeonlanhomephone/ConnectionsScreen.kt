@@ -39,7 +39,7 @@ fun ConnectionsScreen(
     brokerUrl: String
 ) {
     Scaffold(
-        containerColor = Navy950,
+        containerColor = BackroundDark,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddDevice,
@@ -67,19 +67,19 @@ fun ConnectionsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Connections", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Manage your MQTT brokers", color = Slate400, style = MaterialTheme.typography.bodySmall)
+                    Text("DEVICE INVENTORY", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+                    Text("SECURE MQTT MIGRATION ACTIVE", color = CyberCyan.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
                 }
                 IconButton(onClick = onSettings) {
-                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Slate400)
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = CyberCyan)
                 }
             }
 
             // Stats
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Total", devices.size.toString(), Color.White, Modifier.weight(1f))
-                StatCard("Online", devices.count { deviceStatuses[it.id] == true }.toString(), SuccessGreen, Modifier.weight(1f))
-                StatCard("Offline", devices.count { deviceStatuses[it.id] != true }.toString(), Slate500, Modifier.weight(1f))
+                StatCard("NODES", devices.size.toString(), Color.White, Modifier.weight(1f))
+                StatCard("LINKED", devices.count { deviceStatuses[it.id] == true }.toString(), CyberCyan, Modifier.weight(1f))
+                StatCard("VOID", devices.count { deviceStatuses[it.id] != true }.toString(), NeonRed, Modifier.weight(1f))
             }
             
             
@@ -105,40 +105,30 @@ fun ConnectionsScreen(
 
 @Composable
 fun StatCard(label: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Navy900),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Navy700),
+    Surface(
         modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
+        color = SurfaceGlass.copy(alpha = 0.5f)
     ) {
         Column(
             modifier = Modifier.padding(12.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(label.uppercase(), color = Slate400, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text(label, color = Slate400, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Spacer(Modifier.height(4.dp))
-            Text(value, color = valueColor, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(value, color = valueColor, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
         }
     }
 }
 
 @Composable
 fun NavyDeviceCard(device: MqttDevice, isOnline: Boolean, brokerUrl: String, onDelete: () -> Unit, onEdit: () -> Unit, onToggle: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Navy900),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Navy700),
-        shape = RoundedCornerShape(16.dp),
+    GlassPanel(
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            // Status Strip
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(4.dp)
-                    .background(if (isOnline) SuccessGreen else Navy700)
-            )
-            
-            Column(modifier = Modifier.padding(16.dp).weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,16 +136,21 @@ fun NavyDeviceCard(device: MqttDevice, isOnline: Boolean, brokerUrl: String, onD
                     verticalAlignment = Alignment.Top
                 ) {
                     Column {
-                        Text(device.name, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(device.name.uppercase(), color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                             // Pulse dot
-                             Box(modifier = Modifier.size(6.dp).background(if (isOnline) SuccessGreen else Slate600, CircleShape))
-                             Spacer(Modifier.width(6.dp))
+                             if (isOnline) {
+                                AnimatedPingDot(color = CyberCyan, size = 6.dp)
+                             } else {
+                                Box(modifier = Modifier.size(6.dp).background(Slate600, CircleShape))
+                             }
+                             Spacer(Modifier.width(8.dp))
                              Text(
-                                 if (isOnline) "Online" else "Offline",
-                                 color = if (isOnline) SuccessGreen else Slate500,
+                                 if (isOnline) "ENCRYPTED LINK" else "DISCONNECTED",
+                                 color = if (isOnline) CyberCyan else Slate500,
                                  style = MaterialTheme.typography.labelSmall,
-                                 fontWeight = FontWeight.Bold
+                                 fontWeight = FontWeight.Bold,
+                                 fontFamily = FontFamily.Monospace
                              )
                         }
                     }
@@ -163,10 +158,10 @@ fun NavyDeviceCard(device: MqttDevice, isOnline: Boolean, brokerUrl: String, onD
                     // Actions
                     Row {
                          IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                             Icon(Icons.Default.Edit, null, tint = Slate500, modifier = Modifier.size(18.dp))
+                             Icon(Icons.Default.Edit, null, tint = CyberCyan.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
                          }
                          IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                             Icon(Icons.Default.Delete, null, tint = Slate500, modifier = Modifier.size(18.dp))
+                             Icon(Icons.Default.Delete, null, tint = NeonRed.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
                          }
                     }
                 }
@@ -174,29 +169,29 @@ fun NavyDeviceCard(device: MqttDevice, isOnline: Boolean, brokerUrl: String, onD
                 Spacer(Modifier.height(16.dp))
                 
                 // Info Rows
-                InfoRow("Broker", brokerUrl)
-                InfoRow("Target Topic", device.topic)
+                InfoRow("NODE ADR", brokerUrl)
+                InfoRow("COM CHAN", device.topic)
                 
                 Spacer(Modifier.height(16.dp))
                 
                 // Action Button
-                val buttonColor = if (isOnline) Navy800 else PrimaryBlue
-                val buttonTextColor = if (isOnline) Slate300 else Color.White
+                val buttonColor = if (isOnline) Color.White.copy(alpha = 0.1f) else CyberCyan.copy(alpha = 0.2f)
+                val buttonBorderColor = if (isOnline) GlassBorder else CyberCyan.copy(alpha = 0.5f)
+                val buttonTextColor = if (isOnline) Slate300 else CyberCyan
                 
                 Button(
                     onClick = onToggle,
                     colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().height(44.dp)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, buttonBorderColor),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                     Icon(
-                         imageVector = Icons.Default.Info,
-                         contentDescription = null, 
-                         modifier = Modifier.size(18.dp),
-                         tint = buttonTextColor
-                     )
-                     Spacer(Modifier.width(8.dp))
-                     Text(if (isOnline) "Disconnect" else "Connect", color = buttonTextColor)
+                     Text(
+                        if (isOnline) "TERMINATE CONNECTION" else "INITIALIZE UPLINK", 
+                        color = buttonTextColor,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
             }
         }

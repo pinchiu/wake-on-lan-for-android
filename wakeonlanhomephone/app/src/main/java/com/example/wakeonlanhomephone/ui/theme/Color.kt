@@ -19,8 +19,11 @@ val BackroundDark = Color(0xFF050b14)
 val NeonBlue = Color(0xFF00f0ff)
 val NeonGreen = Color(0xFF00ff9d)
 val NeonRed = Color(0xFFff2a6d)
-val GlassBorder = Color(0x14FFFFFF) // 0.08 alpha
-val GlassSurface = Color(0x0AFFFFFF) // 0.03 alpha for glassmorphism
+val CyberCyan = Color(0xFF00f3ff)
+val CyberPink = Color(0xFFff00ff)
+val CyberYellow = Color(0xFFfff200)
+val GlassBorder = Color(0x1FFFFFFF) // 0.12 alpha for more definition
+val GlassSurface = Color(0x14FFFFFF) // 0.08 alpha for better frosted effect
 
 // Settings Screen Colors
 val SettingsPrimary = Color(0xFF135bec)

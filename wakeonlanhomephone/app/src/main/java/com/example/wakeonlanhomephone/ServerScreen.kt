@@ -96,15 +96,25 @@ fun ServerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = CyberCyan,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .blur(if (isRunning) 2.dp else 0.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        "WOL Manager",
+                        "WOL SYSTEM",
                         color = Color.White,
                         style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 4.sp
                     )
                     Text(
-                        "IPV6 ENABLED",
-                        color = Slate400,
+                        "PREMIUM INTERFACE ACTIVE",
+                        color = CyberCyan.copy(alpha = 0.6f),
                         style = MaterialTheme.typography.labelSmall,
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 2.sp
@@ -115,54 +125,47 @@ fun ServerScreen(
             // Status Circle
             item {
                 Box(
-                    modifier = Modifier.size(240.dp),
+                    modifier = Modifier.size(260.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     // Pulsing glow background
                     if (isRunning) {
                         PulsingGlow(
-                            color = NeonGreen,
-                            size = 240.dp
+                            color = CyberCyan,
+                            size = 260.dp
                         )
                     }
                     
-                    // Spinning border ring
+                    // Multiple spinning border rings for complexity
                     if (isRunning) {
                         SpinningBorderRing(
-                            color = NeonGreen,
-                            size = 192.dp
+                            color = CyberCyan,
+                            size = 210.dp,
+                            strokeWidth = 1.dp
+                        )
+                        SpinningBorderRing(
+                            color = CyberPink,
+                            size = 180.dp,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.rotate(180f)
                         )
                     }
                     
-                    // Main circle
+                    // Main circle with glass effect
                     Box(
                         modifier = Modifier
-                            .size(192.dp)
-                            .background(Color.Black.copy(alpha = 0.4f), CircleShape)
-                            .border(1.dp, statusColor.copy(alpha = 0.3f), CircleShape),
+                            .size(170.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceGlass.copy(alpha = 0.8f))
+                            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            // Power icon
-                            Box(
-                                modifier = Modifier.size(48.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = null,
-                                    tint = statusColor,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                            }
-                            
-                            Spacer(Modifier.height(8.dp))
-                            
                             Text(
-                                if (isRunning) "RUNNING" else "STOPPED",
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
+                                if (isRunning) "ONLINE" else "OFFLINE",
+                                color = if (isRunning) CyberCyan else Slate500,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
                                 letterSpacing = 2.sp
                             )
                             
@@ -171,18 +174,18 @@ fun ServerScreen(
                             // Online status with ping dot
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 if (isRunning) {
-                                    AnimatedPingDot(color = NeonGreen, size = 8.dp)
+                                    AnimatedPingDot(color = CyberCyan, size = 6.dp)
                                 } else {
                                     Box(
                                         modifier = Modifier
-                                            .size(8.dp)
+                                            .size(6.dp)
                                             .background(Slate500, CircleShape)
                                     )
                                 }
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    if (isRunning) "Online" else "Offline",
-                                    color = statusColor.copy(alpha = 0.8f),
+                                    if (isRunning) "SECURE" else "INACTIVE",
+                                    color = if (isRunning) CyberCyan.copy(alpha = 0.7f) else Slate500,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -230,23 +233,23 @@ fun ServerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp),
+                        .height(100.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Start Button
                     ControlButton(
                         onClick = onStartService,
-                        label = "Start",
-                        subtitle = "Broadcast Magic Packet",
-                        accentColor = NeonGreen,
+                        label = "INITIALIZE",
+                        subtitle = "WOL BROADCAST",
+                        accentColor = CyberCyan,
                         modifier = Modifier.weight(1f)
                     )
                     
                     // Stop Button
                     ControlButton(
                         onClick = onStopService,
-                        label = "Stop",
-                        subtitle = "Terminate Service",
+                        label = "TERMINATE",
+                        subtitle = "SYS SHUTDOWN",
                         accentColor = NeonRed,
                         isStop = true,
                         modifier = Modifier.weight(1f)
