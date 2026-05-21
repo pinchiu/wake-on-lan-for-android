@@ -46,7 +46,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.InetAddress
 import java.net.Inet6Address
+import java.util.Locale
 
 // Custom Colors
 val DeepBlack = Color(0xFF050505)
@@ -74,6 +76,7 @@ private const val PREFS_NAME = "RemoteControlPrefs"
 private const val KEY_IPV6 = "helperIpv6Address"
 private const val KEY_MAC = "computerMacAddress"
 private const val KEY_IPV4 = "computerLocalIpv4"
+private const val KEY_LAN_MODE = "localLanMode"
 
 @Composable
 fun UltimateTheme(content: @Composable () -> Unit) {
@@ -100,6 +103,7 @@ fun UltimateRemoteScreen() {
     var helperIpv6Address by remember { mutableStateOf(sharedPrefs.getString(KEY_IPV6, "") ?: "") }
     var computerMacAddress by remember { mutableStateOf(sharedPrefs.getString(KEY_MAC, "") ?: "") }
     var computerLocalIpv4 by remember { mutableStateOf(sharedPrefs.getString(KEY_IPV4, "") ?: "") }
+    var localLanMode by remember { mutableStateOf(sharedPrefs.getBoolean(KEY_LAN_MODE, false)) }
 
     var statusMessage by remember { mutableStateOf("") }
     var isStatusError by remember { mutableStateOf(false) }
@@ -114,9 +118,21 @@ fun UltimateRemoteScreen() {
         coroutineScope.launch {
             // Fake delay for UI feedback feeling
             delay(300)
-            val result = sendUdpCommand(helperIpv6Address, command)
+            val result = if (localLanMode) {
+                if (command.startsWith("WAKE:")) {
+                    val mac = command.substringAfter("WAKE:")
+                    sendLocalMagicPacket(mac)
+                } else {
+                    val action = command.substringBefore(":")
+                    val ip = command.substringAfter(":")
+                    sendDirectCommandToPC(ip, action.lowercase(Locale.ROOT))
+                }
+            } else {
+                sendUdpCommand(helperIpv6Address, command)
+            }
             statusMessage = result
-            isStatusError = result.startsWith("Send failed") || result.startsWith("Address")
+            isStatusError = result.startsWith("Send failed") || result.startsWith("Address") ||
+                    result.startsWith("LAN WoL failed") || result.startsWith("Direct send failed")
             isLoading = false
         }
     }
@@ -196,6 +212,50 @@ fun UltimateRemoteScreen() {
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lan,
+                                contentDescription = null,
+                                tint = NeonGreen,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Local LAN Mode",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Direct WoL broadcast & command",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = localLanMode,
+                            onCheckedChange = {
+                                localLanMode = it
+                                sharedPrefs.edit().putBoolean(KEY_LAN_MODE, it).apply()
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = NeonGreen,
+                                checkedTrackColor = NeonGreen.copy(alpha = 0.3f),
+                                uncheckedThumbColor = Color.Gray,
+                                uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                     NeonTextField(
                         value = helperIpv6Address,
                         onValueChange = {
@@ -425,6 +485,55 @@ private suspend fun sendUdpCommand(host: String, command: String): String {
             "Command sent: $command"
         } catch (e: Exception) {
             "Send failed: ${e.message}"
+        }
+    }
+}
+
+private suspend fun sendLocalMagicPacket(macAddress: String): String {
+    return withContext(Dispatchers.IO) {
+        try {
+            val macBytes = getMacBytes(macAddress) ?: return@withContext "Invalid MAC address format"
+            val magicPacket = ByteArray(102).apply {
+                (0..5).forEach { this[it] = 0xFF.toByte() }
+                for (i in 1..16) {
+                    macBytes.copyInto(this, i * 6)
+                }
+            }
+
+            val broadcastAddr = "255.255.255.255"
+            val packet = DatagramPacket(magicPacket, magicPacket.size, InetAddress.getByName(broadcastAddr), 9)
+            DatagramSocket().use { socket ->
+                socket.broadcast = true
+                socket.send(packet)
+            }
+            "Magic Packet broadcasted directly on LAN"
+        } catch (e: Exception) {
+            "LAN WoL failed: ${e.message}"
+        }
+    }
+}
+
+private fun getMacBytes(macStr: String): ByteArray? {
+    val bytes = ByteArray(6)
+    val hex = macStr.split(':', '-')
+    if (hex.size != 6) return null
+    try {
+        for (i in 0..5) { bytes[i] = hex[i].toInt(16).toByte() }
+    } catch (e: NumberFormatException) { return null }
+    return bytes
+}
+
+private suspend fun sendDirectCommandToPC(pcIp: String, command: String): String {
+    return withContext(Dispatchers.IO) {
+        if (pcIp.isBlank() || command.isBlank()) {
+            return@withContext "PC IP or command cannot be empty!"
+        }
+        try {
+            val packet = DatagramPacket(command.toByteArray(), command.length, InetAddress.getByName(pcIp), 9877)
+            DatagramSocket().use { socket -> socket.send(packet) }
+            "Direct command '$command' sent to PC"
+        } catch (e: Exception) {
+            "Direct send failed: ${e.message}"
         }
     }
 }

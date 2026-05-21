@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -44,7 +45,7 @@ fun ServerScreen(
     onSettings: () -> Unit
 ) {
     val statusColor = if (isRunning) NeonGreen else Slate500
-    val ipv6Address = remember { getDeviceIPv6() ?: "No IPv6 Available" }
+    val ipv6Addresses = remember { getDeviceIPv6Addresses() }
     
     Box(
         modifier = Modifier
@@ -195,35 +196,81 @@ fun ServerScreen(
                 }
             }
             
-            // IPv6 Address Pill
+            // IPv6 Address Pills
             item {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            PrimaryBlue.copy(alpha = 0.1f),
-                            RoundedCornerShape(50)
-                        )
-                        .border(
-                            1.dp,
-                            PrimaryBlue.copy(alpha = 0.2f),
-                            RoundedCornerShape(50)
-                        )
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = NeonBlue,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            ipv6Address,
-                            color = NeonBlue.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = FontFamily.Monospace
-                        )
+                    if (ipv6Addresses.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    PrimaryBlue.copy(alpha = 0.1f),
+                                    RoundedCornerShape(50)
+                                )
+                                .border(
+                                    1.dp,
+                                    PrimaryBlue.copy(alpha = 0.2f),
+                                    RoundedCornerShape(50)
+                                )
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = NeonBlue,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "No IPv6 Available",
+                                    color = NeonBlue.copy(alpha = 0.8f),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    } else {
+                        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                        val context = LocalContext.current
+                        
+                        ipv6Addresses.forEach { ip ->
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        PrimaryBlue.copy(alpha = 0.1f),
+                                        RoundedCornerShape(50)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        PrimaryBlue.copy(alpha = 0.2f),
+                                        RoundedCornerShape(50)
+                                    )
+                                    .clickable {
+                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(ip))
+                                        android.widget.Toast.makeText(context, "已複製位址", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = NeonBlue,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        ip,
+                                        color = NeonBlue.copy(alpha = 0.8f),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -449,9 +496,10 @@ fun LogItem(log: String) {
 }
 
 /**
- * Get device IPv6 address
+ * Get device IPv6 addresses
  */
-private fun getDeviceIPv6(): String? {
+private fun getDeviceIPv6Addresses(): List<String> {
+    val list = mutableListOf<String>()
     try {
         val interfaces = NetworkInterface.getNetworkInterfaces()
         while (interfaces.hasMoreElements()) {
@@ -463,7 +511,9 @@ private fun getDeviceIPv6(): String? {
                     // Found IPv6 address, clean it up
                     val ipv6 = address.hostAddress?.split("%")?.get(0) ?: continue
                     if (!ipv6.startsWith("fe80")) { // Skip link-local
-                        return ipv6
+                        if (!list.contains(ipv6)) {
+                            list.add(ipv6)
+                        }
                     }
                 }
             }
@@ -471,5 +521,5 @@ private fun getDeviceIPv6(): String? {
     } catch (e: Exception) {
         e.printStackTrace()
     }
-    return null
+    return list
 }
