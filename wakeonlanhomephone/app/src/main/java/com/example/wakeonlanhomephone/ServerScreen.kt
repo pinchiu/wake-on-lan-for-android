@@ -280,7 +280,7 @@ fun ServerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(135.dp),
+                        .height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Start Button
@@ -354,17 +354,17 @@ fun ControlButton(
             1.dp,
             Color.White.copy(alpha = 0.1f)
         ),
-        contentPadding = PaddingValues(16.dp)
+        contentPadding = PaddingValues(20.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxWidth()
         ) {
             // Icon circle
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(44.dp)
                     .background(accentColor.copy(alpha = 0.1f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -385,7 +385,7 @@ fun ControlButton(
                 }
             }
             
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             
             Text(
                 label,
@@ -393,6 +393,8 @@ fun ControlButton(
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
+            
+            Spacer(Modifier.height(2.dp))
             
             Text(
                 subtitle,
