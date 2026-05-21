@@ -1,4 +1,4 @@
-package com.example.wakeonlanhomephone
+package com.example.wakeonwanremotephone
 
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import androidx.core.content.FileProvider
-import com.example.wakeonlanhomephone.GithubRelease
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -39,10 +38,8 @@ class UpdateManager(private val context: Context) {
                     val release = response.body()
                     if (release != null) {
                         val latestVersion = release.tagName.removePrefix("v")
-                        // Simple string comparison or semver depending on your tag format
-                        if (latestVersion != currentVersion) { // Assuming naive string check for now
-                             // Find the APK asset
-                             val apkAsset = release.assets.find { it.name.contains("home-phone") && it.name.endsWith(".apk") }
+                        if (latestVersion != currentVersion) {
+                            val apkAsset = release.assets.find { it.name.contains("remote-phone") && it.name.endsWith(".apk") }
                             if (apkAsset != null) {
                                 onResult(true, apkAsset.downloadUrl)
                             } else {
@@ -52,7 +49,7 @@ class UpdateManager(private val context: Context) {
                             onResult(false, null)
                         }
                     } else {
-                         onResult(false, null)
+                        onResult(false, null)
                     }
                 } else {
                     onResult(false, null)
@@ -60,23 +57,22 @@ class UpdateManager(private val context: Context) {
             }
 
             override fun onFailure(call: Call<GithubRelease>, t: Throwable) {
-                 onResult(false, null)
+                onResult(false, null)
             }
         })
     }
 
     fun downloadAndInstall(url: String) {
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("Downloading Update")
-            .setDescription("Downloading latest version of wakeonlanhomephone")
+            .setTitle("下載更新")
+            .setDescription("正在下載最新版本的遙控器 App...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "wakeonlanhomephone_update.apk")
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "wakeonwanremotephone_update.apk")
             .setMimeType("application/vnd.android.package-archive")
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = downloadManager.enqueue(request)
 
-        // Register Receiver for completion
         val onComplete = object : BroadcastReceiver() {
             override fun onReceive(ctxt: Context, intent: Intent) {
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
@@ -96,11 +92,7 @@ class UpdateManager(private val context: Context) {
         
         if (uri != null) {
             val intent = Intent(Intent.ACTION_VIEW)
-            
-            // For FileProvider (Android 7+)
-            val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "wakeonlanhomephone_update.apk")
-            // Note: downloadManager.getUriForDownloadedFile returns a content:// uri if possible, but let's be robust
-            
+            val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "wakeonwanremotephone_update.apk")
             val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
             
             intent.setDataAndType(contentUri, "application/vnd.android.package-archive")
@@ -109,7 +101,7 @@ class UpdateManager(private val context: Context) {
             
             context.startActivity(intent)
         } else {
-            Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "下載失敗，無法讀取檔案", Toast.LENGTH_SHORT).show()
         }
     }
 }

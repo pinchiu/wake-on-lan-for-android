@@ -684,7 +684,7 @@ fun NewSettingsScreen(
                                 Spacer(Modifier.height(16.dp))
                                 
                                 Text(
-                                    "App Update",
+                                    "關於與更新",
                                     color = Color.White,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
@@ -693,7 +693,7 @@ fun NewSettingsScreen(
                                 Spacer(Modifier.height(4.dp))
                                 
                                 Text(
-                                    "Version $versionName",
+                                    "家用喚醒助手 版本 $versionName",
                                     color = Slate400,
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -716,7 +716,7 @@ fun NewSettingsScreen(
                                     Button(
                                         onClick = {
                                             updateManager.downloadAndInstall(updateAvailable!!)
-                                            Toast.makeText(context, "Downloading update...", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
                                         },
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(12.dp),
@@ -736,7 +736,7 @@ fun NewSettingsScreen(
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            "Download Update",
+                                            "下載並安裝更新",
                                             color = NeonGreen,
                                             fontWeight = FontWeight.SemiBold,
                                             style = MaterialTheme.typography.bodyMedium
@@ -747,14 +747,14 @@ fun NewSettingsScreen(
                                     Button(
                                         onClick = {
                                             isChecking = true
-                                            updateMessage = "Checking..."
+                                            updateMessage = "正在檢查更新..."
                                             updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl ->
                                                 isChecking = false
                                                 if (hasUpdate && downloadUrl != null) {
                                                     updateAvailable = downloadUrl
-                                                    updateMessage = "New version available!"
+                                                    updateMessage = "偵測到新版本！"
                                                 } else {
-                                                    updateMessage = "You're up to date!"
+                                                    updateMessage = "已是最新版本"
                                                 }
                                             }
                                         },
@@ -785,7 +785,7 @@ fun NewSettingsScreen(
                                         }
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            if (isChecking) "Checking..." else "Check for Updates",
+                                            if (isChecking) "正在檢查..." else "檢查更新",
                                             color = SettingsPrimary,
                                             fontWeight = FontWeight.SemiBold,
                                             style = MaterialTheme.typography.bodyMedium
@@ -803,7 +803,7 @@ fun NewSettingsScreen(
                                     }
                                 ) {
                                     Text(
-                                        "View on GitHub",
+                                        "在 GitHub 上查看",
                                         color = Slate400,
                                         style = MaterialTheme.typography.labelSmall
                                     )

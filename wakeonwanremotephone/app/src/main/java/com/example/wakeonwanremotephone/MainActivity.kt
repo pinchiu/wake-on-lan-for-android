@@ -49,6 +49,11 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.Inet6Address
 import java.util.Locale
+import android.widget.Toast
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.filled.Info
 
 // Custom Colors
 val DeepBlack = Color(0xFF050505)
@@ -108,6 +113,7 @@ fun UltimateRemoteScreen() {
     var statusMessage by remember { mutableStateOf("") }
     var isStatusError by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -198,6 +204,16 @@ fun UltimateRemoteScreen() {
                         .background(if (isLoading) NeonOrange else NeonGreen, CircleShape)
                         .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                 )
+                Spacer(modifier = Modifier.width(16.dp))
+                IconButton(
+                    onClick = { showAboutDialog = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "About",
+                        tint = Color.White.copy(alpha = 0.7f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -358,6 +374,136 @@ fun UltimateRemoteScreen() {
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
+                }
+            }
+        }
+
+        // About & Update Dialog
+        if (showAboutDialog) {
+            Dialog(onDismissRequest = { showAboutDialog = false }) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
+                    color = Charcoal.copy(alpha = 0.95f),
+                    tonalElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "關於與更新",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            "遠端遙控喚醒端",
+                            color = NeonBlue,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        val versionName = remember {
+                            try {
+                                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
+                            } catch (e: Exception) {
+                                "1.0"
+                            }
+                        }
+                        Text(
+                            "目前版本: v$versionName",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        val updateManager = remember { UpdateManager(context) }
+                        var isChecking by remember { mutableStateOf(false) }
+                        var updateAvailable by remember { mutableStateOf<String?>(null) }
+                        var updateMessage by remember { mutableStateOf<String?>(null) }
+                        
+                        updateMessage?.let { message ->
+                            Text(
+                                message,
+                                color = if (updateAvailable != null) NeonGreen else Color.White.copy(alpha = 0.7f),
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                        }
+                        
+                        if (updateAvailable != null) {
+                            Button(
+                                onClick = {
+                                    updateManager.downloadAndInstall(updateAvailable!!)
+                                    Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.2f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen.copy(alpha = 0.6f)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                            ) {
+                                Text("下載並安裝更新", color = NeonGreen, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Button(
+                                onClick = {
+                                    isChecking = true
+                                    updateMessage = "正在檢查更新..."
+                                    updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl ->
+                                        isChecking = false
+                                        if (hasUpdate && downloadUrl != null) {
+                                            updateAvailable = downloadUrl
+                                            updateMessage = "偵測到新版本！"
+                                        } else {
+                                            updateMessage = "已是最新版本"
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue.copy(alpha = 0.2f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, NeonBlue.copy(alpha = 0.6f)),
+                                shape = RoundedCornerShape(12.dp),
+                                enabled = !isChecking,
+                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                            ) {
+                                if (isChecking) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        color = NeonBlue,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("檢查更新", color = NeonBlue, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        TextButton(
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases"))
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            Text("在 GitHub 上查看", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        TextButton(
+                            onClick = { showAboutDialog = false }
+                        ) {
+                            Text("關閉", color = Color.Gray, fontSize = 14.sp)
+                        }
+                    }
                 }
             }
         }
