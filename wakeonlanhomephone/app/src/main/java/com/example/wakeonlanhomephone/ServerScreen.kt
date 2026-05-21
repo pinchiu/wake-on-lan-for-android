@@ -280,7 +280,7 @@ fun ServerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(100.dp),
+                        .height(135.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Start Button
