@@ -104,16 +104,19 @@ class MainActivity : ComponentActivity() {
                         } else {
                             startService(intent)
                         }
+                        if (!isBound) {
+                            bindService(intent, connection, android.content.Context.BIND_AUTO_CREATE)
+                        }
                     }
                 },
                 onStopService = {
                     Intent(this, WolListenerService::class.java).also { intent ->
-                        stopService(intent)
                         if (isBound) {
                             unbindService(connection)
                             isBound = false
                             wolService = null
                         }
+                        stopService(intent)
                     }
                 },
                 onStartMqtt = {
