@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,6 +47,7 @@ fun ServerScreen(
 ) {
     val statusColor = if (isRunning) NeonGreen else Slate500
     val ipv6Addresses = remember { getDeviceIPv6Addresses() }
+    val displayedLogs = remember(logs) { logs.asReversed().take(10) }
     
     Box(
         modifier = Modifier
@@ -327,7 +329,10 @@ fun ServerScreen(
             }
             
             // Log Items
-            items(logs.asReversed().take(10)) { log ->
+            itemsIndexed(
+                items = displayedLogs,
+                key = { index, log -> "$log-$index" }
+            ) { _, log ->
                 LogItem(log = log)
             }
         }
@@ -407,9 +412,35 @@ fun ControlButton(
 
 @Composable
 fun LogItem(log: String) {
-    val timestamp = remember {
-        SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+    val parsed = remember(log) {
+        val hasTimestamp = log.startsWith("[") && log.contains("]")
+        val timestamp = if (hasTimestamp) log.substring(1, log.indexOf("]")) else ""
+        val message = if (hasTimestamp) {
+            val idx = log.indexOf("]")
+            if (idx + 1 < log.length && log[idx + 1] == ' ') {
+                log.substring(idx + 2)
+            } else {
+                log.substring(idx + 1)
+            }
+        } else {
+            log
+        }
+        
+        val fromText = if (message.contains(":")) {
+            message.substringBefore(":").trim()
+        } else {
+            "System"
+        }
+        val detailText = if (message.contains(":")) {
+            message.substringAfter(":").trim()
+        } else {
+            message
+        }
+        
+        Triple(timestamp, fromText, detailText)
     }
+    
+    val (timestamp, fromText, detailText) = parsed
     
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -441,7 +472,7 @@ fun LogItem(log: String) {
                     )
                 }
                 Text(
-                    log.substringBefore(":").ifEmpty { "Local" },
+                    fromText,
                     color = NeonBlue.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.labelSmall,
                     fontFamily = FontFamily.Monospace
@@ -469,7 +500,7 @@ fun LogItem(log: String) {
                 }
                 
                 Text(
-                    log,
+                    detailText,
                     color = Color.White,
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace

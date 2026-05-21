@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -120,6 +121,13 @@ fun UltimateRemoteScreen() {
     val coroutineScope = rememberCoroutineScope()
 
     fun sendCommand(command: String) {
+        // Save current fields to shared preferences immediately
+        sharedPrefs.edit().apply {
+            putString(KEY_IPV6, helperIpv6Address.trim())
+            putString(KEY_MAC, computerMacAddress.trim())
+            putString(KEY_IPV4, computerLocalIpv4.trim())
+            apply()
+        }
         isLoading = true
         statusMessage = "Sending..."
         isStatusError = false
@@ -277,32 +285,38 @@ fun UltimateRemoteScreen() {
                     Spacer(modifier = Modifier.height(12.dp))
                     NeonTextField(
                         value = helperIpv6Address,
-                        onValueChange = {
-                            helperIpv6Address = it
-                            sharedPrefs.edit().putString(KEY_IPV6, it).apply()
-                        },
+                        onValueChange = { helperIpv6Address = it },
                         label = "Helper IPv6",
-                        icon = Icons.Default.Dns
+                        icon = Icons.Default.Dns,
+                        modifier = Modifier.onFocusChanged {
+                            if (!it.isFocused) {
+                                sharedPrefs.edit().putString(KEY_IPV6, helperIpv6Address.trim()).apply()
+                            }
+                        }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     NeonTextField(
                         value = computerMacAddress,
-                        onValueChange = {
-                            computerMacAddress = it
-                            sharedPrefs.edit().putString(KEY_MAC, it).apply()
-                        },
+                        onValueChange = { computerMacAddress = it },
                         label = "Target MAC",
-                        icon = Icons.Default.Lan
+                        icon = Icons.Default.Lan,
+                        modifier = Modifier.onFocusChanged {
+                            if (!it.isFocused) {
+                                sharedPrefs.edit().putString(KEY_MAC, computerMacAddress.trim()).apply()
+                            }
+                        }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     NeonTextField(
                         value = computerLocalIpv4,
-                        onValueChange = {
-                            computerLocalIpv4 = it
-                            sharedPrefs.edit().putString(KEY_IPV4, it).apply()
-                        },
+                        onValueChange = { computerLocalIpv4 = it },
                         label = "Target IPv4",
-                        icon = Icons.Default.Computer
+                        icon = Icons.Default.Computer,
+                        modifier = Modifier.onFocusChanged {
+                            if (!it.isFocused) {
+                                sharedPrefs.edit().putString(KEY_IPV4, computerLocalIpv4.trim()).apply()
+                            }
+                        }
                     )
                 }
             }
@@ -474,11 +488,11 @@ fun UltimateRemoteScreen() {
                                 onClick = {
                                     isChecking = true
                                     updateMessage = "正在檢查更新..."
-                                    updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl ->
+                                    updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
                                         isChecking = false
                                         if (hasUpdate && downloadUrl != null) {
                                             updateAvailable = downloadUrl
-                                            updateMessage = "偵測到新版本！"
+                                            updateMessage = "偵測到新版本：${tag ?: ""}"
                                         } else {
                                             updateMessage = "已是最新版本"
                                         }
@@ -545,7 +559,8 @@ fun NeonTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
-    icon: ImageVector
+    icon: ImageVector,
+    modifier: Modifier = Modifier
 ) {
     OutlinedTextField(
         value = value,
@@ -563,7 +578,7 @@ fun NeonTextField(
         ),
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     )
 }
 
@@ -692,7 +707,8 @@ private suspend fun sendDirectCommandToPC(pcIp: String, command: String): String
             return@withContext "PC IP or command cannot be empty!"
         }
         try {
-            val packet = DatagramPacket(command.toByteArray(), command.length, InetAddress.getByName(pcIp), 9877)
+            val commandBytes = command.toByteArray()
+            val packet = DatagramPacket(commandBytes, commandBytes.size, InetAddress.getByName(pcIp), 9877)
             DatagramSocket().use { socket -> socket.send(packet) }
             "Direct command '$command' sent to PC"
         } catch (e: Exception) {

@@ -50,7 +50,7 @@ class WolListenerService : Service() {
 
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WoLHelper::CpuWakeLock")
-            wakeLock?.acquire(10 * 60 * 1000L)
+            wakeLock?.acquire()
 
             serverThread = Thread { listener() }
             serverThread.start()
@@ -123,8 +123,12 @@ class WolListenerService : Service() {
                             }
                         }
                         "MAC" -> {
-                            val result = sendMagicPacketIPv6(payload)
-                            Log.d(TAG, "WoL send result: $result")
+                            if (isValidMac(payload)) {
+                                val result = sendMagicPacketIPv6(payload)
+                                Log.d(TAG, "WoL send result: $result")
+                            } else {
+                                Log.e(TAG, "Invalid MAC: $payload")
+                            }
                         }
                         else -> {
                             Log.w(TAG, "Unknown action: $action")
@@ -200,7 +204,8 @@ class WolListenerService : Service() {
 
     private fun sendCommandToPC(command: String, pcIp: String): String {
         try {
-            val packet = DatagramPacket(command.toByteArray(), command.length, InetAddress.getByName(pcIp), PC_COMMAND_PORT)
+            val commandBytes = command.toByteArray()
+            val packet = DatagramPacket(commandBytes, commandBytes.size, InetAddress.getByName(pcIp), PC_COMMAND_PORT)
             DatagramSocket().use { socket -> socket.send(packet) }
             return "Command '$command' sent to $pcIp:$PC_COMMAND_PORT"
         } catch (e: Exception) {
@@ -227,18 +232,31 @@ class WolListenerService : Service() {
         notificationManager.notify(NOTIFICATION_ID, createNotification(newContentText))
     }
 
+    @Suppress("DEPRECATION")
     override fun onDestroy() {
-        super.onDestroy()
         if (_isRunning.value) {
             _isRunning.value = false
-            socket?.close()
-            if (::serverThread.isInitialized) {
-                serverThread.interrupt()
-            }
-            wakeLock?.release()
-            mainHandler.removeCallbacksAndMessages(null)
-            Log.d(TAG, "Service stopped")
         }
+        try {
+            socket?.close()
+            socket = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error closing socket", e)
+        }
+        if (::serverThread.isInitialized) {
+            serverThread.interrupt()
+        }
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        mainHandler.removeCallbacksAndMessages(null)
+        try {
+            stopForeground(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping foreground", e)
+        }
+        Log.d(TAG, "Service stopped")
+        super.onDestroy()
     }
 
     private fun logListeningAddresses() {

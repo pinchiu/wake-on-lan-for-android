@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:usesCleartextTraffic="true"
@@ -31,8 +33,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name=".WolListenerService" />
-        <service android:name=".MqttWolService" android:exported="false" />
+        <service 
+            android:name=".WolListenerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+        <service 
+            android:name=".MqttWolService" 
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

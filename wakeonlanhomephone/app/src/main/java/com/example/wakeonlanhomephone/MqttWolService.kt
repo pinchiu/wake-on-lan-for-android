@@ -21,6 +21,7 @@ class MqttWolService : Service() {
 
     private var mqttClient: Mqtt3AsyncClient? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var cachedConfig: MqttConfig? = null
 
     companion object {
         const val TAG = "MqttWolService"
@@ -36,16 +37,44 @@ class MqttWolService : Service() {
         return null
     }
 
+    private fun getMqttConfig(): MqttConfig {
+        var config = cachedConfig
+        if (config == null) {
+            config = MqttConfigManager(this).getConfig()
+            cachedConfig = config
+        }
+        return config
+    }
+
+    private fun acquireWakeLock(timeout: Long) {
+        try {
+            if (wakeLock == null) {
+                val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MqttWolService::WakeLock")
+            }
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire(timeout)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Acquire WakeLock 失敗", e)
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Release WakeLock 失敗", e)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service Created")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification("Initializing MQTT Service..."))
-
-        // Acquire WakeLock
-        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MqttWolService::WakeLock")
-        wakeLock?.acquire(10 * 60 * 1000L * 60) // 10 hours for testing
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -85,13 +114,15 @@ class MqttWolService : Service() {
              }
     }
     private fun connectMqtt() {
-        if (mqttClient != null && mqttClient!!.state.isConnected) {
+        cachedConfig = null
+        val currentClient = mqttClient
+        if (currentClient != null && currentClient.state.isConnected) {
             Log.d(TAG, "Already connected")
             AppGlobalState.updateState(MqttConnectionState.CONNECTED)
             return
         }
 
-        val config = MqttConfigManager(this).getConfig()
+        val config = getMqttConfig()
         Log.d(TAG, "Connecting to ${config.host}:${config.port} as ${config.username}")
         
         if (config.host.isEmpty()) {
@@ -105,6 +136,9 @@ class MqttWolService : Service() {
         // Report Connecting State
         val protocolPrefix = if (config.useSsl) "ssl://" else "tcp://"
         AppGlobalState.updateState(MqttConnectionState.CONNECTING, url = "$protocolPrefix${config.host}:${config.port}")
+
+        // Acquire WakeLock during connection attempt (30 seconds timeout)
+        acquireWakeLock(30 * 1000L)
 
         val builder = MqttClient.builder()
             .useMqttVersion3()
@@ -139,6 +173,7 @@ class MqttWolService : Service() {
             .keepAlive(config.keepAlive)
             .send()
             .whenComplete { connAck: Mqtt3ConnAck?, throwable: Throwable? ->
+                releaseWakeLock()
                 if (throwable != null) {
                     Log.e(TAG, "Connection failed", throwable)
                     updateNotification("MQTT Connection Failed. Retrying...")
@@ -172,7 +207,7 @@ class MqttWolService : Service() {
                 AppLogger.log("MQTT Received: $payload")
                 
 
-                val config = MqttConfigManager(this).getConfig()
+                val config = getMqttConfig()
 
                 // 1. Check for "ACTION,MAC" format
                 if (payload.contains(",")) {
@@ -281,9 +316,21 @@ class MqttWolService : Service() {
             }
     }
 
+    @Suppress("DEPRECATION")
     override fun onDestroy() {
+        try {
+            mqttClient?.disconnect()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error disconnecting MQTT", e)
+        }
+        releaseWakeLock()
+        AppGlobalState.updateState(MqttConnectionState.DISCONNECTED)
+        cachedConfig = null
+        try {
+            stopForeground(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping foreground", e)
+        }
         super.onDestroy()
-        mqttClient?.disconnect()
-        wakeLock?.release()
     }
 }

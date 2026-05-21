@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import androidx.core.content.FileProvider
-import com.example.wakeonlanhomephone.GithubRelease
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -32,84 +31,113 @@ class UpdateManager(private val context: Context) {
 
     private val service = retrofit.create(GithubService::class.java)
 
-    fun checkForUpdate(currentVersion: String, onResult: (Boolean, String?) -> Unit) {
+    private fun isNewerVersion(latest: String, current: String): Boolean {
+        val latestParts = latest.split(".").mapNotNull { it.toIntOrNull() }
+        val currentParts = current.split(".").mapNotNull { it.toIntOrNull() }
+        val size = maxOf(latestParts.size, currentParts.size)
+        for (i in 0 until size) {
+            val l = latestParts.getOrElse(i) { 0 }
+            val c = currentParts.getOrElse(i) { 0 }
+            if (l > c) return true
+            if (l < c) return false
+        }
+        return false
+    }
+
+    fun checkForUpdate(currentVersion: String, onResult: (Boolean, String?, String?) -> Unit) {
         service.getLatestRelease().enqueue(object : Callback<GithubRelease> {
             override fun onResponse(call: Call<GithubRelease>, response: Response<GithubRelease>) {
                 if (response.isSuccessful) {
                     val release = response.body()
                     if (release != null) {
                         val latestVersion = release.tagName.removePrefix("v")
-                        // Simple string comparison or semver depending on your tag format
-                        if (latestVersion != currentVersion) { // Assuming naive string check for now
-                             // Find the APK asset
-                             val apkAsset = release.assets.find { it.name.contains("home-phone") && it.name.endsWith(".apk") }
+                        if (isNewerVersion(latestVersion, currentVersion)) {
+                            val apkAsset = release.assets?.find { it.name.contains("home-phone") && it.name.endsWith(".apk") }
                             if (apkAsset != null) {
-                                onResult(true, apkAsset.downloadUrl)
+                                onResult(true, apkAsset.downloadUrl, release.tagName)
                             } else {
-                                onResult(false, null)
+                                onResult(false, null, null)
                             }
                         } else {
-                            onResult(false, null)
+                            onResult(false, null, null)
                         }
                     } else {
-                         onResult(false, null)
+                        onResult(false, null, null)
                     }
                 } else {
-                    onResult(false, null)
+                    onResult(false, null, null)
                 }
             }
 
             override fun onFailure(call: Call<GithubRelease>, t: Throwable) {
-                 onResult(false, null)
+                onResult(false, null, null)
             }
         })
     }
 
     fun downloadAndInstall(url: String) {
+        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "wakeonlanhomephone_update.apk")
+        if (file.exists()) {
+            file.delete()
+        }
+
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("Downloading Update")
-            .setDescription("Downloading latest version of wakeonlanhomephone")
+            .setTitle("下載更新")
+            .setDescription("正在下載最新版本的家用喚醒助手")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "wakeonlanhomephone_update.apk")
+            .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "wakeonlanhomephone_update.apk")
             .setMimeType("application/vnd.android.package-archive")
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = downloadManager.enqueue(request)
 
-        // Register Receiver for completion
         val onComplete = object : BroadcastReceiver() {
             override fun onReceive(ctxt: Context, intent: Intent) {
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
                 if (downloadId == id) {
-                    installApk(downloadId)
-                    context.unregisterReceiver(this)
+                    val query = DownloadManager.Query().setFilterById(downloadId)
+                    val cursor = downloadManager.query(query)
+                    var status = DownloadManager.STATUS_FAILED
+                    if (cursor != null && cursor.moveToFirst()) {
+                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                        if (statusIndex != -1) {
+                            status = cursor.getInt(statusIndex)
+                        }
+                        cursor.close()
+                    }
+
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                        installApk()
+                    } else {
+                        Toast.makeText(context, "下載失敗", Toast.LENGTH_SHORT).show()
+                    }
+                    try {
+                        context.applicationContext.unregisterReceiver(this)
+                    } catch (e: IllegalArgumentException) {
+                        // Already unregistered
+                    }
                 }
             }
         }
-        context.registerReceiver(onComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            Context.RECEIVER_NOT_EXPORTED)
+        context.applicationContext.registerReceiver(
+            onComplete,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            Context.RECEIVER_NOT_EXPORTED
+        )
     }
 
-    private fun installApk(downloadId: Long) {
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val uri = downloadManager.getUriForDownloadedFile(downloadId)
-        
-        if (uri != null) {
+    private fun installApk() {
+        val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "wakeonlanhomephone_update.apk")
+        if (file.exists()) {
             val intent = Intent(Intent.ACTION_VIEW)
-            
-            // For FileProvider (Android 7+)
-            val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "wakeonlanhomephone_update.apk")
-            // Note: downloadManager.getUriForDownloadedFile returns a content:// uri if possible, but let's be robust
-            
             val contentUri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-            
             intent.setDataAndType(contentUri, "application/vnd.android.package-archive")
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            
             context.startActivity(intent)
         } else {
-            Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "找不到安裝檔", Toast.LENGTH_SHORT).show()
         }
     }
 }
+

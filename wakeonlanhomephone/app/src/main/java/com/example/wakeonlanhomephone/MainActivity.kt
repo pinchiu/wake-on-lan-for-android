@@ -136,12 +136,13 @@ class MainActivity : ComponentActivity() {
                 onRestartMqttService = {
                     Intent(this, MqttWolService::class.java).also { intent ->
                         stopService(intent)
-                        // Small delay or just start immediately? Android services handle partial restarts fine usually.
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                            startForegroundService(intent)
-                        } else {
-                            startService(intent)
-                        }
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                startForegroundService(intent)
+                            } else {
+                                startService(intent)
+                            }
+                        }, 300)
                     }
                 },
                 configManager = configManager,
@@ -152,8 +153,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        Intent(this, WolListenerService::class.java).also { intent ->
-            bindService(intent, connection, android.content.Context.BIND_AUTO_CREATE)
+        if (!isBound) {
+            Intent(this, WolListenerService::class.java).also { intent ->
+                bindService(intent, connection, 0)
+            }
         }
     }
 
@@ -284,6 +287,7 @@ fun MainScreen(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
                         .padding(horizontal = 24.dp, vertical = 24.dp)
                 ) {
                     Surface(
@@ -718,8 +722,12 @@ fun NewSettingsScreen(
                                     // Update available - show download button
                                     Button(
                                         onClick = {
-                                            updateManager.downloadAndInstall(updateAvailable!!)
-                                            Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
+                                            updateAvailable?.let { url ->
+                                                updateManager.downloadAndInstall(url)
+                                                Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
+                                                updateAvailable = null
+                                                updateMessage = "正在下載並安裝更新，請稍候..."
+                                            }
                                         },
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(12.dp),
@@ -751,11 +759,11 @@ fun NewSettingsScreen(
                                         onClick = {
                                             isChecking = true
                                             updateMessage = "正在檢查更新..."
-                                            updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl ->
+                                            updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
                                                 isChecking = false
                                                 if (hasUpdate && downloadUrl != null) {
                                                     updateAvailable = downloadUrl
-                                                    updateMessage = "偵測到新版本！"
+                                                    updateMessage = "偵測到新版本：${tag ?: ""}"
                                                 } else {
                                                     updateMessage = "已是最新版本"
                                                 }

@@ -41,6 +41,49 @@ fun ConnectionsScreen(
     onSettings: () -> Unit,
     brokerUrl: String
 ) {
+    var deviceToDeleteId by remember { mutableStateOf<String?>(null) }
+
+    if (deviceToDeleteId != null) {
+        val deviceName = devices.find { it.id == deviceToDeleteId }?.name ?: ""
+        AlertDialog(
+            onDismissRequest = { deviceToDeleteId = null },
+            title = {
+                Text(
+                    text = "確認刪除設備",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = "您確定要刪除設備「$deviceName」嗎？此操作無法復原。",
+                    color = Slate300
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        deviceToDeleteId?.let { onDeleteDevice(it) }
+                        deviceToDeleteId = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonRed)
+                ) {
+                    Text("確定刪除", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { deviceToDeleteId = null }
+                ) {
+                    Text("取消", color = Slate400)
+                }
+            },
+            containerColor = BackroundDark,
+            shape = RoundedCornerShape(16.dp),
+            tonalElevation = 8.dp
+        )
+    }
+
     Scaffold(
         containerColor = BackroundDark,
         floatingActionButton = {
@@ -88,12 +131,15 @@ fun ConnectionsScreen(
             
             // Device List
             LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                items(devices) { device ->
+                items(
+                    items = devices,
+                    key = { it.id }
+                ) { device ->
                     NavyDeviceCard(
                         device = device,
                         isOnline = deviceStatuses[device.id] ?: false,
                         brokerUrl = brokerUrl,
-                        onDelete = { onDeleteDevice(device.id) },
+                        onDelete = { deviceToDeleteId = device.id },
                         onEdit = { onEditDevice(device) },
                         onToggle = { onToggleDevice(device) }
                     )
