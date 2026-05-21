@@ -8,6 +8,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -174,7 +176,8 @@ fun UltimateRemoteScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp)
-                .systemBarsPadding(),
+                .systemBarsPadding()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Header
@@ -307,56 +310,70 @@ fun UltimateRemoteScreen() {
             Spacer(modifier = Modifier.height(32.dp))
 
             // Actions Grid
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                item {
-                    CommandButton(
-                        text = "WAKE",
-                        icon = Icons.Rounded.Bolt,
-                        color = NeonGreen,
-                        onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") },
-                        enabled = !isLoading
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        CommandButton(
+                            text = "WAKE",
+                            icon = Icons.Rounded.Bolt,
+                            color = NeonGreen,
+                            onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") },
+                            enabled = !isLoading
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        CommandButton(
+                            text = "SLEEP",
+                            icon = Icons.Rounded.Bedtime,
+                            color = NeonBlue,
+                            onClick = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
+                            enabled = !isLoading
+                        )
+                    }
                 }
-                item {
-                    CommandButton(
-                        text = "SLEEP",
-                        icon = Icons.Rounded.Bedtime,
-                        color = NeonBlue,
-                        onClick = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        CommandButton(
+                            text = "REBOOT",
+                            icon = Icons.Rounded.Refresh,
+                            color = NeonOrange,
+                            onClick = { sendCommand("REBOOT:${computerLocalIpv4.trim()}") },
+                            enabled = !isLoading
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        CommandButton(
+                            text = "HIBERNATE",
+                            icon = Icons.Rounded.AcUnit,
+                            color = Color(0xFF00B0FF),
+                            onClick = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
+                            enabled = !isLoading
+                        )
+                    }
                 }
-                item {
-                    CommandButton(
-                        text = "REBOOT",
-                        icon = Icons.Rounded.Refresh,
-                        color = NeonOrange,
-                        onClick = { sendCommand("REBOOT:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading
-                    )
-                }
-                item {
-                    CommandButton(
-                        text = "HIBERNATE",
-                        icon = Icons.Rounded.AcUnit,
-                        color = Color(0xFF00B0FF),
-                        onClick = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading
-                    )
-                }
-                item {
-                    CommandButton(
-                        text = "SHUTDOWN",
-                        icon = Icons.Rounded.PowerSettingsNew,
-                        color = NeonRed,
-                        onClick = { sendCommand("SHUTDOWN:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        CommandButton(
+                            text = "SHUTDOWN",
+                            icon = Icons.Rounded.PowerSettingsNew,
+                            color = NeonRed,
+                            onClick = { sendCommand("SHUTDOWN:${computerLocalIpv4.trim()}") },
+                            enabled = !isLoading
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
 
