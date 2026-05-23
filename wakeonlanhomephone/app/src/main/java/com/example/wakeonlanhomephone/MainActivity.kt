@@ -237,6 +237,7 @@ fun MainScreen(
                                     onStopMqtt()
                                 },
                                 logs = logs,
+                                onClearLogs = { AppLogger.clear() },
                                 onSettings = { currentTab = Tab.Settings }
                             )
                         }

@@ -90,48 +90,69 @@ class WolListenerService : Service() {
                             if (isValidMac(payload)) {
                                 val result = sendMagicPacketIPv6(payload)
                                 Log.d(TAG, "WoL send result: $result")
+                                AppLogger.log("WOL Action: $result")
                             } else {
                                 Log.e(TAG, "Invalid MAC: $payload")
+                                AppLogger.log("Error: Invalid MAC '$payload'")
                             }
                         }
                         "SHUTDOWN" -> {
                             if (isValidIpv4(payload)) {
-                                Thread { sendCommandToPC("shutdown", payload) }.start()
+                                Thread { 
+                                    val result = sendCommandToPC("shutdown", payload)
+                                    AppLogger.log("PC Action: $result")
+                                }.start()
                             } else {
                                 Log.e(TAG, "Invalid IP: $payload")
+                                AppLogger.log("Error: Invalid IP '$payload'")
                             }
                         }
                         "REBOOT" -> {
                             if (isValidIpv4(payload)) {
-                                Thread { sendCommandToPC("reboot", payload) }.start()
+                                Thread { 
+                                    val result = sendCommandToPC("reboot", payload)
+                                    AppLogger.log("PC Action: $result")
+                                }.start()
                             } else {
                                 Log.e(TAG, "Invalid IP: $payload")
+                                AppLogger.log("Error: Invalid IP '$payload'")
                             }
                         }
                         "SLEEP" -> {
                             if (isValidIpv4(payload)) {
-                                Thread { sendCommandToPC("sleep", payload) }.start()
+                                Thread { 
+                                    val result = sendCommandToPC("sleep", payload)
+                                    AppLogger.log("PC Action: $result")
+                                }.start()
                             } else {
                                 Log.e(TAG, "Invalid IP: $payload")
+                                AppLogger.log("Error: Invalid IP '$payload'")
                             }
                         }
                         "HIBERNATE" -> {
                             if (isValidIpv4(payload)) {
-                                Thread { sendCommandToPC("hibernate", payload) }.start()
+                                Thread { 
+                                    val result = sendCommandToPC("hibernate", payload)
+                                    AppLogger.log("PC Action: $result")
+                                }.start()
                             } else {
                                 Log.e(TAG, "Invalid IP: $payload")
+                                AppLogger.log("Error: Invalid IP '$payload'")
                             }
                         }
                         "MAC" -> {
                             if (isValidMac(payload)) {
                                 val result = sendMagicPacketIPv6(payload)
                                 Log.d(TAG, "WoL send result: $result")
+                                AppLogger.log("WOL Action: $result")
                             } else {
                                 Log.e(TAG, "Invalid MAC: $payload")
+                                AppLogger.log("Error: Invalid MAC '$payload'")
                             }
                         }
                         else -> {
                             Log.w(TAG, "Unknown action: $action")
+                            AppLogger.log("Error: Unknown action '$action'")
                         }
                     }
 
@@ -143,6 +164,7 @@ class WolListenerService : Service() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Could not bind to port $LISTENING_PORT", e)
+            AppLogger.log("Error: Could not bind to port $LISTENING_PORT (${e.message})")
         } finally {
             socket?.close()
             socket = null

@@ -442,6 +442,29 @@ fun LogItem(log: String) {
     
     val (timestamp, fromText, detailText) = parsed
     
+    val statusInfo = remember(fromText, detailText) {
+        val lowerMessage = detailText.lowercase()
+        
+        when {
+            lowerMessage.contains("error") || lowerMessage.contains("failed") -> {
+                "狀態：錯誤" to NeonRed
+            }
+            lowerMessage.contains("listening on") || lowerMessage.contains("started") || lowerMessage.contains("connected") -> {
+                "狀態：系統就緒" to NeonGreen
+            }
+            lowerMessage.contains("received") -> {
+                "狀態：收到指令" to CyberCyan
+            }
+            lowerMessage.contains("action") || lowerMessage.contains("published to") || lowerMessage.contains("sent") -> {
+                "狀態：指令已執行" to NeonBlue
+            }
+            else -> {
+                "狀態：系統日誌" to Slate400
+            }
+        }
+    }
+    val (statusText, statusColor) = statusInfo
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = SurfaceGlass,
@@ -454,7 +477,7 @@ fun LogItem(log: String) {
                 modifier = Modifier
                     .width(4.dp)
                     .fillMaxHeight()
-                    .background(NeonBlue)
+                    .background(statusColor)
             )
             
             Column(
@@ -473,7 +496,7 @@ fun LogItem(log: String) {
                 }
                 Text(
                     fromText,
-                    color = NeonBlue.copy(alpha = 0.8f),
+                    color = statusColor.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.labelSmall,
                     fontFamily = FontFamily.Monospace
                 )
@@ -513,12 +536,12 @@ fun LogItem(log: String) {
                     Box(
                         modifier = Modifier
                             .size(6.dp)
-                            .background(NeonBlue, CircleShape)
+                            .background(statusColor, CircleShape)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Status: WOL Packet Broadcasted",
-                        color = NeonBlue,
+                        statusText,
+                        color = statusColor,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium
                     )
