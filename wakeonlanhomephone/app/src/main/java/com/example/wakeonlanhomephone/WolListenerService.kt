@@ -60,7 +60,13 @@ class WolListenerService : Service() {
 
     private fun listener() {
         try {
-            socket = DatagramSocket(LISTENING_PORT)
+            try {
+                socket = DatagramSocket(InetSocketAddress(InetAddress.getByName("::"), LISTENING_PORT))
+                Log.d(TAG, "Socket bound to IPv6 wildcard [::] successfully")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to bind to IPv6 wildcard, falling back to default", e)
+                socket = DatagramSocket(LISTENING_PORT)
+            }
             socket?.soTimeout = SOCKET_TIMEOUT_MS
             Log.d(TAG, "Started listening on UDP port $LISTENING_PORT")
             
