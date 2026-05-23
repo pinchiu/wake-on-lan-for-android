@@ -94,8 +94,17 @@ class MainActivity : ComponentActivity() {
                 AppGlobalState.updateDevices(deviceManager.getDevices())
             }
 
+            var isServiceRunning by remember { mutableStateOf(false) }
+            LaunchedEffect(wolService) {
+                wolService?.isRunning?.collect { running ->
+                    isServiceRunning = running
+                } ?: run {
+                    isServiceRunning = false
+                }
+            }
+
             MainScreen(
-                wolService = wolService,
+                isServiceRunning = isServiceRunning,
                 isBound = isBound,
                 onStartService = {
                     Intent(this, WolListenerService::class.java).also { intent ->
@@ -174,7 +183,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen(
-    wolService: WolListenerService?,
+    isServiceRunning: Boolean,
     isBound: Boolean,
     onStartService: () -> Unit,
     onStopService: () -> Unit,
@@ -190,7 +199,7 @@ fun MainScreen(
     var deviceToEdit by remember { mutableStateOf<MqttDevice?>(null) } 
 
     // Service & Data State
-    val isServiceRunning by wolService?.isRunning?.collectAsState() ?: remember { mutableStateOf(false) }
+
     val logs by AppLogger.logs.collectAsState()
     val devices by AppGlobalState.devices.collectAsState()
     val deviceStatuses by AppGlobalState.deviceStatuses.collectAsState()
