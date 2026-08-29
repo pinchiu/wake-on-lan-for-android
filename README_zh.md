@@ -1,129 +1,105 @@
-# Wake-on-LAN Home Phone Remote Control
-[🇺🇸 English README](README.md)
+# Wake-on-LAN 家用手機遠端喚醒控制系統
+[English README](README.md)
 
-一個遠端控制系統，使用 Android 手機作為助手，通過行動數據和本地網路，實現對電腦的 Wake-on-LAN (WoL)、關機和重啟。
+一套利用備用 Android 手機作為「家用助手」，透過行動網路、網際網路與區域網路，對電腦進行 Wake-on-LAN (WoL) 遠端喚醒、關機、重啟、睡眠與休眠控制的系統。
 
 ## 功能特色
-- **Wake-on-LAN**: 透過 UDP (區域網路) 或 MQTT (網際網路) 遠端喚醒電腦。
-- **遠端關機/重啟**: 透過區域網路或 MQTT 指令控制電源狀態。
-- **MQTT 支援**: 連接至任何 MQTT Broker (如 Adafruit IO, HiveMQ)，無需設定連接埠轉發即可真正遠端控制。
-- **跨平台電腦腳本**: Python 腳本支援 Windows, Linux, 和 macOS。
-- **安全監聽**: 使用本地 UDP 埠與加密 MQTT 連線 (SSL/TLS)。
+- **Wake-on-LAN 遠端喚醒**：支援透過區域網路 UDP 廣播，或透過外網 TCP / MQTT 遠端喚醒電腦。
+- **遠端關機 / 重啟 / 睡眠 / 休眠**：透過區域網路或遠端助手指令控制電腦電源狀態。
+- **可靠的雙手機直連架構 (TCP)**：外出手機與家中助手端透過 IPv6/IPv4 以 TCP (Port 9876) 建立連線，具備即時雙向確認 (ACK) 與狀態回傳反饋。
+- **內網直連模式 (Local LAN Mode)**：當外出手機連上家中 Wi-Fi 時，可切換為內網模式直接透過 UDP (Port 9) 發送 Magic Packet，無須經過助手手機中轉。
+- **MQTT 雲端模式**：可連線至任何 MQTT Broker (如 Adafruit IO、HiveMQ、EMQX 等)，無須設定路由器連接埠轉發即可跨防火牆控制。
+- **跨平台電腦端接收腳本**：Python 腳本支援 Windows、Linux 與 macOS。
 
 ## 下載
 
-您可以從 [GitHub 發行頁面](https://github.com/pinchiu/wake-on-lan-for-andoiriod/releases/tag/v20250930) 下載預先建置的 APK 檔案。
+您可以從 [GitHub Releases 發行頁面](https://github.com/pinchiu/wake-on-lan-for-android/releases) 下載預先建置完成的 APK 檔案：
 
-- **`wakeonlan-home-phone.apk`**：將此應用程式安裝在與您電腦連接到相同 Wi-Fi 網路的手機上。這支手機將作為「助手」。
-- **`wakeonwan-remote-phone.apk`**：將此應用程式安裝在您要從任何地方傳送指令的手機上。這是您的「遙控器」。
+- `wakeonlan-home-phone.apk`：安裝於放置在家中且與目標電腦連接同一 Wi-Fi 網路的備用手機（助手端）。
+- `wakeonwan-remote-phone.apk`：安裝於隨身攜帶的外出手機（遙控器端）。
+
+## 通訊架構與協定說明
+
+1. **外出手機 -> 家中助手手機 (外網直連模式)**：
+   - 使用 **TCP (Port 9876)** 透過公網 IPv6 / IPv4 傳輸。
+   - 保證封包可靠送達並即時接收助手端回傳的執行結果。
+2. **外出手機 -> 家中助手手機 (MQTT 模式)**：
+   - 使用 **MQTT (TCP/TLS)** 透過外部 Broker 轉發。
+   - 適合無公網 IPv6 或受限於嚴格 NAT 防火牆之環境。
+3. **外出手機 -> 目標電腦 (內網直連模式)**：
+   - WoL 喚醒：透過 **UDP (Port 9)** 發送 Magic Packet 廣播至 `255.255.255.255`。
+   - 電腦控制：透過 **UDP (Port 9877)** 發送控制指令至電腦區域網路 IP。
+4. **家中助手手機 -> 目標電腦 (內網中轉喚醒與控制)**：
+   - WoL 喚醒：透過 **UDP (Port 9)** 發送 Magic Packet 廣播。
+   - 電腦控制：透過 **UDP (Port 9877)** 發送控制指令至執行 `pc_onoff.py` 之電腦。
 
 ## 先決條件
-- **Android 手機**：一支作為助手（在同一 LAN 網路），一支遠端控制（行動數據）。
-- **電腦**：安裝 Python 3，且 BIOS/網路卡啟用 WoL（電腦需 Wake-on-LAN 支援）。
-- **網路**：助手手機和電腦在同一 Wi-Fi 子網路。關機/重啟支援行動數據路由。
+- **Android 手機**：一支作為家中助手（與電腦處於同一區域網路），另一支作為外出遙控器。
+- **目標電腦**：需安裝 Python 3，且主機板 BIOS/UEFI 與網路卡驅動程式已啟用 Wake-on-LAN 功能。
+- **網路環境**：家中助手手機與電腦需位於同一 Wi-Fi 子網路。
 
-## 安裝與設定
+## 安裝與設定流程
 
-### 1. 安裝電腦端 Python 監聽器
-下載 `computer/pc_onoff.py` 到電腦。您可以手動測試它。
+### 1. 安裝電腦端 Python 監聽程式
+將專案中的 `computer/pc_onoff.py` 下載至目標電腦。可先手動執行測試：
 
 ```bash
 cd computer
 python pc_onoff.py
 ```
 
-#### 自動啟動（開機時）
-
-為了讓 Python 腳本在您登入電腦時自動運行，請按照以下說明操作。
+#### 設定開機自動背景執行
 
 - **Windows**：
-  您可以使用 Windows 工作排程器來建立新工作。以系統管理員身分開啟命令提示字元，然後執行以下命令。請務必將 `C:\path\to\pc_onoff.py` 取代為您電腦上 `pc_onoff.py` 檔案的實際路徑。
-  ```
+  以系統管理員身分開啟命令提示字元 (CMD)，執行以下指令建立工作排程：
+  ```cmd
   schtasks /create /tn "RemoteControlListener" /tr "pythonw \"C:\path\to\pc_onoff.py\"" /sc onlogon /rl highest /f
   ```
-  *注意：我們使用 `pythonw.exe` 而非 `python.exe` 來執行腳本，這樣就不會顯示主控台視窗。*
+  *(註：使用 `pythonw.exe` 執行可避免彈出主控台視窗。)*
 
 - **Linux (未測試 / Untested)**：
-  > **注意**：此腳本尚未在 Linux 上完全驗證。使用風險請自負。
-  您可以使用 `cron` 在啟動時執行腳本。執行 `crontab -e` 來開啟您的 crontab，然後在檔案結尾新增以下這一行。請務必將 `/path/to/pc_onoff.py` 取代為檔案的實際路徑。
-  ```
+  於 `crontab -e` 中加入：
+  ```bash
   @reboot /usr/bin/python3 /path/to/pc_onoff.py
   ```
 
 - **macOS (未測試 / Untested)**：
-  > **注意**：此腳本尚未在 macOS 上完全驗證。使用風險請自負。
-  您可以使用 `launchd` 來建立啟動代理。在 `~/Library/LaunchAgents/` 中建立一個名為 `com.remotecontrol.listener.plist` 的新檔案，並填入以下內容。請務必將 `/path/to/pc_onoff.py` 取代為檔案的實際路徑。
-  ```xml
-  <?xml version="1.0" encoding="UTF-8"?>
-  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-  <plist version="1.0">
-  <dict>
-      <key>Label</key>
-      <string>com.remotecontrol.listener</string>
-      <key>ProgramArguments</key>
-      <array>
-          <string>/usr/bin/python3</string>
-          <string>/path/to/pc_onoff.py</string>
-      </array>
-      <key>RunAtLoad</key>
-      <true/>
-  </dict>
-  </plist>
-  ```
-  然後，執行 `launchctl load ~/Library/LaunchAgents/com.remotecontrol.listener.plist` 來載入代理。
+  建立 `~/Library/LaunchAgents/com.remotecontrol.listener.plist` 並使用 `launchctl` 載入。
 
 ### 2. 安裝 Android 應用程式
+從 [GitHub 發行頁面](https://github.com/pinchiu/wake-on-lan-for-android/releases) 下載 APK 並安裝：
+- `wakeonlan-home-phone.apk`
+- `wakeonwan-remote-phone.apk`
 
-您可以從 [GitHub 發行頁面](https://github.com/pinchiu/wake-on-lan-for-andoiriod/releases/tag/v20250930) 下載預先建置的 APK 檔案。
+*(若系統提示未知來源應用程式，請於 Android 設定中允許安裝。)*
 
-- **`wakeonlan-home-phone.apk`**：將此應用程式安裝在與您電腦連接到相同 Wi-Fi 網路的手機上。這支手機將作為「助手」。
-- **`wakeonwan-remote-phone.apk`**：將此應用程式安裝在您要從任何地方傳送指令的手機上。這是您的「遙控器」。
+### 3. 使用方式
 
-您需要在您的 Android 手機上啟用「安裝未知來源的應用程式」才能安裝 APK 檔案。
+#### A. TCP 直連模式（推薦具備 IPv6 之網路）
+1. 開啟 **家中助手手機 App** 並點擊啟動服務。畫面上將顯示目前本機在 TCP Port 9876 上的 IPv6 / IPv4 監聽位址。
+2. 開啟 **外出手機 App**：
+   - 填入家中助手手機的 IPv6 位址。
+   - 填入目標電腦的 MAC 位址與區域網路 IPv4 位址。
+   - 點擊 **WAKE**、**SHUTDOWN**、**REBOOT**、**SLEEP** 或 **HIBERNATE**。
+   - 狀態欄將即時顯示家中助手手機回傳的具體執行結果。
 
-### 3. 設定 App (MQTT 與 設定選項)
-1. 開啟 App 並點擊右上角的 **齒輪圖示 (⚙️)**。
-2. 您會看到 **設定選單**：
-   - **MQTT 設定**：設定您的 MQTT Broker 連線。
-   - **App 更新**：檢查並安裝最新版本的 App。
-3. **MQTT 設定內容**：
-   - **Broker/Host**：您的 MQTT Broker 位址 (例如 `io.adafruit.com`)。
-   - **Port**：通常是 `1883` (TCP) 或 `8883` (SSL)。
-   - **Username/Password**：您的 Broker 帳號密碼。
-   - **Topic**：要監聽的主題 (例如 `home/pc/control`)。
-   - **Target MAC**：(選填) 用於簡易 "WAKE" 指令的預設 MAC 位址。
+#### B. MQTT 雲端模式
+1. 於兩台手機 App 中設定相同的 MQTT Broker 參數（Host、Port、帳號、密碼與 Topic）。
+2. 發送指令至設定的 Topic：
+   - `WAKE:<MAC>`
+   - `SHUTDOWN:<IP>`
+   - `REBOOT:<IP>`
+   - `SLEEP:<IP>`
+   - `HIBERNATE:<IP>`
 
-### 4. 取得網路資訊
-- 電腦 IP（e.g., 192.168.1.100）。
-- 電腦 MAC 位址（e.g., `ipconfig /all` on Windows）。
-
-## 使用方法
-
-### 本地控制 (UDP)
-App 監聽 IPv6 port 9876。您可以從區域網路內的其他裝置發送 UDP 封包。
-
-### 遠端控制 (MQTT)
-發送訊息到您設定的 MQTT Topic：
-- **喚醒 (Wake)**: 內容 `WAKE` (使用設定的目標 MAC) 或 `WAKE,AA:BB:CC:DD:EE:FF`。
-- **關機 (Shutdown)**: 內容 `SHUTDOWN,192.168.1.100` (需搭配電腦腳本)。
-- **重啟 (Reboot)**: 內容 `REBOOT,192.168.1.100` (需搭配電腦腳本)。
-- **睡眠 (Sleep)**: 內容 `SLEEP,192.168.1.100`。
-- **休眠 (Hibernate)**: 內容 `HIBERNATE,192.168.1.100`。
-
-請檢查主畫面的 **即時日誌 (Live Logs)** 確認是否收到指令。
-
-## 佔用資源
-- **網路**：助手手機監聽 IPv6:9876，發送 UDP 到電腦:9877 (WoL broadcast)。
-- **權限**：手機需網路權限，電腦腳本需關機權限。
-- **條件**：依電腦設定，可能需管理員。
+#### C. 內網直連模式
+1. 當外出手機連上家中 Wi-Fi 時，於 App 內開啟 **Local LAN Mode**。
+2. 指令將直接透過本機廣播與 UDP 發送至電腦，無需經過助手手機。
 
 ## 疑難排解
-- **WoL 不動**：檢查 BIOS 啟用 WoL，網路廣播支援。
-- **UDP 失敗**：確保手機 IPv6 可達，電腦防火牆開放埠。
-- **錯誤訊息**：查看 App 日誌或 Python console。
+- **WoL 無法喚醒電腦**：請確認主機板 BIOS/UEFI 已開啟 Wake-on-LAN (或 PCI-E 電源喚醒)，以及 Windows 網卡進階內容中已開啟「魔術封包喚醒 (Wake on Magic Packet)」。
+- **TCP 連線失敗 / 逾時**：請確認家中 Wi-Fi 路由器防火牆是否允許傳入 TCP Port 9876，或確認發送端與接收端皆具備可路由之 IPv6 位址。
+- **電腦控制指令無反應**：請確認目標電腦已在背景執行 `pc_onoff.py`，且 Windows 防火牆已允許 UDP Port 9877 連入。
 
-## 貢獻
-歡迎提交 Issue 或 Pull Request！請遵守 MIT Licence。
-
-## 授權
-MIT Licence。詳見 [LICENSE](LICENSE)。
+## 授權條款
+本專案採用 MIT 授權條款。

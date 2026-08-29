@@ -25,7 +25,7 @@ class WolListenerService : Service() {
 
     private lateinit var serverThread: Thread
     private var wakeLock: PowerManager.WakeLock? = null
-    private var socket: DatagramSocket? = null
+    private var serverSocket: ServerSocket? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
@@ -46,7 +46,7 @@ class WolListenerService : Service() {
             Log.d(TAG, "Service started")
 
             createNotificationChannel()
-            startForeground(NOTIFICATION_ID, createNotification("Listening for wake-up commands..."))
+            startForeground(NOTIFICATION_ID, createNotification("Listening for wake-up commands (TCP)..."))
 
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WoLHelper::CpuWakeLock")
@@ -61,110 +61,30 @@ class WolListenerService : Service() {
     private fun listener() {
         try {
             try {
-                socket = DatagramSocket(InetSocketAddress(InetAddress.getByName("::"), LISTENING_PORT))
-                Log.d(TAG, "Socket bound to IPv6 wildcard [::] successfully")
+                serverSocket = ServerSocket(LISTENING_PORT, 50, InetAddress.getByName("::"))
+                Log.d(TAG, "ServerSocket bound to IPv6 wildcard [::] successfully")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to bind to IPv6 wildcard, falling back to default", e)
-                socket = DatagramSocket(LISTENING_PORT)
+                serverSocket = ServerSocket(LISTENING_PORT)
             }
-            socket?.soTimeout = SOCKET_TIMEOUT_MS
-            Log.d(TAG, "Started listening on UDP port $LISTENING_PORT")
+            serverSocket?.soTimeout = SOCKET_TIMEOUT_MS
+            Log.d(TAG, "Started listening on TCP port $LISTENING_PORT")
             
             // Log listening addresses to AppLogger for user visibility
             logListeningAddresses()
 
-            val buffer = ByteArray(256)
-
-            while (_isRunning.value && socket != null) {
+            while (_isRunning.value && serverSocket != null && !serverSocket!!.isClosed) {
                 try {
-                    val packet = DatagramPacket(buffer, buffer.size)
-                    socket?.receive(packet) ?: break
-
-                    val senderAddress = packet.address?.hostAddress ?: "Unknown source"
-                    val commandData = String(packet.data, 0, packet.length)
-
-                    val (action, payload) = parseCommand(commandData.trim())
-                    val logMessage = "Received [$action] from [$senderAddress]"
-
-                    Log.d(TAG, "$logMessage, Payload: $payload")
-                    AppLogger.log(logMessage)
-
-                    updateNotification("Last [$action] from: $senderAddress")
-
-                    when (action) {
-                        "WAKE" -> {
-                            if (isValidMac(payload)) {
-                                val result = sendMagicPacketIPv6(payload)
-                                Log.d(TAG, "WoL send result: $result")
-                                AppLogger.log("WOL Action: $result")
-                            } else {
-                                Log.e(TAG, "Invalid MAC: $payload")
-                                AppLogger.log("Error: Invalid MAC '$payload'")
-                            }
-                        }
-                        "SHUTDOWN" -> {
-                            if (isValidIpv4(payload)) {
-                                Thread { 
-                                    val result = sendCommandToPC("shutdown", payload)
-                                    AppLogger.log("PC Action: $result")
-                                }.start()
-                            } else {
-                                Log.e(TAG, "Invalid IP: $payload")
-                                AppLogger.log("Error: Invalid IP '$payload'")
-                            }
-                        }
-                        "REBOOT" -> {
-                            if (isValidIpv4(payload)) {
-                                Thread { 
-                                    val result = sendCommandToPC("reboot", payload)
-                                    AppLogger.log("PC Action: $result")
-                                }.start()
-                            } else {
-                                Log.e(TAG, "Invalid IP: $payload")
-                                AppLogger.log("Error: Invalid IP '$payload'")
-                            }
-                        }
-                        "SLEEP" -> {
-                            if (isValidIpv4(payload)) {
-                                Thread { 
-                                    val result = sendCommandToPC("sleep", payload)
-                                    AppLogger.log("PC Action: $result")
-                                }.start()
-                            } else {
-                                Log.e(TAG, "Invalid IP: $payload")
-                                AppLogger.log("Error: Invalid IP '$payload'")
-                            }
-                        }
-                        "HIBERNATE" -> {
-                            if (isValidIpv4(payload)) {
-                                Thread { 
-                                    val result = sendCommandToPC("hibernate", payload)
-                                    AppLogger.log("PC Action: $result")
-                                }.start()
-                            } else {
-                                Log.e(TAG, "Invalid IP: $payload")
-                                AppLogger.log("Error: Invalid IP '$payload'")
-                            }
-                        }
-                        "MAC" -> {
-                            if (isValidMac(payload)) {
-                                val result = sendMagicPacketIPv6(payload)
-                                Log.d(TAG, "WoL send result: $result")
-                                AppLogger.log("WOL Action: $result")
-                            } else {
-                                Log.e(TAG, "Invalid MAC: $payload")
-                                AppLogger.log("Error: Invalid MAC '$payload'")
-                            }
-                        }
-                        else -> {
-                            Log.w(TAG, "Unknown action: $action")
-                            AppLogger.log("Error: Unknown action '$action'")
-                        }
-                    }
-
+                    val clientSocket = serverSocket?.accept() ?: break
+                    Thread {
+                        handleClientConnection(clientSocket)
+                    }.start()
                 } catch (timeout: SocketTimeoutException) {
+                    // Normal timeout to check _isRunning condition
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error while listening or socket was closed: ${e.message}", e)
+                    if (_isRunning.value) {
+                        Log.e(TAG, "Error while accepting TCP connection: ${e.message}", e)
+                    }
                     break
                 }
             }
@@ -172,18 +92,134 @@ class WolListenerService : Service() {
             Log.e(TAG, "Could not bind to port $LISTENING_PORT", e)
             AppLogger.log("Error: Could not bind to port $LISTENING_PORT (${e.message})")
         } finally {
-            socket?.close()
-            socket = null
+            try {
+                serverSocket?.close()
+            } catch (_: Exception) {}
+            serverSocket = null
             Log.d(TAG, "Listener thread finished")
         }
     }
 
+    private fun handleClientConnection(clientSocket: Socket) {
+        try {
+            clientSocket.soTimeout = 5000
+            val senderAddress = clientSocket.inetAddress?.hostAddress ?: "Unknown source"
+            val reader = clientSocket.getInputStream().bufferedReader()
+            val commandData = reader.readLine()?.trim() ?: ""
+
+            if (commandData.isNotEmpty()) {
+                val (action, payload) = parseCommand(commandData)
+                val logMessage = "Received [$action] from [$senderAddress]"
+
+                Log.d(TAG, "$logMessage, Payload: $payload")
+                AppLogger.log(logMessage)
+
+                updateNotification("Last [$action] from: $senderAddress")
+
+                val response: String = when (action) {
+                    "WAKE" -> {
+                        if (isValidMac(payload)) {
+                            val result = sendMagicPacketIPv6(payload)
+                            Log.d(TAG, "WoL send result: $result")
+                            AppLogger.log("WOL Action: $result")
+                            "SUCCESS: $result"
+                        } else {
+                            Log.e(TAG, "Invalid MAC: $payload")
+                            AppLogger.log("Error: Invalid MAC '$payload'")
+                            "ERROR: Invalid MAC '$payload'"
+                        }
+                    }
+                    "SHUTDOWN" -> {
+                        if (isValidIpv4(payload)) {
+                            val result = sendCommandToPC("shutdown", payload)
+                            AppLogger.log("PC Action: $result")
+                            "SUCCESS: $result"
+                        } else {
+                            Log.e(TAG, "Invalid IP: $payload")
+                            AppLogger.log("Error: Invalid IP '$payload'")
+                            "ERROR: Invalid IP '$payload'"
+                        }
+                    }
+                    "REBOOT" -> {
+                        if (isValidIpv4(payload)) {
+                            val result = sendCommandToPC("reboot", payload)
+                            AppLogger.log("PC Action: $result")
+                            "SUCCESS: $result"
+                        } else {
+                            Log.e(TAG, "Invalid IP: $payload")
+                            AppLogger.log("Error: Invalid IP '$payload'")
+                            "ERROR: Invalid IP '$payload'"
+                        }
+                    }
+                    "SLEEP" -> {
+                        if (isValidIpv4(payload)) {
+                            val result = sendCommandToPC("sleep", payload)
+                            AppLogger.log("PC Action: $result")
+                            "SUCCESS: $result"
+                        } else {
+                            Log.e(TAG, "Invalid IP: $payload")
+                            AppLogger.log("Error: Invalid IP '$payload'")
+                            "ERROR: Invalid IP '$payload'"
+                        }
+                    }
+                    "HIBERNATE" -> {
+                        if (isValidIpv4(payload)) {
+                            val result = sendCommandToPC("hibernate", payload)
+                            AppLogger.log("PC Action: $result")
+                            "SUCCESS: $result"
+                        } else {
+                            Log.e(TAG, "Invalid IP: $payload")
+                            AppLogger.log("Error: Invalid IP '$payload'")
+                            "ERROR: Invalid IP '$payload'"
+                        }
+                    }
+                    "MAC" -> {
+                        if (isValidMac(payload)) {
+                            val result = sendMagicPacketIPv6(payload)
+                            Log.d(TAG, "WoL send result: $result")
+                            AppLogger.log("WOL Action: $result")
+                            "SUCCESS: $result"
+                        } else {
+                            Log.e(TAG, "Invalid MAC: $payload")
+                            AppLogger.log("Error: Invalid MAC '$payload'")
+                            "ERROR: Invalid MAC '$payload'"
+                        }
+                    }
+                    else -> {
+                        Log.w(TAG, "Unknown action: $action")
+                        AppLogger.log("Error: Unknown action '$action'")
+                        "ERROR: Unknown action '$action'"
+                    }
+                }
+
+                val writer = clientSocket.getOutputStream().bufferedWriter()
+                writer.write(response + "\n")
+                writer.flush()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling TCP client connection: ${e.message}", e)
+        } finally {
+            try {
+                clientSocket.close()
+            } catch (_: Exception) {}
+        }
+    }
+
     private fun parseCommand(data: String): Pair<String, String> {
-        return if (data.contains(':')) {
-            val parts = data.split(':', limit = 2)
-            parts[0].uppercase() to parts[1]
+        val trimmed = data.trim()
+        val knownActions = setOf("WAKE", "SHUTDOWN", "REBOOT", "SLEEP", "HIBERNATE", "MAC")
+        return if (trimmed.contains(':')) {
+            val parts = trimmed.split(':', limit = 2)
+            val potentialAction = parts[0].uppercase()
+            if (potentialAction in knownActions) {
+                potentialAction to parts[1]
+            } else if (isValidMac(trimmed)) {
+                "WAKE" to trimmed
+            } else {
+                potentialAction to parts[1]
+            }
         } else {
-            "MAC" to data
+            "MAC" to trimmed
         }
     }
 
@@ -266,10 +302,10 @@ class WolListenerService : Service() {
             _isRunning.value = false
         }
         try {
-            socket?.close()
-            socket = null
+            serverSocket?.close()
+            serverSocket = null
         } catch (e: Exception) {
-            Log.e(TAG, "Error closing socket", e)
+            Log.e(TAG, "Error closing server socket", e)
         }
         if (::serverThread.isInitialized) {
             serverThread.interrupt()

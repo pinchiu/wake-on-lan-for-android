@@ -51,6 +51,8 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.Inet6Address
+import java.net.Socket
+import java.net.InetSocketAddress
 import java.util.Locale
 import android.widget.Toast
 import android.content.Intent
@@ -144,11 +146,12 @@ fun UltimateRemoteScreen() {
                     sendDirectCommandToPC(ip, action.lowercase(Locale.ROOT))
                 }
             } else {
-                sendUdpCommand(helperIpv6Address, command)
+                sendTcpCommand(helperIpv6Address, command)
             }
             statusMessage = result
             isStatusError = result.startsWith("Send failed") || result.startsWith("Address") ||
-                    result.startsWith("LAN WoL failed") || result.startsWith("Direct send failed")
+                    result.startsWith("LAN WoL failed") || result.startsWith("Direct send failed") ||
+                    result.startsWith("ERROR:")
             isLoading = false
         }
     }
@@ -644,23 +647,26 @@ fun CommandButton(
     }
 }
 
-private suspend fun sendUdpCommand(host: String, command: String): String {
+private suspend fun sendTcpCommand(host: String, command: String): String {
     return withContext(Dispatchers.IO) {
         if (host.isBlank() || command.isBlank()) {
             return@withContext "Address or command cannot be empty!"
         }
         try {
-            val serverAddr = Inet6Address.getByName(host)
-            val commandBytes = command.toByteArray()
-            val packet = DatagramPacket(commandBytes, commandBytes.size, serverAddr, 9876)
-            
-            // Check for IPv6 format to avoid common errors if possible, 
-            // but for now just trusting the input as per original app
-            
-            DatagramSocket().use { socket ->
-                socket.send(packet)
+            val targetAddr = InetAddress.getByName(host.trim())
+            val socket = Socket()
+            val socketAddress = InetSocketAddress(targetAddr, 9876)
+            socket.connect(socketAddress, 5000)
+            socket.soTimeout = 5000
+            socket.use { s ->
+                val writer = s.getOutputStream().bufferedWriter()
+                writer.write(command.trim() + "\n")
+                writer.flush()
+
+                val reader = s.getInputStream().bufferedReader()
+                val response = reader.readLine()
+                response ?: "Command sent, but no response from server."
             }
-            "Command sent: $command"
         } catch (e: Exception) {
             "Send failed: ${e.message}"
         }
