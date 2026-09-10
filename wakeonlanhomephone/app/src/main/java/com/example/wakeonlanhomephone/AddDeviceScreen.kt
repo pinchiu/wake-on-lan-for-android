@@ -2,11 +2,13 @@ package com.example.wakeonlanhomephone
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -30,16 +32,20 @@ import com.example.wakeonlanhomephone.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddDeviceScreen(
+    configManager: MqttConfigManager,
     onCancel: () -> Unit,
     onSave: (MqttDevice) -> Unit,
     deviceToEdit: MqttDevice? = null
 ) {
-    var name by remember { mutableStateOf(deviceToEdit?.name ?: "") }
-    var topic by remember { mutableStateOf(deviceToEdit?.topic ?: "") }
-    var brokerUrl by remember { mutableStateOf("") }
-    var port by remember { mutableStateOf("1883") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val currentConfig = remember { configManager.getConfig() }
+    var name by remember { mutableStateOf(deviceToEdit?.name ?: if (currentConfig.brokerName.isNotEmpty()) currentConfig.brokerName else "Adafruit IO") }
+    var topic by remember { mutableStateOf(deviceToEdit?.topic ?: currentConfig.topic) }
+    var brokerUrl by remember { mutableStateOf(currentConfig.host) }
+    var port by remember { mutableStateOf(if (currentConfig.port > 0) currentConfig.port.toString() else if (currentConfig.useSsl) "8883" else "1883") }
+    var protocol by remember { mutableStateOf(currentConfig.protocol) }
+    var useSsl by remember { mutableStateOf(currentConfig.useSsl) }
+    var username by remember { mutableStateOf(currentConfig.username) }
+    var password by remember { mutableStateOf(currentConfig.password) }
 
     Scaffold(
         topBar = {
@@ -65,6 +71,30 @@ fun AddDeviceScreen(
             ) {
                 Button(
                     onClick = { 
+                        val parsedPort = port.toIntOrNull() ?: if (useSsl) 8883 else 1883
+                        val cleanHost = brokerUrl
+                            .removePrefix("mqtt://")
+                            .removePrefix("tcp://")
+                            .removePrefix("ssl://")
+                            .removePrefix("ws://")
+                            .removePrefix("wss://")
+                            .substringBefore(":")
+                            .trim()
+
+                        // Save broker config
+                        configManager.saveConfig(
+                            currentConfig.copy(
+                                brokerName = name.ifEmpty { currentConfig.brokerName },
+                                host = cleanHost,
+                                port = parsedPort,
+                                username = username.trim(),
+                                password = password.trim(),
+                                useSsl = useSsl,
+                                protocol = protocol,
+                                topic = if (topic.isNotEmpty()) topic.trim() else currentConfig.topic
+                            )
+                        )
+
                         val device = if (deviceToEdit != null) {
                             deviceToEdit.copy(name = name, topic = topic)
                         } else {
@@ -98,19 +128,19 @@ fun AddDeviceScreen(
             
             // Broker Name
             InputGroup("Broker Name", Icons.Default.Info) {
-                NavyInput(value = name, onValueChange = { name = it }, placeholder = "Home Assistant")
+                NavyInput(value = name, onValueChange = { name = it }, placeholder = "Adafruit IO")
             }
             
             // Broker URL
             InputGroup("Broker Host / URL", Icons.Default.Share) { // 'link' icon
-                NavyInput(value = brokerUrl, onValueChange = { brokerUrl = it }, placeholder = "mqtt://broker.hivemq.com")
+                NavyInput(value = brokerUrl, onValueChange = { brokerUrl = it }, placeholder = "io.adafruit.com")
             }
             
             // Port & Protocol
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(modifier = Modifier.weight(1f)) {
                      InputGroup("Port", Icons.Default.Edit) { // Tag icon
-                        NavyInput(value = port, onValueChange = { port = it }, placeholder = "1883")
+                        NavyInput(value = port, onValueChange = { port = it }, placeholder = if (useSsl) "8883" else "1883")
                      }
                 }
                 Column(modifier = Modifier.weight(1f)) {
@@ -119,23 +149,46 @@ fun AddDeviceScreen(
                         modifier = Modifier.height(56.dp).fillMaxWidth().background(Navy900, RoundedCornerShape(8.dp)).border(1.dp, Navy700, RoundedCornerShape(8.dp)).padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                         // Mock Toggle
-                         Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).fillMaxHeight().background(Color.Transparent, RoundedCornerShape(6.dp))) {
-                             Text("TCP", color = PrimaryBlue, fontWeight = FontWeight.Bold)
+                         Box(
+                             contentAlignment = Alignment.Center,
+                             modifier = Modifier
+                                 .weight(1f)
+                                 .fillMaxHeight()
+                                 .clip(RoundedCornerShape(6.dp))
+                                 .background(if (protocol == "TCP") PrimaryBlue.copy(alpha = 0.3f) else Color.Transparent)
+                                 .clickable { 
+                                     protocol = "TCP"
+                                     if (useSsl && port == "8084") port = "8883"
+                                     else if (!useSsl && port == "8083") port = "1883"
+                                 }
+                         ) {
+                             Text("TCP", color = if (protocol == "TCP") PrimaryBlue else Slate500, fontWeight = FontWeight.Bold)
                          }
-                         Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f).fillMaxHeight()) {
-                             Text("WS", color = Slate500, fontWeight = FontWeight.Bold)
+                         Box(
+                             contentAlignment = Alignment.Center,
+                             modifier = Modifier
+                                 .weight(1f)
+                                 .fillMaxHeight()
+                                 .clip(RoundedCornerShape(6.dp))
+                                 .background(if (protocol != "TCP") PrimaryBlue.copy(alpha = 0.3f) else Color.Transparent)
+                                 .clickable { 
+                                     protocol = "WS"
+                                     if (useSsl && port == "8883") port = "8084"
+                                     else if (!useSsl && port == "1883") port = "8083"
+                                 }
+                         ) {
+                             Text("WS", color = if (protocol != "TCP") PrimaryBlue else Slate500, fontWeight = FontWeight.Bold)
                          }
                     }
                 }
             }
             
-            Divider(color = Navy700)
+            HorizontalDivider(color = Navy700)
             
             // Security Group
             ConfigSectionHeader("Security & Auth", Slate400) // Icon security
             
-            // SSL Toggle (Static UI for now)
+            // SSL Toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -152,34 +205,40 @@ fun AddDeviceScreen(
                      Spacer(Modifier.width(12.dp))
                      Column {
                          Text("Use SSL/TLS", color = Color.White, fontWeight = FontWeight.SemiBold)
-                         Text("Encrypt connection", color = Slate400, style = MaterialTheme.typography.bodySmall)
+                         Text("Encrypt connection (Port 8883)", color = Slate400, style = MaterialTheme.typography.bodySmall)
                      }
                  }
-                 Switch(checked = false, onCheckedChange = {})
+                 Switch(
+                     checked = useSsl,
+                     onCheckedChange = { checked ->
+                         useSsl = checked
+                         if (checked && port == "1883") port = "8883"
+                         else if (!checked && port == "8883") port = "1883"
+                     },
+                     colors = SwitchDefaults.colors(
+                         checkedThumbColor = NeonGreen,
+                         checkedTrackColor = Navy800
+                     )
+                 )
             }
             
             // Username
-            InputGroup("Username (Optional)", Icons.Default.Person) {
-                NavyInput(value = username, onValueChange = { username = it }, placeholder = "MQTTUser")
+            InputGroup("Username (Adafruit Username)", Icons.Default.Person) {
+                NavyInput(value = username, onValueChange = { username = it }, placeholder = "poochen")
             }
              // Password
-            InputGroup("Password (Optional)", Icons.Default.Lock) {
-                NavyInput(value = password, onValueChange = { password = it }, placeholder = "••••••••", visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+            InputGroup("Password (Adafruit AIO Key)", Icons.Default.Lock) {
+                NavyInput(value = password, onValueChange = { password = it }, placeholder = "aio_xxxxxxxxxxxxxxxxxxxxxxxx", visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
             }
             
-            Divider(color = Navy700)
+            HorizontalDivider(color = Navy700)
             
             // Target Settings
             ConfigSectionHeader("Target Device", Slate400)
             
-            // Target Topic (Mapped to 'Topic' in data model, though template says 'Target MAC Address'. We need Topic for MQTT. Template has 'Target MAC Address' input. 
-            // In WAKE ON LAN, usually it's MAC. But this is MQTT context. 
-            // The template 1 (Connections) shows "Target Topic: home/gaming/wol".
-            // Template 2 (Add) shows "Target MAC Address". 
-            // I suspect the user wants both? Or is confused? 
-            // Existing app uses Topic. I will label it "Target Topic" to match functionality but keep the UI style.
+            // Target Topic
             InputGroup("Target Topic", Icons.Default.Share) {
-                 NavyInput(value = topic, onValueChange = { topic = it }, placeholder = "home/gaming/wol")
+                 NavyInput(value = topic, onValueChange = { topic = it }, placeholder = "poochen/feeds/pc-command")
             }
             
             Spacer(Modifier.height(80.dp)) // Scroll padding

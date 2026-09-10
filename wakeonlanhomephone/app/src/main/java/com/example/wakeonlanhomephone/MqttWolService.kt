@@ -123,19 +123,29 @@ class MqttWolService : Service() {
         }
 
         val config = getMqttConfig()
-        Log.d(TAG, "Connecting to ${config.host}:${config.port} as ${config.username}")
+        val cleanHost = config.host
+            .removePrefix("mqtt://")
+            .removePrefix("tcp://")
+            .removePrefix("ssl://")
+            .removePrefix("ws://")
+            .removePrefix("wss://")
+            .substringBefore(":")
+            .trim()
+        val effectivePort = if (config.port > 0) config.port else if (config.useSsl) 8883 else 1883
+
+        Log.d(TAG, "Connecting to $cleanHost:$effectivePort as ${config.username}")
         
-        if (config.host.isEmpty()) {
+        if (cleanHost.isEmpty()) {
             Log.e(TAG, "Host is empty, skipping connection")
             AppGlobalState.updateState(MqttConnectionState.FAILED, error = "Host not configured")
             return
         }
 
-        AppLogger.log("Connecting to MQTT: ${config.host}")
+        AppLogger.log("Connecting to MQTT: $cleanHost:$effectivePort")
         
         // Report Connecting State
         val protocolPrefix = if (config.useSsl) "ssl://" else "tcp://"
-        AppGlobalState.updateState(MqttConnectionState.CONNECTING, url = "$protocolPrefix${config.host}:${config.port}")
+        AppGlobalState.updateState(MqttConnectionState.CONNECTING, url = "$protocolPrefix$cleanHost:$effectivePort")
 
         // Acquire WakeLock during connection attempt (30 seconds timeout)
         acquireWakeLock(30 * 1000L)
@@ -143,14 +153,14 @@ class MqttWolService : Service() {
         val builder = MqttClient.builder()
             .useMqttVersion3()
             .identifier(if (config.clientId.isNotEmpty()) config.clientId else UUID.randomUUID().toString())
-            .serverHost(config.host)
-            .serverPort(config.port)
+            .serverHost(cleanHost)
+            .serverPort(effectivePort)
 
         if (config.useSsl) {
             builder.sslWithDefaultConfig()
         }
 
-        if (config.protocol.equals("WebSocket", ignoreCase = true)) {
+        if (config.protocol.equals("WebSocket", ignoreCase = true) || config.protocol.equals("WS", ignoreCase = true)) {
             builder.webSocketWithDefaultConfig()
             Log.d(TAG, "Using WebSocket Protocol")
         } else {
@@ -165,12 +175,15 @@ class MqttWolService : Service() {
 
         val client = mqttClient ?: return
 
-        client.connectWith()
-            .simpleAuth()
-            .username(config.username)
-            .password(config.password.toByteArray(StandardCharsets.UTF_8))
-            .applySimpleAuth()
-            .keepAlive(config.keepAlive)
+        val connectBuilder = client.connectWith()
+        if (config.username.isNotEmpty()) {
+            val authBuilder = connectBuilder.simpleAuth().username(config.username)
+            if (config.password.isNotEmpty()) {
+                authBuilder.password(config.password.toByteArray(StandardCharsets.UTF_8))
+            }
+            authBuilder.applySimpleAuth()
+        }
+        connectBuilder.keepAlive(config.keepAlive)
             .send()
             .whenComplete { connAck: Mqtt3ConnAck?, throwable: Throwable? ->
                 releaseWakeLock()

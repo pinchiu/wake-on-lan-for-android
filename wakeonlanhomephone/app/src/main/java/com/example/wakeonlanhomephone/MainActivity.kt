@@ -209,6 +209,7 @@ fun MainScreen(
     WakeOnLanTheme {
         if (showAddDevice) {
             AddDeviceScreen(
+                configManager = configManager,
                 deviceToEdit = deviceToEdit,
                 onCancel = { 
                     showAddDevice = false
@@ -581,6 +582,15 @@ fun NewSettingsScreen(
     var isChecking by remember { mutableStateOf(false) }
     var updateAvailable by remember { mutableStateOf<String?>(null) }
     var updateMessage by remember { mutableStateOf<String?>(null) }
+
+    val currentConfig = remember { configManager.getConfig() }
+    var brokerHost by remember { mutableStateOf(currentConfig.host) }
+    var brokerPort by remember { mutableStateOf(if (currentConfig.port > 0) currentConfig.port.toString() else if (currentConfig.useSsl) "8883" else "1883") }
+    var brokerUser by remember { mutableStateOf(currentConfig.username) }
+    var brokerPass by remember { mutableStateOf(currentConfig.password) }
+    var brokerTopic by remember { mutableStateOf(currentConfig.topic) }
+    var useSsl by remember { mutableStateOf(currentConfig.useSsl) }
+    var autoConnect by remember { mutableStateOf(currentConfig.autoConnect) }
     
     Box(
         modifier = Modifier
@@ -648,6 +658,229 @@ fun NewSettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
                 contentPadding = PaddingValues(top = 24.dp, bottom = 24.dp)
             ) {
+                // MQTT Broker Configuration Section
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
+                        color = SurfaceGlass.copy(alpha = 0.4f),
+                        tonalElevation = 0.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Share, contentDescription = null, tint = NeonBlue, modifier = Modifier.size(24.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    "MQTT Broker 設定",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Text(
+                                "設定 Adafruit IO 或其他 MQTT Broker 連線資訊。若使用 Adafruit IO，密碼請填寫 AIO Key。",
+                                color = Slate400,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+
+                            // Host & Port
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Broker Host / URL", color = Slate300, style = MaterialTheme.typography.labelSmall)
+                                OutlinedTextField(
+                                    value = brokerHost,
+                                    onValueChange = { brokerHost = it },
+                                    placeholder = { Text("io.adafruit.com", color = Slate500) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = NeonBlue,
+                                        unfocusedBorderColor = GlassBorder,
+                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
+                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("Port", color = Slate300, style = MaterialTheme.typography.labelSmall)
+                                    OutlinedTextField(
+                                        value = brokerPort,
+                                        onValueChange = { brokerPort = it },
+                                        placeholder = { Text(if (useSsl) "8883" else "1883", color = Slate500) },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            focusedBorderColor = NeonBlue,
+                                            unfocusedBorderColor = GlassBorder,
+                                            focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
+                                            unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
+                                        ),
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("SSL/TLS 加密", color = Slate300, style = MaterialTheme.typography.labelSmall)
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Switch(
+                                            checked = useSsl,
+                                            onCheckedChange = { checked ->
+                                                useSsl = checked
+                                                if (checked && brokerPort == "1883") brokerPort = "8883"
+                                                else if (!checked && brokerPort == "8883") brokerPort = "1883"
+                                            },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = NeonBlue,
+                                                checkedTrackColor = NeonBlue.copy(alpha = 0.4f)
+                                            )
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(if (useSsl) "SSL" else "TCP", color = if (useSsl) NeonBlue else Slate400, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+
+                            // Username
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Username (Adafruit 使用者名稱)", color = Slate300, style = MaterialTheme.typography.labelSmall)
+                                OutlinedTextField(
+                                    value = brokerUser,
+                                    onValueChange = { brokerUser = it },
+                                    placeholder = { Text("poochen", color = Slate500) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = NeonBlue,
+                                        unfocusedBorderColor = GlassBorder,
+                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
+                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+
+                            // Password / AIO Key
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Password (Adafruit AIO Key)", color = Slate300, style = MaterialTheme.typography.labelSmall)
+                                OutlinedTextField(
+                                    value = brokerPass,
+                                    onValueChange = { brokerPass = it },
+                                    placeholder = { Text("aio_xxxxxxxxxxxxxxxxxxxxxxxx", color = Slate500) },
+                                    singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = NeonBlue,
+                                        unfocusedBorderColor = GlassBorder,
+                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
+                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+
+                            // Topic
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("預設監聽主題 (Topic)", color = Slate300, style = MaterialTheme.typography.labelSmall)
+                                OutlinedTextField(
+                                    value = brokerTopic,
+                                    onValueChange = { brokerTopic = it },
+                                    placeholder = { Text("poochen/feeds/pc-command", color = Slate500) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = NeonBlue,
+                                        unfocusedBorderColor = GlassBorder,
+                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
+                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+
+                            // Auto Connect
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("自動連線 (Auto Connect)", color = Slate300, style = MaterialTheme.typography.bodyMedium)
+                                Switch(
+                                    checked = autoConnect,
+                                    onCheckedChange = { autoConnect = it },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = NeonBlue,
+                                        checkedTrackColor = NeonBlue.copy(alpha = 0.4f)
+                                    )
+                                )
+                            }
+
+                            // Save Button
+                            Button(
+                                onClick = {
+                                    val parsedPort = brokerPort.toIntOrNull() ?: if (useSsl) 8883 else 1883
+                                    val cleanHost = brokerHost
+                                        .removePrefix("mqtt://")
+                                        .removePrefix("tcp://")
+                                        .removePrefix("ssl://")
+                                        .removePrefix("ws://")
+                                        .removePrefix("wss://")
+                                        .substringBefore(":")
+                                        .trim()
+
+                                    configManager.saveConfig(
+                                        currentConfig.copy(
+                                            host = cleanHost,
+                                            port = parsedPort,
+                                            username = brokerUser.trim(),
+                                            password = brokerPass.trim(),
+                                            useSsl = useSsl,
+                                            topic = brokerTopic.trim().ifEmpty { currentConfig.topic },
+                                            autoConnect = autoConnect
+                                        )
+                                    )
+                                    onSave()
+                                    Toast.makeText(context, "MQTT 設定已儲存並重新連線", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.fillMaxWidth().height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
+                            ) {
+                                Icon(Icons.Default.Done, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("儲存設定並重新連線", color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
                 // App Update Section
                 item {
                     Surface(
