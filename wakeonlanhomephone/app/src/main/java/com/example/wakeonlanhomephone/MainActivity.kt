@@ -255,6 +255,7 @@ fun MainScreen(
                             ConnectionsScreen(
                                 devices = devices,
                                 deviceStatuses = deviceStatuses,
+                                mqttState = mqttState,
                                 onAddDevice = { showAddDevice = true },
                                 onDeleteDevice = { 
                                     deviceManager.removeDevice(it)
@@ -288,6 +289,7 @@ fun MainScreen(
                         Tab.Settings -> {
                             NewSettingsScreen(
                                 configManager = configManager,
+                                mqttState = mqttState,
                                 onSave = { onRestartMqttService() }
                             )
                         }
@@ -565,6 +567,7 @@ fun StyledTextField(label: String, value: String, onValueChange: (String) -> Uni
 @Composable
 fun NewSettingsScreen(
     configManager: MqttConfigManager,
+    mqttState: MqttConnectionState,
     onSave: () -> Unit
 ) {
     val context = LocalContext.current
@@ -674,15 +677,76 @@ fun NewSettingsScreen(
                                 .padding(20.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Share, contentDescription = null, tint = NeonBlue, modifier = Modifier.size(24.dp))
-                                Spacer(Modifier.width(10.dp))
-                                Text(
-                                    "MQTT Broker 設定",
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Share, contentDescription = null, tint = NeonBlue, modifier = Modifier.size(24.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        "MQTT Broker 設定",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = when (mqttState) {
+                                        MqttConnectionState.CONNECTED -> NeonGreen.copy(alpha = 0.15f)
+                                        MqttConnectionState.CONNECTING -> CyberYellow.copy(alpha = 0.15f)
+                                        MqttConnectionState.FAILED -> NeonRed.copy(alpha = 0.15f)
+                                        MqttConnectionState.DISCONNECTED -> Slate700.copy(alpha = 0.5f)
+                                    },
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        when (mqttState) {
+                                            MqttConnectionState.CONNECTED -> NeonGreen.copy(alpha = 0.5f)
+                                            MqttConnectionState.CONNECTING -> CyberYellow.copy(alpha = 0.5f)
+                                            MqttConnectionState.FAILED -> NeonRed.copy(alpha = 0.5f)
+                                            MqttConnectionState.DISCONNECTED -> Slate600
+                                        }
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .background(
+                                                    when (mqttState) {
+                                                        MqttConnectionState.CONNECTED -> NeonGreen
+                                                        MqttConnectionState.CONNECTING -> CyberYellow
+                                                        MqttConnectionState.FAILED -> NeonRed
+                                                        MqttConnectionState.DISCONNECTED -> Slate400
+                                                    },
+                                                    CircleShape
+                                                )
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            when (mqttState) {
+                                                MqttConnectionState.CONNECTED -> "已連線"
+                                                MqttConnectionState.CONNECTING -> "連線中"
+                                                MqttConnectionState.FAILED -> "連線失敗"
+                                                MqttConnectionState.DISCONNECTED -> "未連線"
+                                            },
+                                            color = when (mqttState) {
+                                                MqttConnectionState.CONNECTED -> NeonGreen
+                                                MqttConnectionState.CONNECTING -> CyberYellow
+                                                MqttConnectionState.FAILED -> NeonRed
+                                                MqttConnectionState.DISCONNECTED -> Slate400
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
 
                             Text(

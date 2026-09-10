@@ -444,8 +444,21 @@ fun LogItem(log: String) {
     
     val statusInfo = remember(fromText, detailText) {
         val lowerMessage = detailText.lowercase()
+        val lowerFrom = fromText.lowercase()
         
         when {
+            lowerFrom.contains("mqtt") && lowerMessage.contains("connected") -> {
+                "狀態：MQTT 已連線" to NeonGreen
+            }
+            lowerFrom.contains("mqtt") && (lowerMessage.contains("disconnected") || lowerMessage.contains("closed")) -> {
+                "狀態：MQTT 已中斷" to NeonRed
+            }
+            lowerFrom.contains("mqtt") && lowerMessage.contains("connecting") -> {
+                "狀態：MQTT 連線中" to CyberYellow
+            }
+            lowerFrom.contains("mqtt") && (lowerMessage.contains("failed") || lowerMessage.contains("error")) -> {
+                "狀態：MQTT 連線失敗" to NeonRed
+            }
             lowerMessage.contains("error") || lowerMessage.contains("failed") -> {
                 "狀態：錯誤" to NeonRed
             }

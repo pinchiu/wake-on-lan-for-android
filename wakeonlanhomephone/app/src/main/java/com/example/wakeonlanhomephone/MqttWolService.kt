@@ -141,7 +141,7 @@ class MqttWolService : Service() {
             return
         }
 
-        AppLogger.log("Connecting to MQTT: $cleanHost:$effectivePort")
+        AppLogger.log("MQTT: Connecting to $cleanHost:$effectivePort")
         
         // Report Connecting State
         val protocolPrefix = if (config.useSsl) "ssl://" else "tcp://"
@@ -155,6 +155,17 @@ class MqttWolService : Service() {
             .identifier(if (config.clientId.isNotEmpty()) config.clientId else UUID.randomUUID().toString())
             .serverHost(cleanHost)
             .serverPort(effectivePort)
+            .addConnectedListener { _ ->
+                Log.d(TAG, "MQTT Connection established")
+                AppLogger.log("MQTT: Connected to broker ($cleanHost:$effectivePort)")
+                AppGlobalState.updateState(MqttConnectionState.CONNECTED)
+            }
+            .addDisconnectedListener { context ->
+                val cause = context.cause?.message ?: "Connection closed"
+                Log.w(TAG, "MQTT Disconnected: $cause")
+                AppLogger.log("MQTT: Disconnected ($cause)")
+                AppGlobalState.updateState(MqttConnectionState.DISCONNECTED, error = cause)
+            }
 
         if (config.useSsl) {
             builder.sslWithDefaultConfig()
@@ -190,12 +201,12 @@ class MqttWolService : Service() {
                 if (throwable != null) {
                     Log.e(TAG, "Connection failed", throwable)
                     updateNotification("MQTT Connection Failed. Retrying...")
-                    AppLogger.log("MQTT Connection Failed: ${throwable.message}")
+                    AppLogger.log("MQTT: Connection Failed (${throwable.message})")
                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = throwable.message ?: "Unknown Error")
                 } else {
                     Log.d(TAG, "Connected to MQTT")
                     updateNotification("Connected to MQTT. Listening on ${config.topic}")
-                    AppLogger.log("MQTT Connected. Listening on ${config.topic}")
+                    AppLogger.log("MQTT: Listening on topic '${config.topic}'")
                     AppGlobalState.updateState(MqttConnectionState.CONNECTED)
                     subscribeToTopic(config.topic)
                     

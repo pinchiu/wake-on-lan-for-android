@@ -34,6 +34,7 @@ import com.example.wakeonlanhomephone.ui.components.*
 fun ConnectionsScreen(
     devices: List<MqttDevice>,
     deviceStatuses: Map<String, Boolean>,
+    mqttState: MqttConnectionState,
     onAddDevice: () -> Unit,
     onEditDevice: (MqttDevice) -> Unit,
     onDeleteDevice: (String) -> Unit,
@@ -114,7 +115,34 @@ fun ConnectionsScreen(
             ) {
                 Column {
                     Text("DEVICE INVENTORY", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
-                    Text("SECURE MQTT MIGRATION ACTIVE", color = CyberCyan.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onSettings() }
+                    ) {
+                        when (mqttState) {
+                            MqttConnectionState.CONNECTED -> {
+                                AnimatedPingDot(color = NeonGreen, size = 6.dp)
+                                Spacer(Modifier.width(6.dp))
+                                Text("BROKER: CONNECTED", color = NeonGreen, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            }
+                            MqttConnectionState.CONNECTING -> {
+                                AnimatedPingDot(color = CyberYellow, size = 6.dp)
+                                Spacer(Modifier.width(6.dp))
+                                Text("BROKER: CONNECTING...", color = CyberYellow, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            }
+                            MqttConnectionState.FAILED -> {
+                                Box(modifier = Modifier.size(6.dp).background(NeonRed, CircleShape))
+                                Spacer(Modifier.width(6.dp))
+                                Text("BROKER: FAILED (TAP TO CONFIGURE)", color = NeonRed, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            }
+                            MqttConnectionState.DISCONNECTED -> {
+                                Box(modifier = Modifier.size(6.dp).background(Slate500, CircleShape))
+                                Spacer(Modifier.width(6.dp))
+                                Text("BROKER: DISCONNECTED", color = Slate400, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                            }
+                        }
+                    }
                 }
                 IconButton(onClick = onSettings) {
                     Icon(Icons.Default.Settings, contentDescription = "Settings", tint = CyberCyan)
