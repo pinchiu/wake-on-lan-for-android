@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAck
+import com.hivemq.client.mqtt.mqtt3.message.subscribe.suback.Mqtt3SubAckReturnCode
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
@@ -124,12 +125,9 @@ class MqttWolService : Service() {
 
         val config = getMqttConfig()
         val cleanHost = config.host
-            .removePrefix("mqtt://")
-            .removePrefix("tcp://")
-            .removePrefix("ssl://")
-            .removePrefix("ws://")
-            .removePrefix("wss://")
+            .replace(Regex("^[a-zA-Z]+://"), "")
             .substringBefore(":")
+            .substringBefore("/")
             .trim()
         val effectivePort = if (config.port > 0) config.port else if (config.useSsl) 8883 else 1883
 
@@ -137,7 +135,7 @@ class MqttWolService : Service() {
         
         if (cleanHost.isEmpty()) {
             Log.e(TAG, "Host is empty, skipping connection")
-            AppGlobalState.updateState(MqttConnectionState.FAILED, error = "Host not configured")
+            AppGlobalState.updateState(MqttConnectionState.FAILED, error = "Host 未設定 (請於設定頁面輸入 Broker Host)")
             return
         }
 
@@ -199,10 +197,11 @@ class MqttWolService : Service() {
             .whenComplete { connAck: Mqtt3ConnAck?, throwable: Throwable? ->
                 releaseWakeLock()
                 if (throwable != null) {
-                    Log.e(TAG, "Connection failed", throwable)
-                    updateNotification("MQTT Connection Failed. Retrying...")
-                    AppLogger.log("MQTT: Connection Failed (${throwable.message})")
-                    AppGlobalState.updateState(MqttConnectionState.FAILED, error = throwable.message ?: "Unknown Error")
+                    val errorMsg = formatErrorMessage(throwable)
+                    Log.e(TAG, "Connection failed: $errorMsg", throwable)
+                    updateNotification("MQTT Connection Failed: $errorMsg")
+                    AppLogger.log("MQTT: Connection Failed ($errorMsg)")
+                    AppGlobalState.updateState(MqttConnectionState.FAILED, error = errorMsg)
                 } else {
                     Log.d(TAG, "Connected to MQTT")
                     updateNotification("Connected to MQTT. Listening on ${config.topic}")
@@ -221,11 +220,38 @@ class MqttWolService : Service() {
             }
     }
 
+    private fun formatErrorMessage(throwable: Throwable): String {
+        val raw = throwable.message ?: ""
+        val causeMsg = throwable.cause?.message ?: ""
+        val full = "$raw $causeMsg".trim()
+        return when {
+            full.contains("BAD_USER_NAME_OR_PASSWORD", ignoreCase = true) ->
+                "認證失敗：使用者名稱或密碼/AIO Key 錯誤 (BAD_USER_NAME_OR_PASSWORD)"
+            full.contains("NOT_AUTHORIZED", ignoreCase = true) ->
+                "未授權連線：無存取權限 (NOT_AUTHORIZED)"
+            full.contains("IDENTIFIER_REJECTED", ignoreCase = true) ->
+                "Client ID 被伺服器拒絕 (IDENTIFIER_REJECTED)"
+            full.contains("SSL", ignoreCase = true) || full.contains("handshake", ignoreCase = true) || full.contains("Certificate", ignoreCase = true) ->
+                "SSL/TLS 握手失敗 (若為 Port 1883 請關閉 SSL；若開啟 SSL 請使用 Port 8883)"
+            full.contains("UnknownHost", ignoreCase = true) ->
+                "找不到主機位址 (DNS 解析失敗，請檢查 Host 輸入是否正確)"
+            full.contains("Connection refused", ignoreCase = true) ->
+                "連線被拒絕 (請確認 Port 埠號是否正確或 Broker 是否開啟)"
+            full.contains("timeout", ignoreCase = true) || full.contains("timed out", ignoreCase = true) ->
+                "連線逾時 (請檢查網路連線或防火牆)"
+            raw.isNotEmpty() -> raw
+            causeMsg.isNotEmpty() -> causeMsg
+            else -> "未知連線錯誤"
+        }
+    }
+
     private fun subscribeToTopic(topic: String) {
         val client = mqttClient ?: return
         client.subscribeWith()
             .topicFilter(topic)
             .callback { publish ->
+                // Hold WakeLock for 5 seconds to ensure CPU and network stack remain awake while sending WOL packet
+                acquireWakeLock(5000L)
                 val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
                 Log.d(TAG, "Received message: $payload")
                 AppLogger.log("MQTT Received: $payload")
@@ -279,8 +305,15 @@ class MqttWolService : Service() {
             .send()
             .whenComplete { subAck, throwable ->
                  if (throwable != null) {
-                     Log.e(TAG, "Subscription failed", throwable)
-                     AppLogger.log("MQTT Subscription failed")
+                     val errorMsg = formatErrorMessage(throwable)
+                     Log.e(TAG, "Subscription failed: $errorMsg", throwable)
+                     AppLogger.log("MQTT: 訂閱失敗 ($errorMsg)")
+                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = "訂閱主題失敗: $errorMsg")
+                 } else if (subAck != null && subAck.returnCodes.any { it.isError }) {
+                     val reason = "Broker 拒絕訂閱主題 '$topic' (若使用 Adafruit IO，主題格式需為: 使用者名稱/feeds/主題名稱)"
+                     Log.e(TAG, reason)
+                     AppLogger.log("MQTT: $reason")
+                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = reason)
                  } else {
                      Log.d(TAG, "Subscribed to $topic")
                  }

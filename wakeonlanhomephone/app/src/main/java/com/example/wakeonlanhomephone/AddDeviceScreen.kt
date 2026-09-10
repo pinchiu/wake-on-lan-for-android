@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,6 +48,7 @@ fun AddDeviceScreen(
     var useSsl by remember { mutableStateOf(currentConfig.useSsl) }
     var username by remember { mutableStateOf(currentConfig.username) }
     var password by remember { mutableStateOf(currentConfig.password) }
+    var isPasswordVisible by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -73,12 +76,9 @@ fun AddDeviceScreen(
                     onClick = { 
                         val parsedPort = port.toIntOrNull() ?: if (useSsl) 8883 else 1883
                         val cleanHost = brokerUrl
-                            .removePrefix("mqtt://")
-                            .removePrefix("tcp://")
-                            .removePrefix("ssl://")
-                            .removePrefix("ws://")
-                            .removePrefix("wss://")
+                            .replace(Regex("^[a-zA-Z]+://"), "")
                             .substringBefore(":")
+                            .substringBefore("/")
                             .trim()
 
                         // Save broker config
@@ -224,11 +224,25 @@ fun AddDeviceScreen(
             
             // Username
             InputGroup("Username (Adafruit Username)", Icons.Default.Person) {
-                NavyInput(value = username, onValueChange = { username = it }, placeholder = "poochen")
+                NavyInput(value = username, onValueChange = { username = it }, placeholder = "your_username")
             }
              // Password
             InputGroup("Password (Adafruit AIO Key)", Icons.Default.Lock) {
-                NavyInput(value = password, onValueChange = { password = it }, placeholder = "aio_xxxxxxxxxxxxxxxxxxxxxxxx", visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                NavyInput(
+                    value = password,
+                    onValueChange = { password = it },
+                    placeholder = "aio_xxxxxxxxxxxxxxxxxxxxxxxx",
+                    visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                            Icon(
+                                imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (isPasswordVisible) "隱藏密碼" else "顯示密碼",
+                                tint = if (isPasswordVisible) NeonGreen else Slate400
+                            )
+                        }
+                    }
+                )
             }
             
             HorizontalDivider(color = Navy700)
@@ -238,7 +252,7 @@ fun AddDeviceScreen(
             
             // Target Topic
             InputGroup("Target Topic", Icons.Default.Share) {
-                 NavyInput(value = topic, onValueChange = { topic = it }, placeholder = "poochen/feeds/pc-command")
+                 NavyInput(value = topic, onValueChange = { topic = it }, placeholder = "username/feeds/feed-name")
             }
             
             Spacer(Modifier.height(80.dp)) // Scroll padding
@@ -271,7 +285,8 @@ fun NavyInput(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None
+    visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -290,6 +305,7 @@ fun NavyInput(
         singleLine = true,
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
         visualTransformation = visualTransformation,
-        leadingIcon = { Spacer(Modifier.width(24.dp)) } // Spacer for the external icon overlay
+        leadingIcon = { Spacer(Modifier.width(24.dp)) }, // Spacer for the external icon overlay
+        trailingIcon = trailingIcon
     )
 }

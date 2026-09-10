@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import com.example.wakeonlanhomephone.ui.theme.*
 import com.example.wakeonlanhomephone.ui.components.*
 import androidx.compose.ui.draw.blur
@@ -548,15 +550,34 @@ fun SectionCard(borderColor: Color, title: String? = null, content: @Composable 
 
 @Composable
 fun StyledTextField(label: String, value: String, onValueChange: (String) -> Unit, textColor: Color, labelColor: Color, isPassword: Boolean = false) {
+    var passwordVisible by remember { mutableStateOf(false) }
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(label, color = labelColor, style = MaterialTheme.typography.labelSmall)
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
-            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
+                visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                modifier = Modifier.weight(1f)
+            )
+            if (isPassword) {
+                IconButton(
+                    onClick = { passwordVisible = !passwordVisible },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                        contentDescription = if (passwordVisible) "隱藏密碼" else "顯示密碼",
+                        tint = labelColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
         HorizontalDivider(color = Color(0xFF2C333A))
     }
 }
@@ -594,6 +615,8 @@ fun NewSettingsScreen(
     var brokerTopic by remember { mutableStateOf(currentConfig.topic) }
     var useSsl by remember { mutableStateOf(currentConfig.useSsl) }
     var autoConnect by remember { mutableStateOf(currentConfig.autoConnect) }
+    var isPasswordVisible by remember { mutableStateOf(false) }
+    val lastError by AppGlobalState.lastErrorMessage.collectAsState()
     
     Box(
         modifier = Modifier
@@ -755,6 +778,43 @@ fun NewSettingsScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
 
+                            if (mqttState == MqttConnectionState.FAILED && !lastError.isNullOrEmpty()) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = NeonRed.copy(alpha = 0.12f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonRed.copy(alpha = 0.4f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = NeonRed,
+                                            modifier = Modifier.size(20.dp).padding(top = 2.dp)
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                "連線失敗原因：",
+                                                color = NeonRed,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                lastError ?: "",
+                                                color = Slate200,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                lineHeight = 18.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             // Host & Port
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("Broker Host / URL", color = Slate300, style = MaterialTheme.typography.labelSmall)
@@ -831,7 +891,7 @@ fun NewSettingsScreen(
                                 OutlinedTextField(
                                     value = brokerUser,
                                     onValueChange = { brokerUser = it },
-                                    placeholder = { Text("poochen", color = Slate500) },
+                                    placeholder = { Text("username", color = Slate500) },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = OutlinedTextFieldDefaults.colors(
@@ -854,7 +914,16 @@ fun NewSettingsScreen(
                                     onValueChange = { brokerPass = it },
                                     placeholder = { Text("aio_xxxxxxxxxxxxxxxxxxxxxxxx", color = Slate500) },
                                     singleLine = true,
-                                    visualTransformation = PasswordVisualTransformation(),
+                                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    trailingIcon = {
+                                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                                            Icon(
+                                                imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                                contentDescription = if (isPasswordVisible) "隱藏密碼" else "顯示密碼",
+                                                tint = if (isPasswordVisible) NeonBlue else Slate400
+                                            )
+                                        }
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedTextColor = Color.White,
@@ -874,7 +943,7 @@ fun NewSettingsScreen(
                                 OutlinedTextField(
                                     value = brokerTopic,
                                     onValueChange = { brokerTopic = it },
-                                    placeholder = { Text("poochen/feeds/pc-command", color = Slate500) },
+                                    placeholder = { Text("username/feeds/feed-name", color = Slate500) },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = OutlinedTextFieldDefaults.colors(
@@ -911,12 +980,9 @@ fun NewSettingsScreen(
                                 onClick = {
                                     val parsedPort = brokerPort.toIntOrNull() ?: if (useSsl) 8883 else 1883
                                     val cleanHost = brokerHost
-                                        .removePrefix("mqtt://")
-                                        .removePrefix("tcp://")
-                                        .removePrefix("ssl://")
-                                        .removePrefix("ws://")
-                                        .removePrefix("wss://")
+                                        .replace(Regex("^[a-zA-Z]+://"), "")
                                         .substringBefore(":")
+                                        .substringBefore("/")
                                         .trim()
 
                                     configManager.saveConfig(

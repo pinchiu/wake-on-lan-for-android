@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.wakeonlanhomephone"
         minSdk = 24
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.5.2"
+        versionCode = 12
+        versionName = "1.5.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

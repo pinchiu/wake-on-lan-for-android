@@ -132,9 +132,18 @@ fun ConnectionsScreen(
                                 Text("BROKER: CONNECTING...", color = CyberYellow, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                             }
                             MqttConnectionState.FAILED -> {
-                                Box(modifier = Modifier.size(6.dp).background(NeonRed, CircleShape))
-                                Spacer(Modifier.width(6.dp))
-                                Text("BROKER: FAILED (TAP TO CONFIGURE)", color = NeonRed, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                val lastError by AppGlobalState.lastErrorMessage.collectAsState()
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.size(6.dp).background(NeonRed, CircleShape))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("BROKER: FAILED (TAP TO VIEW)", color = NeonRed, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                                    }
+                                    if (!lastError.isNullOrEmpty()) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(lastError ?: "", color = NeonRed.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                                    }
+                                }
                             }
                             MqttConnectionState.DISCONNECTED -> {
                                 Box(modifier = Modifier.size(6.dp).background(Slate500, CircleShape))
