@@ -11,8 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,6 +23,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.rounded.AcUnit
@@ -36,86 +35,51 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.Inet6Address
-import java.net.Socket
-import java.net.InetSocketAddress
 import java.util.Locale
 import android.widget.Toast
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.window.Dialog
-import androidx.compose.material.icons.filled.Info
-
-// Custom Colors
-val DeepBlack = Color(0xFF050505)
-val Charcoal = Color(0xFF121212)
-val GlassWhite = Color(0x1AFFFFFF)
-val NeonBlue = Color(0xFF00E5FF)
-val NeonGreen = Color(0xFF00FF91)
-val NeonPurple = Color(0xFFD500F9)
-val NeonRed = Color(0xFFFF1744)
-val NeonOrange = Color(0xFFFF9100)
+import com.example.wakeonwanremotephone.ui.theme.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            UltimateTheme {
-                UltimateRemoteScreen()
+            WakeOnWanRemotePhoneTheme {
+                RemoteWakeMainScreen()
             }
         }
     }
 }
 
-// Constants for saving settings
-private const val PREFS_NAME = "RemoteControlPrefs"
-private const val KEY_IPV6 = "helperIpv6Address"
-private const val KEY_MAC = "computerMacAddress"
-private const val KEY_IPV4 = "computerLocalIpv4"
-private const val KEY_LAN_MODE = "localLanMode"
-
 @Composable
 fun UltimateTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            background = DeepBlack,
-            surface = Charcoal,
-            primary = NeonBlue,
-            onBackground = Color.White,
-            onSurface = Color.White
-        ),
-        content = content
-    )
+    WakeOnWanRemotePhoneTheme(content = content)
 }
 
 @Composable
-fun UltimateRemoteScreen() {
+fun RemoteWakeMainScreen() {
     val context = LocalContext.current
     val deviceManager = remember { DeviceProfileManager(context) }
     var devices by remember { mutableStateOf(deviceManager.getDevices()) }
     var selectedDeviceId by remember { mutableStateOf(deviceManager.getSelectedDeviceId()) }
     val currentSelectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
 
-    // State
+    // Configuration State
     var helperIpv6Address by remember { mutableStateOf(deviceManager.getHelperIpv6()) }
     var computerMacAddress by remember { mutableStateOf(currentSelectedDevice?.mac ?: "") }
     var computerLocalIpv4 by remember { mutableStateOf(currentSelectedDevice?.ip ?: "") }
@@ -145,11 +109,10 @@ fun UltimateRemoteScreen() {
         deviceManager.setHelperIpv6(helperIpv6Address)
         deviceManager.setLocalLanMode(localLanMode)
         isLoading = true
-        statusMessage = "Sending..."
+        statusMessage = "指令傳送中..."
         isStatusError = false
         coroutineScope.launch {
-            // Fake delay for UI feedback feeling
-            delay(300)
+            delay(200)
             val result = if (localLanMode) {
                 if (command.startsWith("WAKE:")) {
                     val mac = command.substringAfter("WAKE:")
@@ -173,81 +136,64 @@ fun UltimateRemoteScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(DeepBlack, Color(0xFF1A1A1A))
-                )
-            )
+            .background(DarkBgPrimary)
     ) {
-        // Background Ambient Glow
-        Box(
-            modifier = Modifier
-                .size(300.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 100.dp, y = (-50).dp)
-                .blur(100.dp)
-                .background(NeonBlue.copy(alpha = 0.15f), CircleShape)
-        )
-        Box(
-            modifier = Modifier
-                .size(300.dp)
-                .align(Alignment.BottomStart)
-                .offset(x = (-100).dp, y = 50.dp)
-                .blur(100.dp)
-                .background(NeonPurple.copy(alpha = 0.15f), CircleShape)
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(horizontal = 20.dp)
                 .systemBarsPadding()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // App Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column {
                     Text(
-                        text = "ULTIMATE",
-                        color = Color.Gray,
-                        fontSize = 12.sp,
-                        letterSpacing = 4.sp,
-                        fontWeight = FontWeight.Bold
+                        text = "遠端喚醒控制",
+                        color = Slate50,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "REMOTE",
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 2.sp
+                        text = if (localLanMode) "模式：內網直連 WoL 廣播" else "模式：遠端 TCP 9876 網關",
+                        color = if (localLanMode) AccentEmerald else Slate400,
+                        fontSize = 12.sp
                     )
                 }
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(if (isLoading) NeonOrange else NeonGreen, CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                IconButton(
-                    onClick = { showAboutDialog = true }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "About",
-                        tint = Color.White.copy(alpha = 0.7f)
-                    )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = AccentEmerald,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                    }
+                    IconButton(onClick = { showAboutDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "關於與更新",
+                            tint = Slate400,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Target Computers Selector Section
-            GlassCard {
+            // Target Computers Selector Card
+            PrecisionCard {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -255,29 +201,36 @@ fun UltimateRemoteScreen() {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Computer,
-                                contentDescription = null,
-                                tint = NeonBlue,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "TARGET COMPUTERS (${devices.size})",
-                                color = NeonBlue,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
+                                text = "目標電腦",
+                                color = Slate50,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = DarkSurfaceElevated,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                            ) {
+                                Text(
+                                    text = "${devices.size} 台",
+                                    color = Slate400,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
                         }
+
                         IconButton(
                             onClick = { showAddDeviceDialog = true },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Add Computer",
-                                tint = NeonGreen
+                                contentDescription = "新增電腦",
+                                tint = AccentEmerald,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -286,25 +239,25 @@ fun UltimateRemoteScreen() {
 
                     if (devices.isEmpty()) {
                         Text(
-                            "尚未新增電腦，點擊右上角 + 新增",
-                            color = Color.White.copy(alpha = 0.5f),
+                            text = "尚未新增目標電腦，請點擊右上角「+」新增",
+                            color = Slate500,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     } else {
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(devices) { device ->
                                 val isSelected = device.id == selectedDeviceId
-                                val borderColor = if (isSelected) NeonGreen else Color.White.copy(alpha = 0.15f)
-                                val bgColor = if (isSelected) NeonGreen.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f)
+                                val borderColor = if (isSelected) AccentEmeraldBorder else BorderSubtle
+                                val bgColor = if (isSelected) AccentEmeraldDim else DarkSurfaceElevated
 
                                 Surface(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .border(1.dp, borderColor, RoundedCornerShape(10.dp))
                                         .clickable {
                                             selectedDeviceId = device.id
                                             deviceManager.setSelectedDeviceId(device.id)
@@ -312,7 +265,7 @@ fun UltimateRemoteScreen() {
                                             computerLocalIpv4 = device.ip
                                         },
                                     color = bgColor,
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -320,30 +273,31 @@ fun UltimateRemoteScreen() {
                                     ) {
                                         Column {
                                             Text(
-                                                device.name,
-                                                color = if (isSelected) NeonGreen else Color.White,
+                                                text = device.name,
+                                                color = if (isSelected) Slate50 else Slate300,
                                                 fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                             )
                                             Text(
-                                                device.mac.ifEmpty { "無 MAC" },
-                                                color = Color.White.copy(alpha = 0.6f),
-                                                fontSize = 10.sp
+                                                text = device.mac.ifEmpty { "無 MAC" },
+                                                color = if (isSelected) AccentEmerald else Slate500,
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace
                                             )
                                         }
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         IconButton(
                                             onClick = {
                                                 deviceToEdit = device
                                                 showEditDeviceDialog = true
                                             },
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(22.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Edit,
-                                                contentDescription = "Edit",
-                                                tint = Color.White.copy(alpha = 0.6f),
-                                                modifier = Modifier.size(14.dp)
+                                                contentDescription = "編輯",
+                                                tint = if (isSelected) AccentEmerald else Slate500,
+                                                modifier = Modifier.size(13.dp)
                                             )
                                         }
                                     }
@@ -354,46 +308,43 @@ fun UltimateRemoteScreen() {
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Configuration Section
-            GlassCard {
+            // Configuration & Connection Mode Card
+            PrecisionCard {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "CONFIGURATION",
-                        color = NeonBlue,
-                        fontSize = 10.sp,
+                        text = "連線配置",
+                        color = Slate400,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        letterSpacing = 0.5.sp
                     )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // LAN Mode Switch
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .background(DarkSurfaceElevated, RoundedCornerShape(10.dp))
+                            .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Lan,
-                                contentDescription = null,
-                                tint = NeonGreen,
-                                modifier = Modifier.size(24.dp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "區域網路直連 (Local LAN)",
+                                color = Slate50,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    "Local LAN Mode",
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "Direct WoL broadcast & command",
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 11.sp
-                                )
-                            }
+                            Text(
+                                text = if (localLanMode) "使用內網 UDP 廣播，無需連線家用助手" else "透過家用助手連線 (外網/WAN)",
+                                color = Slate400,
+                                fontSize = 11.sp
+                            )
                         }
                         Switch(
                             checked = localLanMode,
@@ -402,33 +353,35 @@ fun UltimateRemoteScreen() {
                                 deviceManager.setLocalLanMode(it)
                             },
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = NeonGreen,
-                                checkedTrackColor = NeonGreen.copy(alpha = 0.3f),
-                                uncheckedThumbColor = Color.Gray,
-                                uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
+                                checkedThumbColor = AccentEmerald,
+                                checkedTrackColor = AccentEmeraldDim
                             )
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    NeonTextField(
-                        value = helperIpv6Address,
-                        onValueChange = { helperIpv6Address = it },
-                        label = "Helper IPv6",
-                        icon = Icons.Default.Dns,
-                        modifier = Modifier.onFocusChanged {
-                            if (!it.isFocused) {
-                                deviceManager.setHelperIpv6(helperIpv6Address)
+
+                    if (!localLanMode) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        PrecisionOutlinedTextField(
+                            value = helperIpv6Address,
+                            onValueChange = { helperIpv6Address = it },
+                            label = "家用助手 IPv6 位址",
+                            icon = Icons.Default.Dns,
+                            modifier = Modifier.onFocusChanged {
+                                if (!it.isFocused) {
+                                    deviceManager.setHelperIpv6(helperIpv6Address)
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    NeonTextField(
+                    PrecisionOutlinedTextField(
                         value = computerMacAddress,
                         onValueChange = {
                             computerMacAddress = it
                             syncCurrentDevice(mac = it)
                         },
-                        label = "Target MAC",
+                        label = "目標電腦 MAC 地址",
                         icon = Icons.Default.Lan,
                         modifier = Modifier.onFocusChanged {
                             if (!it.isFocused) {
@@ -436,14 +389,15 @@ fun UltimateRemoteScreen() {
                             }
                         }
                     )
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    NeonTextField(
+                    PrecisionOutlinedTextField(
                         value = computerLocalIpv4,
                         onValueChange = {
                             computerLocalIpv4 = it
                             syncCurrentDevice(ip = it)
                         },
-                        label = "Target IPv4",
+                        label = "目標電腦區域 IPv4 (電源控制用)",
                         icon = Icons.Default.Computer,
                         modifier = Modifier.onFocusChanged {
                             if (!it.isFocused) {
@@ -454,92 +408,118 @@ fun UltimateRemoteScreen() {
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Actions Grid
-            Column(
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        CommandButton(
-                            text = "WAKE",
-                            icon = Icons.Rounded.Bolt,
-                            color = NeonGreen,
-                            onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") },
-                            enabled = !isLoading
-                        )
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        CommandButton(
-                            text = "SLEEP",
-                            icon = Icons.Rounded.Bedtime,
-                            color = NeonBlue,
-                            onClick = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
-                            enabled = !isLoading
-                        )
-                    }
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        CommandButton(
-                            text = "REBOOT",
-                            icon = Icons.Rounded.Refresh,
-                            color = NeonOrange,
-                            onClick = { sendCommand("REBOOT:${computerLocalIpv4.trim()}") },
-                            enabled = !isLoading
-                        )
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        CommandButton(
-                            text = "HIBERNATE",
-                            icon = Icons.Rounded.AcUnit,
-                            color = Color(0xFF00B0FF),
-                            onClick = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
-                            enabled = !isLoading
-                        )
-                    }
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        CommandButton(
-                            text = "SHUTDOWN",
-                            icon = Icons.Rounded.PowerSettingsNew,
-                            color = NeonRed,
-                            onClick = { sendCommand("SHUTDOWN:${computerLocalIpv4.trim()}") },
-                            enabled = !isLoading
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-
-            // Status Footer
-            Box(
+            // Action Controls Section
+            // Primary Hero Button: Wake PC
+            Button(
+                onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") },
+                enabled = !isLoading && computerMacAddress.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                contentAlignment = Alignment.Center
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
             ) {
-                if (statusMessage.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Bolt,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = statusMessage,
-                        color = if (isStatusError) NeonRed else NeonGreen,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        text = "喚醒目標電腦 (WAKE PC)",
+                        color = Color.Black,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Secondary Power Controls Bento Grid (2x2)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    HardwareCommandCard(
+                        title = "睡眠",
+                        subtitle = "SLEEP",
+                        icon = Icons.Rounded.Bedtime,
+                        onClick = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
+                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    HardwareCommandCard(
+                        title = "休眠",
+                        subtitle = "HIBERNATE",
+                        icon = Icons.Rounded.AcUnit,
+                        onClick = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
+                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    HardwareCommandCard(
+                        title = "重啟",
+                        subtitle = "REBOOT",
+                        icon = Icons.Rounded.Refresh,
+                        onClick = { sendCommand("REBOOT:${computerLocalIpv4.trim()}") },
+                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    HardwareCommandCard(
+                        title = "關機",
+                        subtitle = "SHUTDOWN",
+                        icon = Icons.Rounded.PowerSettingsNew,
+                        isDestructive = true,
+                        onClick = { sendCommand("SHUTDOWN:${computerLocalIpv4.trim()}") },
+                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Real-Time Status Feedback Banner
+            if (statusMessage.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isStatusError) SemanticDangerDim else AccentEmeraldDim,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isStatusError) SemanticDangerBorder else AccentEmeraldBorder
+                    )
+                ) {
+                    Text(
+                        text = statusMessage,
+                        color = if (isStatusError) SemanticDanger else AccentEmerald,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
         // About & Update Dialog
@@ -548,32 +528,30 @@ fun UltimateRemoteScreen() {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
-                    color = Charcoal.copy(alpha = 0.95f),
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
+                    color = DarkSurfaceElevated,
                     tonalElevation = 8.dp
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            "關於與更新",
-                            color = Color.White,
-                            fontSize = 20.sp,
+                            text = "關於與更新",
+                            color = Slate50,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
-                            "遠端遙控喚醒端",
-                            color = NeonBlue,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
+                            text = "遠端喚醒控制端 (Wake On WAN Remote)",
+                            color = Slate400,
+                            fontSize = 13.sp
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         
                         val versionName = remember {
                             try {
@@ -583,9 +561,11 @@ fun UltimateRemoteScreen() {
                             }
                         }
                         Text(
-                            "目前版本: v$versionName",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 14.sp
+                            text = "目前版本：v$versionName",
+                            color = AccentEmerald,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         
@@ -596,10 +576,10 @@ fun UltimateRemoteScreen() {
                         
                         updateMessage?.let { message ->
                             Text(
-                                message,
-                                color = if (updateAvailable != null) NeonGreen else Color.White.copy(alpha = 0.7f),
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(bottom = 16.dp)
+                                text = message,
+                                color = if (updateAvailable != null) AccentEmerald else Slate300,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 12.dp)
                             )
                         }
                         
@@ -609,12 +589,11 @@ fun UltimateRemoteScreen() {
                                     updateManager.downloadAndInstall(updateAvailable!!)
                                     Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.2f)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen.copy(alpha = 0.6f)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth().height(42.dp)
                             ) {
-                                Text("下載並安裝更新", color = NeonGreen, fontWeight = FontWeight.Bold)
+                                Text("下載並安裝新版本", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         } else {
                             Button(
@@ -631,25 +610,25 @@ fun UltimateRemoteScreen() {
                                         }
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue.copy(alpha = 0.2f)),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, NeonBlue.copy(alpha = 0.6f)),
-                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = DarkSurface),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                                shape = RoundedCornerShape(10.dp),
                                 enabled = !isChecking,
-                                modifier = Modifier.fillMaxWidth().height(44.dp)
+                                modifier = Modifier.fillMaxWidth().height(42.dp)
                             ) {
                                 if (isChecking) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        color = NeonBlue,
+                                        modifier = Modifier.size(16.dp),
+                                        color = AccentEmerald,
                                         strokeWidth = 2.dp
                                     )
                                 } else {
-                                    Text("檢查更新", color = NeonBlue, fontWeight = FontWeight.Bold)
+                                    Text("檢查最新版本", color = Slate200, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 }
                             }
                         }
                         
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
                         
                         TextButton(
                             onClick = {
@@ -657,21 +636,20 @@ fun UltimateRemoteScreen() {
                                 context.startActivity(intent)
                             }
                         ) {
-                            Text("在 GitHub 上查看", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                            Text("在 GitHub 上查看發行版", color = Slate400, fontSize = 12.sp)
                         }
                         
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         
-                        TextButton(
-                            onClick = { showAboutDialog = false }
-                        ) {
-                            Text("關閉", color = Color.Gray, fontSize = 14.sp)
+                        TextButton(onClick = { showAboutDialog = false }) {
+                            Text("關閉", color = Slate500, fontSize = 13.sp)
                         }
                     }
                 }
             }
         }
 
+        // Add Device Dialog
         if (showAddDeviceDialog) {
             AddDeviceDialog(
                 onDismiss = { showAddDeviceDialog = false },
@@ -686,6 +664,7 @@ fun UltimateRemoteScreen() {
             )
         }
 
+        // Edit Device Dialog
         if (showEditDeviceDialog && deviceToEdit != null) {
             EditDeviceDialog(
                 device = deviceToEdit!!,
@@ -722,103 +701,129 @@ fun UltimateRemoteScreen() {
 }
 
 @Composable
-fun GlassCard(content: @Composable () -> Unit) {
-    Box(
+fun PrecisionCard(content: @Composable () -> Unit) {
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(GlassWhite)
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp)),
+        color = DarkSurface,
+        tonalElevation = 0.dp
     ) {
         content()
     }
 }
 
 @Composable
-fun NeonTextField(
+fun PrecisionOutlinedTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label, color = Color.White.copy(alpha = 0.7f)) },
-        leadingIcon = { Icon(icon, contentDescription = null, tint = NeonBlue) },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = NeonBlue,
-            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            cursorColor = NeonBlue,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
-        ),
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-        modifier = modifier.fillMaxWidth()
-    )
+    Column {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = Slate400,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            leadingIcon = { Icon(icon, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp)) },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AccentEmerald,
+                unfocusedBorderColor = BorderSubtle,
+                focusedTextColor = Slate50,
+                unfocusedTextColor = Slate50,
+                cursorColor = AccentEmerald,
+                focusedContainerColor = DarkSurfaceElevated,
+                unfocusedContainerColor = DarkSurfaceElevated
+            ),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            shape = RoundedCornerShape(10.dp),
+            modifier = modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable
-fun CommandButton(
-    text: String,
+fun HardwareCommandCard(
+    title: String,
+    subtitle: String,
     icon: ImageVector,
-    color: Color,
+    isDestructive: Boolean = false,
     onClick: () -> Unit,
     enabled: Boolean
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (pressed) 0.95f else 1f, label = "buttonScale")
+    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "buttonScale")
 
-    Button(
-        onClick = {
-            pressed = true
-            onClick()
-            // Reset pressed state after a short delay to simulate click
-            // In a real app, this would be handled better by interaction source
-        },
-        enabled = enabled,
-        shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent
-        ),
-        contentPadding = PaddingValues(0.dp),
+    val bg = if (isDestructive) SemanticDangerDim else DarkSurfaceElevated
+    val borderCol = if (isDestructive) SemanticDangerBorder else BorderSubtle
+    val iconTint = if (isDestructive) SemanticDanger else Slate300
+
+    Surface(
         modifier = Modifier
-            .aspectRatio(1.2f)
+            .fillMaxWidth()
+            .height(72.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(24.dp))
-            .background(GlassWhite)
-            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, borderCol, RoundedCornerShape(12.dp))
+            .clickable(enabled = enabled) {
+                pressed = true
+                onClick()
+            },
+        color = bg
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(12.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(32.dp)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        if (isDestructive) SemanticDangerDim else DarkSurface,
+                        RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = title,
+                    color = if (isDestructive) SemanticDanger else Slate100,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = subtitle,
+                    color = Slate400,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
     }
-    // Reset pressed state helper
+
     LaunchedEffect(pressed) {
         if (pressed) {
-            delay(100)
+            delay(120)
             pressed = false
         }
     }
@@ -837,9 +842,9 @@ fun AddDeviceDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, NeonBlue.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
-            color = Charcoal.copy(alpha = 0.95f),
+                .clip(RoundedCornerShape(16.dp))
+                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
+            color = DarkSurfaceElevated,
             tonalElevation = 8.dp
         ) {
             Column(
@@ -848,27 +853,27 @@ fun AddDeviceDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    "新增目標電腦",
-                    color = Color.White,
-                    fontSize = 18.sp,
+                    text = "新增目標電腦",
+                    color = Slate50,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(14.dp))
-                NeonTextField(
+                PrecisionOutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = "電腦名稱 (例: 臥室主機)",
                     icon = Icons.Default.Computer
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                NeonTextField(
+                PrecisionOutlinedTextField(
                     value = mac,
                     onValueChange = { mac = it },
                     label = "網卡 MAC (例: AA:BB:CC:DD:EE:FF)",
                     icon = Icons.Default.Lan
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                NeonTextField(
+                PrecisionOutlinedTextField(
                     value = ip,
                     onValueChange = { ip = it },
                     label = "區域網路 IPv4 (可選)",
@@ -880,7 +885,7 @@ fun AddDeviceDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("取消", color = Color.Gray)
+                        Text("取消", color = Slate400)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -890,11 +895,10 @@ fun AddDeviceDialog(
                             }
                         },
                         enabled = mac.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.25f)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("新增", color = NeonGreen, fontWeight = FontWeight.Bold)
+                        Text("新增", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -918,9 +922,9 @@ fun EditDeviceDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, NeonBlue.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
-            color = Charcoal.copy(alpha = 0.95f),
+                .clip(RoundedCornerShape(16.dp))
+                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
+            color = DarkSurfaceElevated,
             tonalElevation = 8.dp
         ) {
             Column(
@@ -929,27 +933,27 @@ fun EditDeviceDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    "編輯目標電腦",
-                    color = Color.White,
-                    fontSize = 18.sp,
+                    text = "編輯目標電腦",
+                    color = Slate50,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(14.dp))
-                NeonTextField(
+                PrecisionOutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = "電腦名稱",
                     icon = Icons.Default.Computer
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                NeonTextField(
+                PrecisionOutlinedTextField(
                     value = mac,
                     onValueChange = { mac = it },
                     label = "網卡 MAC",
                     icon = Icons.Default.Lan
                 )
                 Spacer(modifier = Modifier.height(10.dp))
-                NeonTextField(
+                PrecisionOutlinedTextField(
                     value = ip,
                     onValueChange = { ip = it },
                     label = "區域網路 IPv4 (可選)",
@@ -963,14 +967,14 @@ fun EditDeviceDialog(
                 ) {
                     if (canDelete) {
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = NeonRed)
+                            Icon(Icons.Default.Delete, contentDescription = "刪除", tint = SemanticDanger)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
                     }
                     Row {
                         TextButton(onClick = onDismiss) {
-                            Text("取消", color = Color.Gray)
+                            Text("取消", color = Slate400)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
@@ -980,11 +984,10 @@ fun EditDeviceDialog(
                                 }
                             },
                             enabled = mac.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonBlue.copy(alpha = 0.25f)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, NeonBlue),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("儲存", color = NeonBlue, fontWeight = FontWeight.Bold)
+                            Text("儲存", color = Color.Black, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

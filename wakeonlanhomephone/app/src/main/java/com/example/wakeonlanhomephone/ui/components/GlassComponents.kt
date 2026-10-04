@@ -3,6 +3,7 @@ package com.example.wakeonlanhomephone.ui.components
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,11 +19,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.example.wakeonlanhomephone.ui.theme.*
 
 /**
- * Glassmorphic panel with blur effect, border and inner glow
+ * Precision hardware surface panel with subtle hairline border and top highlight
  */
 @Composable
 fun GlassPanel(
@@ -31,13 +33,13 @@ fun GlassPanel(
 ) {
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .border(1.dp, GlassBorder, RoundedCornerShape(20.dp)),
-        color = SurfaceGlass.copy(alpha = 0.65f),
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp)),
+        color = DarkSurface.copy(alpha = 0.85f),
         tonalElevation = 0.dp
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // Subtle top highlight for glass 3D effect
+            // Subtle 1px hairline highlight at top
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -46,7 +48,7 @@ fun GlassPanel(
                         Brush.horizontalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.White.copy(alpha = 0.2f),
+                                Color.White.copy(alpha = 0.08f),
                                 Color.Transparent
                             )
                         )
@@ -62,31 +64,31 @@ fun GlassPanel(
 }
 
 /**
- * Pulsing glow effect for status indicators
+ * Restrained subtle ambient glow for status indicators
  */
 @Composable
 fun PulsingGlow(
     color: Color,
-    size: Dp = 240.dp,
+    size: Dp = 160.dp,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     
     val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
+        initialValue = 0.98f,
+        targetValue = 1.04f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = FastOutSlowInEasing),
+            animation = tween(2800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "scale"
     )
     
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 0.8f,
+        initialValue = 0.25f,
+        targetValue = 0.45f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = FastOutSlowInEasing),
+            animation = tween(2800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "alpha"
@@ -96,11 +98,11 @@ fun PulsingGlow(
         modifier = modifier
             .size(size)
             .scale(scale)
-            .blur(60.dp)
+            .blur(40.dp)
             .background(
                 Brush.radialGradient(
                     colors = listOf(
-                        color.copy(alpha = alpha * 0.4f),
+                        color.copy(alpha = alpha * 0.35f),
                         Color.Transparent
                     )
                 ),
@@ -110,12 +112,12 @@ fun PulsingGlow(
 }
 
 /**
- * Spinning border ring for status circle
+ * Subtle status ring with linear rotation
  */
 @Composable
 fun SpinningBorderRing(
     color: Color,
-    size: Dp = 192.dp,
+    size: Dp = 180.dp,
     strokeWidth: Dp = 1.dp,
     modifier: Modifier = Modifier
 ) {
@@ -125,7 +127,7 @@ fun SpinningBorderRing(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(8000, easing = LinearEasing),
+            animation = tween(12000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
@@ -139,10 +141,10 @@ fun SpinningBorderRing(
                 width = strokeWidth,
                 brush = Brush.sweepGradient(
                     colors = listOf(
-                        color.copy(alpha = 0.4f),
+                        color.copy(alpha = 0.3f),
                         Color.Transparent,
                         Color.Transparent,
-                        Color.Transparent
+                        color.copy(alpha = 0.1f)
                     )
                 ),
                 shape = CircleShape
@@ -151,7 +153,7 @@ fun SpinningBorderRing(
 }
 
 /**
- * Animated ping dot for online status
+ * Animated ping dot for online/active status
  */
 @Composable
 fun AnimatedPingDot(
@@ -159,29 +161,31 @@ fun AnimatedPingDot(
     size: Dp = 8.dp,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier) {
-        // Ping animation
+    Box(
+        modifier = modifier.size(size * 2),
+        contentAlignment = Alignment.Center
+    ) {
         val infiniteTransition = rememberInfiniteTransition(label = "ping")
         val scale by infiniteTransition.animateFloat(
             initialValue = 1f,
-            targetValue = 2f,
+            targetValue = 2.2f,
             animationSpec = infiniteRepeatable(
-                animation = tween(1000, easing = LinearOutSlowInEasing),
+                animation = tween(1400, easing = LinearOutSlowInEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "pingScale"
         )
         val alpha by infiniteTransition.animateFloat(
-            initialValue = 0.75f,
+            initialValue = 0.6f,
             targetValue = 0f,
             animationSpec = infiniteRepeatable(
-                animation = tween(1000, easing = LinearOutSlowInEasing),
+                animation = tween(1400, easing = LinearOutSlowInEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "pingAlpha"
         )
         
-        // Ping ring
+        // Ping expansion wave
         Box(
             modifier = Modifier
                 .size(size)
@@ -189,7 +193,7 @@ fun AnimatedPingDot(
                 .background(color.copy(alpha = alpha), CircleShape)
         )
         
-        // Solid dot
+        // Solid center core
         Box(
             modifier = Modifier
                 .size(size)
@@ -199,7 +203,7 @@ fun AnimatedPingDot(
 }
 
 /**
- * Glassmorphic floating navigation bar
+ * Compact floating navigation bar
  */
 @Composable
 fun GlassNavBar(
@@ -208,19 +212,19 @@ fun GlassNavBar(
 ) {
     Box(
         modifier = modifier
-            .padding(horizontal = 24.dp, vertical = 24.dp)
+            .padding(horizontal = 24.dp, vertical = 20.dp)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
-            color = SurfaceGlass.copy(alpha = 0.8f),
-            tonalElevation = 0.dp
+                .height(68.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, BorderStandard, RoundedCornerShape(20.dp)),
+            color = DarkSurface.copy(alpha = 0.92f),
+            tonalElevation = 4.dp
         ) {
-            // Top gradient line
             Box(modifier = Modifier.fillMaxSize()) {
+                // Subtle top hairline accent
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -230,7 +234,7 @@ fun GlassNavBar(
                             Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    NeonGreen.copy(alpha = 0.6f),
+                                    AccentEmerald.copy(alpha = 0.3f),
                                     Color.Transparent
                                 )
                             )
@@ -240,7 +244,7 @@ fun GlassNavBar(
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically,
                     content = content
@@ -251,7 +255,7 @@ fun GlassNavBar(
 }
 
 /**
- * Navigation bar item with neon glow when selected
+ * Refined Navigation bar item with tactile feedback
  */
 @Composable
 fun GlassNavItem(
@@ -259,10 +263,10 @@ fun GlassNavItem(
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
     label: String,
-    selectedColor: Color = NeonGreen,
+    selectedColor: Color = AccentEmerald,
     modifier: Modifier = Modifier
 ) {
-    val color = if (selected) selectedColor else Slate500
+    val activeColor = if (selected) selectedColor else Slate400
     
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -270,32 +274,22 @@ fun GlassNavItem(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (selected) {
-                // Glow effect
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .blur(10.dp)
-                        .background(selectedColor.copy(alpha = 0.4f), CircleShape)
-                )
-            }
-            
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .then(
-                        if (selected) {
-                            Modifier.background(selectedColor.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
-                        } else Modifier
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                CompositionLocalProvider(LocalContentColor provides color) {
-                    icon()
-                }
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .then(
+                    if (selected) {
+                        Modifier
+                            .background(selectedColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                            .border(1.dp, selectedColor.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    } else Modifier
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            CompositionLocalProvider(LocalContentColor provides activeColor) {
+                icon()
             }
         }
         
@@ -303,8 +297,9 @@ fun GlassNavItem(
         
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) Color.White else Slate400,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) Slate50 else Slate400,
             maxLines = 1
         )
     }

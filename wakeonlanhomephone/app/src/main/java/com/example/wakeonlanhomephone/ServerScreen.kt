@@ -13,13 +13,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.PowerSettingsNew
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -32,7 +34,6 @@ import androidx.compose.ui.window.Dialog
 import com.example.wakeonlanhomephone.ui.theme.*
 import com.example.wakeonlanhomephone.ui.components.*
 import java.net.NetworkInterface
-import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
@@ -59,306 +60,294 @@ fun ServerScreen(
         selectedDeviceId = profileManager.getSelectedDeviceId()
     }
 
-    val statusColor = if (isRunning) NeonGreen else Slate500
     val ipv6Addresses = remember { getDeviceIPv6Addresses() }
-    val displayedLogs = remember(logs) { logs.asReversed().take(10) }
+    val displayedLogs = remember(logs) { logs.asReversed().take(12) }
     
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackroundDark)
+            .background(DarkBgPrimary)
     ) {
-        // Background grid pattern (simulated with subtle lines)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            NeonBlue.copy(alpha = 0.03f),
-                            Color.Transparent
-                        ),
-                        startY = 0f,
-                        endY = 800f
-                    )
-                )
-        )
-        
-        // Ambient glow at top
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = (-100).dp)
-                .size(500.dp)
-                .blur(120.dp)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            PrimaryBlue.copy(alpha = 0.2f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-        
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 56.dp, start = 24.dp, end = 24.dp, bottom = 160.dp),
+            contentPadding = PaddingValues(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 140.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Header
+            // Header Bar
             item {
-                Column(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = CyberCyan,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .blur(if (isRunning) 2.dp else 0.dp)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "WOL SYSTEM",
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 4.sp
-                    )
-                    Text(
-                        "PREMIUM INTERFACE ACTIVE",
-                        color = CyberCyan.copy(alpha = 0.6f),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 2.sp
-                    )
+                    Column {
+                        Text(
+                            text = "家用喚醒助手",
+                            color = Slate50,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "區域網路 WoL 廣播 · TCP 9876 控制樞紐",
+                            color = Slate400,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    // Live Status Pill
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isRunning) AccentEmeraldDim else DarkSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isRunning) AccentEmeraldBorder else BorderSubtle
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isRunning) {
+                                AnimatedPingDot(color = AccentEmerald, size = 6.dp)
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(Slate500, CircleShape)
+                                )
+                            }
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = if (isRunning) "監聽中" else "已停止",
+                                color = if (isRunning) AccentEmerald else Slate400,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
 
-            // Status Circle
-            item {
-                Box(
-                    modifier = Modifier.size(260.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Pulsing glow background
-                    if (isRunning) {
-                        PulsingGlow(
-                            color = CyberCyan,
-                            size = 260.dp
-                        )
-                    }
-                    
-                    // Multiple spinning border rings for complexity
-                    if (isRunning) {
-                        SpinningBorderRing(
-                            color = CyberCyan,
-                            size = 210.dp,
-                            strokeWidth = 1.dp
-                        )
-                        SpinningBorderRing(
-                            color = CyberPink,
-                            size = 180.dp,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.rotate(180f)
-                        )
-                    }
-                    
-                    // Main circle with glass effect
-                    Box(
-                        modifier = Modifier
-                            .size(170.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceGlass.copy(alpha = 0.8f))
-                            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                if (isRunning) "ONLINE" else "OFFLINE",
-                                color = if (isRunning) CyberCyan else Slate500,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 2.sp
-                            )
-                            
-                            Spacer(Modifier.height(4.dp))
-                            
-                            // Online status with ping dot
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (isRunning) {
-                                    AnimatedPingDot(color = CyberCyan, size = 6.dp)
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .background(Slate500, CircleShape)
-                                    )
-                                }
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    if (isRunning) "SECURE" else "INACTIVE",
-                                    color = if (isRunning) CyberCyan.copy(alpha = 0.7f) else Slate500,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // IPv6 Address Pills
-            item {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (ipv6Addresses.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    PrimaryBlue.copy(alpha = 0.1f),
-                                    RoundedCornerShape(50)
-                                )
-                                .border(
-                                    1.dp,
-                                    PrimaryBlue.copy(alpha = 0.2f),
-                                    RoundedCornerShape(50)
-                                )
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = NeonBlue,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "No IPv6 Available",
-                                    color = NeonBlue.copy(alpha = 0.8f),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                        }
-                    } else {
-                        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
-                        val context = LocalContext.current
-                        
-                        ipv6Addresses.forEach { ip ->
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        PrimaryBlue.copy(alpha = 0.1f),
-                                        RoundedCornerShape(50)
-                                    )
-                                    .border(
-                                        1.dp,
-                                        PrimaryBlue.copy(alpha = 0.2f),
-                                        RoundedCornerShape(50)
-                                    )
-                                    .clickable {
-                                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(ip))
-                                        android.widget.Toast.makeText(context, "已複製位址", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = NeonBlue,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        ip,
-                                        color = NeonBlue.copy(alpha = 0.8f),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Target Computers Management & Instant Controls Card
+            // Server Status & IPv6 Gateway Card
             item {
                 GlassPanel(modifier = Modifier.fillMaxWidth()) {
-                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Computer,
-                                contentDescription = null,
-                                tint = CyberCyan,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "TARGET COMPUTERS (${devices.size})",
-                                color = CyberCyan,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        if (isRunning) AccentEmeraldDim else DarkSurfaceElevated,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isRunning) AccentEmeraldBorder else BorderSubtle,
+                                        RoundedCornerShape(10.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Dns,
+                                    contentDescription = null,
+                                    tint = if (isRunning) AccentEmerald else Slate400,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "TCP 監聽服務",
+                                    color = Slate50,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (isRunning) "Port 9876 正常運作中" else "服務未啟動",
+                                    color = if (isRunning) AccentEmerald else Slate400,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
-                        IconButton(
-                            onClick = { showAddDeviceDialog = true },
-                            modifier = Modifier.size(32.dp)
+
+                        // Toggle Action Button
+                        Button(
+                            onClick = { if (isRunning) onStopService() else onStartService() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isRunning) SemanticDangerDim else AccentEmeraldDim
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isRunning) SemanticDangerBorder else AccentEmeraldBorder
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Computer",
-                                tint = NeonGreen
+                            Text(
+                                text = if (isRunning) "停止服務" else "啟動服務",
+                                color = if (isRunning) SemanticDanger else AccentEmerald,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(Modifier.height(14.dp))
+                    HorizontalDivider(color = BorderSubtle)
+                    Spacer(Modifier.height(14.dp))
+
+                    // IPv6 Address Section
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "本機連線位址 (IPv6)",
+                            color = Slate400,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Text(
+                            text = "點擊可複製",
+                            color = Slate500,
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    if (ipv6Addresses.isEmpty()) {
+                        Text(
+                            text = "目前未偵測到全域 IPv6 位址",
+                            color = Slate500,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    } else {
+                        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ipv6Addresses.forEach { ip ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(ip))
+                                            android.widget.Toast.makeText(context, "已複製位址：$ip", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                    color = DarkSurfaceElevated,
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = ip,
+                                            color = Slate200,
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = "複製",
+                                            tint = Slate400,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Target Computers Management Card
+            item {
+                GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "目標電腦管理",
+                                color = Slate50,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = DarkSurfaceElevated,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                            ) {
+                                Text(
+                                    text = "${devices.size} 台",
+                                    color = Slate400,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = { showAddDeviceDialog = true },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "新增目標電腦",
+                                tint = AccentEmerald,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
 
                     if (devices.isEmpty()) {
                         Text(
-                            "尚未新增目標電腦，請點擊右上角 + 新增",
-                            color = Slate400,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(vertical = 8.dp)
+                            text = "尚未新增目標電腦，請點擊右上角「+」新增",
+                            color = Slate500,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 12.dp)
                         )
                     } else {
-                        // Chips row
+                        // Device Selection Chips Row
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(devices) { device ->
                                 val isSelected = device.id == selectedDeviceId
-                                val borderColor = if (isSelected) NeonGreen else GlassBorder
-                                val bgColor = if (isSelected) NeonGreen.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.04f)
+                                val borderColor = if (isSelected) AccentEmeraldBorder else BorderSubtle
+                                val bgColor = if (isSelected) AccentEmeraldDim else DarkSurfaceElevated
 
                                 Surface(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .border(1.dp, borderColor, RoundedCornerShape(10.dp))
                                         .clickable {
                                             selectedDeviceId = device.id
                                             profileManager.setSelectedDeviceId(device.id)
                                             refreshDevices()
                                         },
                                     color = bgColor,
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -367,27 +356,27 @@ fun ServerScreen(
                                         Column {
                                             Text(
                                                 text = device.name,
-                                                color = if (isSelected) Color.White else Slate300,
+                                                color = if (isSelected) Slate50 else Slate300,
                                                 fontSize = 13.sp,
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                             )
                                             Text(
-                                                text = device.mac,
-                                                color = if (isSelected) CyberCyan else Slate500,
+                                                text = device.mac.ifEmpty { "無 MAC" },
+                                                color = if (isSelected) AccentEmerald else Slate500,
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
                                         }
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Spacer(Modifier.width(8.dp))
                                         IconButton(
                                             onClick = { deviceToEdit = device },
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(22.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Edit,
-                                                contentDescription = "Edit",
-                                                tint = if (isSelected) NeonGreen else Slate400,
-                                                modifier = Modifier.size(14.dp)
+                                                contentDescription = "編輯",
+                                                tint = if (isSelected) AccentEmerald else Slate500,
+                                                modifier = Modifier.size(13.dp)
                                             )
                                         }
                                     }
@@ -395,87 +384,77 @@ fun ServerScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(Modifier.height(16.dp))
 
-                        // Direct LAN Wake Button
+                        // Primary Action: Wake Selected Device
                         val selectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
                         if (selectedDevice != null) {
                             Button(
                                 onClick = { onWakeComputer?.invoke(selectedDevice) },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(52.dp),
+                                    .height(48.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = NeonGreen.copy(alpha = 0.2f)
+                                    containerColor = AccentEmerald
                                 ),
-                                border = androidx.compose.foundation.BorderStroke(1.5.dp, NeonGreen),
-                                shape = RoundedCornerShape(14.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.PowerSettingsNew,
+                                        imageVector = Icons.Rounded.Bolt,
                                         contentDescription = null,
-                                        tint = NeonGreen,
-                                        modifier = Modifier.size(22.dp)
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(20.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column(horizontalAlignment = Alignment.Start) {
-                                        Text(
-                                            "WAKE ${selectedDevice.name.uppercase()}",
-                                            color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 1.sp
-                                        )
-                                        Text(
-                                            "內網廣播 WoL Magic Packet (${selectedDevice.mac})",
-                                            color = NeonGreen.copy(alpha = 0.85f),
-                                            fontSize = 10.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = "喚醒 ${selectedDevice.name}",
+                                        color = Color.Black,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
 
-                            // Optional Power Controls if IP is set
+                            // Secondary Power Actions (if IP configured)
                             if (selectedDevice.ip.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(Modifier.height(10.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Button(
                                         onClick = { onPowerCommand?.invoke(selectedDevice, "shutdown") },
-                                        modifier = Modifier.weight(1f).height(40.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.15f)),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonRed.copy(alpha = 0.6f)),
-                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f).height(38.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SemanticDangerDim),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, SemanticDangerBorder),
+                                        shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("關機", color = NeonRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("關機", color = SemanticDanger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                     Button(
                                         onClick = { onPowerCommand?.invoke(selectedDevice, "reboot") },
-                                        modifier = Modifier.weight(1f).height(40.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = CyberYellow.copy(alpha = 0.15f)),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, CyberYellow.copy(alpha = 0.6f)),
-                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f).height(38.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceElevated),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                                        shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("重啟", color = CyberYellow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("重啟", color = Slate200, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                     Button(
                                         onClick = { onPowerCommand?.invoke(selectedDevice, "sleep") },
-                                        modifier = Modifier.weight(1f).height(40.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue.copy(alpha = 0.15f)),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.6f)),
-                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f).height(38.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceElevated),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                                        shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("睡眠", color = PrimaryBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("睡眠", color = Slate200, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -484,51 +463,24 @@ fun ServerScreen(
                 }
             }
 
-            // Control Buttons
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(IntrinsicSize.Min),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Start Button
-                    ControlButton(
-                        onClick = onStartService,
-                        label = "INITIALIZE",
-                        subtitle = "TCP:9876 SERVICE",
-                        accentColor = CyberCyan,
-                        modifier = Modifier.weight(1f)
-                    )
-                    
-                    // Stop Button
-                    ControlButton(
-                        onClick = onStopService,
-                        label = "TERMINATE",
-                        subtitle = "STOP SERVICE",
-                        accentColor = NeonRed,
-                        isStop = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            
-            // Logs Section Header
+            // Real-Time System Log Header
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Real-Time Log",
+                        text = "系統即時日誌",
                         color = Slate400,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
                     )
                     Text(
-                        "Clear Log",
-                        color = NeonBlue,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "清除日誌",
+                        color = AccentEmerald,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.clickable { onClearLogs() }
                     )
@@ -536,14 +488,27 @@ fun ServerScreen(
             }
             
             // Log Items
-            itemsIndexed(
-                items = displayedLogs,
-                key = { index, log -> "$log-$index" }
-            ) { _, log ->
-                LogItem(log = log)
+            if (displayedLogs.isEmpty()) {
+                item {
+                    Text(
+                        text = "暫無日誌記錄",
+                        color = Slate500,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                }
+            } else {
+                itemsIndexed(
+                    items = displayedLogs,
+                    key = { index, log -> "$log-$index" }
+                ) { _, log ->
+                    LogItem(log = log)
+                }
             }
         }
 
+        // Add Computer Dialog
         if (showAddDeviceDialog) {
             AddComputerDialog(
                 onDismiss = { showAddDeviceDialog = false },
@@ -555,6 +520,7 @@ fun ServerScreen(
             )
         }
 
+        // Edit Computer Dialog
         deviceToEdit?.let { device ->
             EditComputerDialog(
                 device = device,
@@ -570,77 +536,6 @@ fun ServerScreen(
                     refreshDevices()
                     deviceToEdit = null
                 }
-            )
-        }
-    }
-}
-
-@Composable
-fun ControlButton(
-    onClick: () -> Unit,
-    label: String,
-    subtitle: String,
-    accentColor: Color,
-    isStop: Boolean = false,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.fillMaxHeight(),
-        shape = RoundedCornerShape(20.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.White.copy(alpha = 0.05f)
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            Color.White.copy(alpha = 0.1f)
-        ),
-        contentPadding = PaddingValues(20.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // Icon circle
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(accentColor.copy(alpha = 0.1f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isStop) {
-                    // Stop icon (square)
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .background(accentColor, RoundedCornerShape(2.dp))
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-            
-            Spacer(Modifier.height(10.dp))
-            
-            Text(
-                label,
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
-            )
-            
-            Spacer(Modifier.height(2.dp))
-            
-            Text(
-                subtitle,
-                color = Slate400,
-                style = MaterialTheme.typography.labelSmall
             )
         }
     }
@@ -665,7 +560,7 @@ fun LogItem(log: String) {
         val fromText = if (message.contains(":")) {
             message.substringBefore(":").trim()
         } else {
-            "System"
+            "系統"
         }
         val detailText = if (message.contains(":")) {
             message.substringAfter(":").trim()
@@ -684,31 +579,28 @@ fun LogItem(log: String) {
         
         when {
             lowerFrom.contains("mqtt") && lowerMessage.contains("connected") -> {
-                "狀態：MQTT 已連線" to NeonGreen
+                "MQTT 已連線" to AccentEmerald
             }
             lowerFrom.contains("mqtt") && (lowerMessage.contains("disconnected") || lowerMessage.contains("closed")) -> {
-                "狀態：MQTT 已中斷" to NeonRed
+                "MQTT 已中斷" to SemanticDanger
             }
             lowerFrom.contains("mqtt") && lowerMessage.contains("connecting") -> {
-                "狀態：MQTT 連線中" to CyberYellow
-            }
-            lowerFrom.contains("mqtt") && (lowerMessage.contains("failed") || lowerMessage.contains("error")) -> {
-                "狀態：MQTT 連線失敗" to NeonRed
+                "MQTT 連線中" to SemanticWarning
             }
             lowerMessage.contains("error") || lowerMessage.contains("failed") -> {
-                "狀態：錯誤" to NeonRed
+                "連線錯誤" to SemanticDanger
             }
-            lowerMessage.contains("listening on") || lowerMessage.contains("started") || lowerMessage.contains("connected") -> {
-                "狀態：系統就緒" to NeonGreen
+            lowerMessage.contains("listening") || lowerMessage.contains("started") || lowerMessage.contains("connected") -> {
+                "服務就緒" to AccentEmerald
             }
             lowerMessage.contains("received") -> {
-                "狀態：收到指令" to CyberCyan
+                "收到指令" to SemanticInfo
             }
-            lowerMessage.contains("action") || lowerMessage.contains("published to") || lowerMessage.contains("sent") -> {
-                "狀態：指令已執行" to NeonBlue
+            lowerMessage.contains("action") || lowerMessage.contains("published") || lowerMessage.contains("sent") -> {
+                "指令已執行" to AccentEmerald
             }
             else -> {
-                "狀態：系統日誌" to Slate400
+                "系統訊息" to Slate400
             }
         }
     }
@@ -716,85 +608,52 @@ fun LogItem(log: String) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = SurfaceGlass,
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
+        color = DarkSurface,
+        shape = RoundedCornerShape(10.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
     ) {
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            // Left accent bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            // Left Status indicator line
             Box(
                 modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(statusColor)
+                    .size(4.dp, 36.dp)
+                    .background(statusColor, RoundedCornerShape(2.dp))
             )
-            
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                // From address
-                Row {
-                    Text(
-                        "FROM:",
-                        color = Slate500,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Text(
-                    fromText,
-                    color = statusColor.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace
-                )
-                
-                Spacer(Modifier.height(8.dp))
-                
-                // Message and time
+            Spacer(Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Log Entry",
-                        color = Slate400,
-                        style = MaterialTheme.typography.labelSmall,
+                        text = fromText,
+                        color = statusColor,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        timestamp,
+                        text = timestamp,
                         color = Slate500,
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
-                
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    detailText,
-                    color = Color.White,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace
+                    text = detailText,
+                    color = Slate100,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    lineHeight = 16.sp
                 )
-                
-                Spacer(Modifier.height(8.dp))
-                
-                // Status indicator
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .background(statusColor, CircleShape)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        statusText,
-                        color = statusColor,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
             }
         }
     }
@@ -813,7 +672,6 @@ private fun getDeviceIPv6Addresses(): List<String> {
             while (addresses.hasMoreElements()) {
                 val address = addresses.nextElement()
                 if (!address.isLoopbackAddress && address.hostAddress?.contains(":") == true) {
-                    // Found IPv6 address, clean it up
                     val ipv6 = address.hostAddress?.split("%")?.get(0) ?: continue
                     if (!ipv6.startsWith("fe80")) { // Skip link-local
                         if (!list.contains(ipv6)) {
@@ -842,9 +700,9 @@ fun AddComputerDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, CyberCyan.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
-            color = Navy900.copy(alpha = 0.95f),
+                .clip(RoundedCornerShape(16.dp))
+                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
+            color = DarkSurfaceElevated,
             tonalElevation = 8.dp
         ) {
             Column(
@@ -853,9 +711,9 @@ fun AddComputerDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    "新增目標電腦",
-                    color = Color.White,
-                    fontSize = 18.sp,
+                    text = "新增目標電腦",
+                    color = Slate50,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(14.dp))
@@ -865,13 +723,14 @@ fun AddComputerDialog(
                     label = { Text("電腦名稱 (例: 臥室主機)") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberCyan,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedLabelColor = CyberCyan,
+                        focusedBorderColor = AccentEmerald,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = AccentEmerald,
                         unfocusedLabelColor = Slate400,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedTextColor = Slate50,
+                        unfocusedTextColor = Slate50
                     ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -881,13 +740,14 @@ fun AddComputerDialog(
                     label = { Text("網卡 MAC (例: AA:BB:CC:DD:EE:FF)") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberCyan,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedLabelColor = CyberCyan,
+                        focusedBorderColor = AccentEmerald,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = AccentEmerald,
                         unfocusedLabelColor = Slate400,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedTextColor = Slate50,
+                        unfocusedTextColor = Slate50
                     ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -897,13 +757,14 @@ fun AddComputerDialog(
                     label = { Text("區域網路 IPv4 (可選，供關機/重啟)") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberCyan,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedLabelColor = CyberCyan,
+                        focusedBorderColor = AccentEmerald,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = AccentEmerald,
                         unfocusedLabelColor = Slate400,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedTextColor = Slate50,
+                        unfocusedTextColor = Slate50
                     ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(18.dp))
@@ -922,11 +783,10 @@ fun AddComputerDialog(
                             }
                         },
                         enabled = mac.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.25f)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("新增", color = NeonGreen, fontWeight = FontWeight.Bold)
+                        Text("新增", color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -950,9 +810,9 @@ fun EditComputerDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, CyberCyan.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
-            color = Navy900.copy(alpha = 0.95f),
+                .clip(RoundedCornerShape(16.dp))
+                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
+            color = DarkSurfaceElevated,
             tonalElevation = 8.dp
         ) {
             Column(
@@ -961,9 +821,9 @@ fun EditComputerDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    "編輯目標電腦",
-                    color = Color.White,
-                    fontSize = 18.sp,
+                    text = "編輯目標電腦",
+                    color = Slate50,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(14.dp))
@@ -973,13 +833,14 @@ fun EditComputerDialog(
                     label = { Text("電腦名稱") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberCyan,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedLabelColor = CyberCyan,
+                        focusedBorderColor = AccentEmerald,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = AccentEmerald,
                         unfocusedLabelColor = Slate400,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedTextColor = Slate50,
+                        unfocusedTextColor = Slate50
                     ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -989,13 +850,14 @@ fun EditComputerDialog(
                     label = { Text("網卡 MAC") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberCyan,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedLabelColor = CyberCyan,
+                        focusedBorderColor = AccentEmerald,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = AccentEmerald,
                         unfocusedLabelColor = Slate400,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedTextColor = Slate50,
+                        unfocusedTextColor = Slate50
                     ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(10.dp))
@@ -1005,13 +867,14 @@ fun EditComputerDialog(
                     label = { Text("區域網路 IPv4 (可選)") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyberCyan,
-                        unfocusedBorderColor = GlassBorder,
-                        focusedLabelColor = CyberCyan,
+                        focusedBorderColor = AccentEmerald,
+                        unfocusedBorderColor = BorderSubtle,
+                        focusedLabelColor = AccentEmerald,
                         unfocusedLabelColor = Slate400,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedTextColor = Slate50,
+                        unfocusedTextColor = Slate50
                     ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(18.dp))
@@ -1022,7 +885,7 @@ fun EditComputerDialog(
                 ) {
                     if (canDelete) {
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = NeonRed)
+                            Icon(Icons.Default.Delete, contentDescription = "刪除", tint = SemanticDanger)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
@@ -1039,11 +902,10 @@ fun EditComputerDialog(
                                 }
                             },
                             enabled = mac.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan.copy(alpha = 0.25f)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("儲存", color = CyberCyan, fontWeight = FontWeight.Bold)
+                            Text("儲存", color = Color.Black, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1051,4 +913,3 @@ fun EditComputerDialog(
         }
     }
 }
-

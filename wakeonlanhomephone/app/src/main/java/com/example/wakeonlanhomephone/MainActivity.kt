@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -324,75 +325,39 @@ fun MainScreen(
                     }
                 }
                 
-                // Floating glassmorphic navigation bar
+                // Floating navigation bar
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(horizontal = 24.dp, vertical = 24.dp)
                 ) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(80.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)),
-                        color = SurfaceGlass.copy(alpha = 0.8f),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            // Top gradient line
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(
-                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                NeonGreen.copy(alpha = 0.6f),
-                                                Color.Transparent
-                                            )
-                                        )
-                                    )
-                            )
-                            
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Server tab
-                                GlassNavItem(
-                                    selected = currentTab == Tab.Server,
-                                    onClick = { currentTab = Tab.Server },
-                                    icon = { Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(26.dp)) },
-                                    label = "Server",
-                                    selectedColor = NeonGreen
-                                )
-                                
-                                // MQTT tab
-                                GlassNavItem(
-                                    selected = currentTab == Tab.Connections,
-                                    onClick = { currentTab = Tab.Connections },
-                                    icon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(26.dp)) },
-                                    label = "MQTT",
-                                    selectedColor = NeonBlue
-                                )
-                                
-                                // Settings tab
-                                GlassNavItem(
-                                    selected = currentTab == Tab.Settings,
-                                    onClick = { currentTab = Tab.Settings },
-                                    icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(26.dp)) },
-                                    label = "Settings",
-                                    selectedColor = SettingsPrimary
-                                )
-                            }
-                        }
+                    GlassNavBar {
+                        // Server tab
+                        GlassNavItem(
+                            selected = currentTab == Tab.Server,
+                            onClick = { currentTab = Tab.Server },
+                            icon = { Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(24.dp)) },
+                            label = "伺服器",
+                            selectedColor = AccentEmerald
+                        )
+                        
+                        // MQTT tab
+                        GlassNavItem(
+                            selected = currentTab == Tab.Connections,
+                            onClick = { currentTab = Tab.Connections },
+                            icon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(24.dp)) },
+                            label = "MQTT",
+                            selectedColor = AccentEmerald
+                        )
+                        
+                        // Settings tab
+                        GlassNavItem(
+                            selected = currentTab == Tab.Settings,
+                            onClick = { currentTab = Tab.Settings },
+                            icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp)) },
+                            label = "設定",
+                            selectedColor = AccentEmerald
+                        )
                     }
                 }
             }
@@ -609,7 +574,7 @@ fun StyledTextField(label: String, value: String, onValueChange: (String) -> Uni
 }
 
 /**
- * New glassmorphic Settings screen with cyberpunk styling
+ * Refined Settings screen with precision dark hardware styling
  */
 @Composable
 fun NewSettingsScreen(
@@ -620,7 +585,6 @@ fun NewSettingsScreen(
     val context = LocalContext.current
     val updateManager = remember { UpdateManager(context) }
     
-    // Get actual app version
     val versionName = remember {
         try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
@@ -647,59 +611,34 @@ fun NewSettingsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDeepNavy)
+            .background(DarkBgPrimary)
     ) {
-        // Background gradient blobs
-        Box(
-            modifier = Modifier
-                .offset(x = (-50).dp, y = (-50).dp)
-                .size(500.dp)
-                .blur(120.dp)
-                .background(
-                    androidx.compose.ui.graphics.Brush.radialGradient(
-                        colors = listOf(
-                            SettingsPrimary.copy(alpha = 0.2f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-        
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = 100.dp, y = 100.dp)
-                .size(400.dp)
-                .blur(100.dp)
-                .background(
-                    androidx.compose.ui.graphics.Brush.radialGradient(
-                        colors = listOf(
-                            PurpleAccent.copy(alpha = 0.2f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-        
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 120.dp)
+                .padding(bottom = 100.dp)
         ) {
             // Header
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(BackgroundDeepNavy.copy(alpha = 0.7f))
-                    .padding(top = 48.dp, bottom = 16.dp),
-                contentAlignment = Alignment.Center
+                    .padding(top = 48.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "Settings",
-                    color = Color.White.copy(alpha = 0.9f),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column {
+                    Text(
+                        text = "系統設定",
+                        color = Slate50,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "MQTT Broker 連線與軟體更新維護",
+                        color = Slate400,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
             
             // Content
@@ -707,517 +646,427 @@ fun NewSettingsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                contentPadding = PaddingValues(top = 24.dp, bottom = 24.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
             ) {
                 // MQTT Broker Configuration Section
                 item {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
-                        color = SurfaceGlass.copy(alpha = 0.4f),
-                        tonalElevation = 0.dp
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                    GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Share, contentDescription = null, tint = NeonBlue, modifier = Modifier.size(24.dp))
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(
-                                        "MQTT Broker 設定",
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = when (mqttState) {
-                                        MqttConnectionState.CONNECTED -> NeonGreen.copy(alpha = 0.15f)
-                                        MqttConnectionState.CONNECTING -> CyberYellow.copy(alpha = 0.15f)
-                                        MqttConnectionState.FAILED -> NeonRed.copy(alpha = 0.15f)
-                                        MqttConnectionState.DISCONNECTED -> Slate700.copy(alpha = 0.5f)
-                                    },
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        1.dp,
-                                        when (mqttState) {
-                                            MqttConnectionState.CONNECTED -> NeonGreen.copy(alpha = 0.5f)
-                                            MqttConnectionState.CONNECTING -> CyberYellow.copy(alpha = 0.5f)
-                                            MqttConnectionState.FAILED -> NeonRed.copy(alpha = 0.5f)
-                                            MqttConnectionState.DISCONNECTED -> Slate600
-                                        }
-                                    )
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .background(
-                                                    when (mqttState) {
-                                                        MqttConnectionState.CONNECTED -> NeonGreen
-                                                        MqttConnectionState.CONNECTING -> CyberYellow
-                                                        MqttConnectionState.FAILED -> NeonRed
-                                                        MqttConnectionState.DISCONNECTED -> Slate400
-                                                    },
-                                                    CircleShape
-                                                )
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            when (mqttState) {
-                                                MqttConnectionState.CONNECTED -> "已連線"
-                                                MqttConnectionState.CONNECTING -> "連線中"
-                                                MqttConnectionState.FAILED -> "連線失敗"
-                                                MqttConnectionState.DISCONNECTED -> "未連線"
-                                            },
-                                            color = when (mqttState) {
-                                                MqttConnectionState.CONNECTED -> NeonGreen
-                                                MqttConnectionState.CONNECTING -> CyberYellow
-                                                MqttConnectionState.FAILED -> NeonRed
-                                                MqttConnectionState.DISCONNECTED -> Slate400
-                                            },
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-
                             Text(
-                                "設定 Adafruit IO 或其他 MQTT Broker 連線資訊。若使用 Adafruit IO，密碼請填寫 AIO Key。",
-                                color = Slate400,
-                                style = MaterialTheme.typography.bodySmall
+                                text = "MQTT Broker 配置",
+                                color = Slate50,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
                             )
 
-                            if (mqttState == MqttConnectionState.FAILED && !lastError.isNullOrEmpty()) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = NeonRed.copy(alpha = 0.12f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonRed.copy(alpha = 0.4f)),
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = when (mqttState) {
+                                    MqttConnectionState.CONNECTED -> AccentEmeraldDim
+                                    MqttConnectionState.CONNECTING -> SemanticWarningDim
+                                    MqttConnectionState.FAILED -> SemanticDangerDim
+                                    MqttConnectionState.DISCONNECTED -> DarkSurfaceElevated
+                                },
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    when (mqttState) {
+                                        MqttConnectionState.CONNECTED -> AccentEmeraldBorder
+                                        MqttConnectionState.CONNECTING -> SemanticWarning.copy(alpha = 0.4f)
+                                        MqttConnectionState.FAILED -> SemanticDangerBorder
+                                        MqttConnectionState.DISCONNECTED -> BorderSubtle
+                                    }
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(
+                                                when (mqttState) {
+                                                    MqttConnectionState.CONNECTED -> AccentEmerald
+                                                    MqttConnectionState.CONNECTING -> SemanticWarning
+                                                    MqttConnectionState.FAILED -> SemanticDanger
+                                                    MqttConnectionState.DISCONNECTED -> Slate500
+                                                },
+                                                CircleShape
+                                            )
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = when (mqttState) {
+                                            MqttConnectionState.CONNECTED -> "已連線"
+                                            MqttConnectionState.CONNECTING -> "連線中"
+                                            MqttConnectionState.FAILED -> "連線失敗"
+                                            MqttConnectionState.DISCONNECTED -> "未連線"
+                                        },
+                                        color = when (mqttState) {
+                                            MqttConnectionState.CONNECTED -> AccentEmerald
+                                            MqttConnectionState.CONNECTING -> SemanticWarning
+                                            MqttConnectionState.FAILED -> SemanticDanger
+                                            MqttConnectionState.DISCONNECTED -> Slate400
+                                        },
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+
+                        if (mqttState == MqttConnectionState.FAILED && !lastError.isNullOrEmpty()) {
+                            Spacer(Modifier.height(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = SemanticDangerDim,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, SemanticDangerBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "連線失敗原因：${lastError ?: ""}",
+                                    color = SemanticDanger,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(10.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Host & Port
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Broker Host / URL", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            OutlinedTextField(
+                                value = brokerHost,
+                                onValueChange = { brokerHost = it },
+                                placeholder = { Text("io.adafruit.com", color = Slate500, fontSize = 13.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Slate50,
+                                    unfocusedTextColor = Slate50,
+                                    focusedBorderColor = AccentEmerald,
+                                    unfocusedBorderColor = BorderSubtle,
+                                    focusedContainerColor = DarkSurfaceElevated,
+                                    unfocusedContainerColor = DarkSurfaceElevated
+                                ),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Port", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                OutlinedTextField(
+                                    value = brokerPort,
+                                    onValueChange = { brokerPort = it },
+                                    placeholder = { Text(if (useSsl) "8883" else "1883", color = Slate500, fontSize = 13.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Slate50,
+                                        unfocusedTextColor = Slate50,
+                                        focusedBorderColor = AccentEmerald,
+                                        unfocusedBorderColor = BorderSubtle,
+                                        focusedContainerColor = DarkSurfaceElevated,
+                                        unfocusedContainerColor = DarkSurfaceElevated
+                                    ),
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                            }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("SSL/TLS 加密", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp),
-                                        verticalAlignment = Alignment.Top
-                                    ) {
+                                    Switch(
+                                        checked = useSsl,
+                                        onCheckedChange = { checked ->
+                                            useSsl = checked
+                                            if (checked && brokerPort == "1883") brokerPort = "8883"
+                                            else if (!checked && brokerPort == "8883") brokerPort = "1883"
+                                        },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = AccentEmerald,
+                                            checkedTrackColor = AccentEmeraldDim
+                                        )
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(if (useSsl) "SSL" else "TCP", color = if (useSsl) AccentEmerald else Slate400, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Username
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Username (Adafruit 使用者名稱)", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            OutlinedTextField(
+                                value = brokerUser,
+                                onValueChange = { brokerUser = it },
+                                placeholder = { Text("username", color = Slate500, fontSize = 13.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Slate50,
+                                    unfocusedTextColor = Slate50,
+                                    focusedBorderColor = AccentEmerald,
+                                    unfocusedBorderColor = BorderSubtle,
+                                    focusedContainerColor = DarkSurfaceElevated,
+                                    unfocusedContainerColor = DarkSurfaceElevated
+                                ),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Password / AIO Key
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Password (Adafruit AIO Key)", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            OutlinedTextField(
+                                value = brokerPass,
+                                onValueChange = { brokerPass = it },
+                                placeholder = { Text("aio_xxxxxxxxxxxxxxxxxxxxxxxx", color = Slate500, fontSize = 13.sp) },
+                                singleLine = true,
+                                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                                         Icon(
-                                            Icons.Default.Warning,
-                                            contentDescription = null,
-                                            tint = NeonRed,
-                                            modifier = Modifier.size(20.dp).padding(top = 2.dp)
+                                            imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                            contentDescription = if (isPasswordVisible) "隱藏密碼" else "顯示密碼",
+                                            tint = if (isPasswordVisible) AccentEmerald else Slate400,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                "連線失敗原因：",
-                                                color = NeonRed,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Spacer(Modifier.height(4.dp))
-                                            Text(
-                                                lastError ?: "",
-                                                color = Slate200,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                lineHeight = 18.sp
-                                            )
-                                        }
                                     }
-                                }
-                            }
-
-                            // Host & Port
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Broker Host / URL", color = Slate300, style = MaterialTheme.typography.labelSmall)
-                                OutlinedTextField(
-                                    value = brokerHost,
-                                    onValueChange = { brokerHost = it },
-                                    placeholder = { Text("io.adafruit.com", color = Slate500) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = NeonBlue,
-                                        unfocusedBorderColor = GlassBorder,
-                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
-                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("Port", color = Slate300, style = MaterialTheme.typography.labelSmall)
-                                    OutlinedTextField(
-                                        value = brokerPort,
-                                        onValueChange = { brokerPort = it },
-                                        placeholder = { Text(if (useSsl) "8883" else "1883", color = Slate500) },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White,
-                                            focusedBorderColor = NeonBlue,
-                                            unfocusedBorderColor = GlassBorder,
-                                            focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
-                                            unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
-                                        ),
-                                        shape = RoundedCornerShape(10.dp)
-                                    )
-                                }
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("SSL/TLS 加密", color = Slate300, style = MaterialTheme.typography.labelSmall)
-                                    Spacer(Modifier.height(8.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Switch(
-                                            checked = useSsl,
-                                            onCheckedChange = { checked ->
-                                                useSsl = checked
-                                                if (checked && brokerPort == "1883") brokerPort = "8883"
-                                                else if (!checked && brokerPort == "8883") brokerPort = "1883"
-                                            },
-                                            colors = SwitchDefaults.colors(
-                                                checkedThumbColor = NeonBlue,
-                                                checkedTrackColor = NeonBlue.copy(alpha = 0.4f)
-                                            )
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(if (useSsl) "SSL" else "TCP", color = if (useSsl) NeonBlue else Slate400, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                            }
-
-                            // Username
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Username (Adafruit 使用者名稱)", color = Slate300, style = MaterialTheme.typography.labelSmall)
-                                OutlinedTextField(
-                                    value = brokerUser,
-                                    onValueChange = { brokerUser = it },
-                                    placeholder = { Text("username", color = Slate500) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = NeonBlue,
-                                        unfocusedBorderColor = GlassBorder,
-                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
-                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                            }
-
-                            // Password / AIO Key
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("Password (Adafruit AIO Key)", color = Slate300, style = MaterialTheme.typography.labelSmall)
-                                OutlinedTextField(
-                                    value = brokerPass,
-                                    onValueChange = { brokerPass = it },
-                                    placeholder = { Text("aio_xxxxxxxxxxxxxxxxxxxxxxxx", color = Slate500) },
-                                    singleLine = true,
-                                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    trailingIcon = {
-                                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                                            Icon(
-                                                imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                                contentDescription = if (isPasswordVisible) "隱藏密碼" else "顯示密碼",
-                                                tint = if (isPasswordVisible) NeonBlue else Slate400
-                                            )
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = NeonBlue,
-                                        unfocusedBorderColor = GlassBorder,
-                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
-                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                            }
-
-                            // Topic
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("預設監聽主題 (Topic)", color = Slate300, style = MaterialTheme.typography.labelSmall)
-                                OutlinedTextField(
-                                    value = brokerTopic,
-                                    onValueChange = { brokerTopic = it },
-                                    placeholder = { Text("username/feeds/feed-name", color = Slate500) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
-                                        focusedBorderColor = NeonBlue,
-                                        unfocusedBorderColor = GlassBorder,
-                                        focusedContainerColor = SurfaceGlass.copy(alpha = 0.3f),
-                                        unfocusedContainerColor = SurfaceGlass.copy(alpha = 0.2f)
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                )
-                            }
-
-                            // Auto Connect
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("自動連線 (Auto Connect)", color = Slate300, style = MaterialTheme.typography.bodyMedium)
-                                Switch(
-                                    checked = autoConnect,
-                                    onCheckedChange = { autoConnect = it },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = NeonBlue,
-                                        checkedTrackColor = NeonBlue.copy(alpha = 0.4f)
-                                    )
-                                )
-                            }
-
-                            // Save Button
-                            Button(
-                                onClick = {
-                                    val parsedPort = brokerPort.toIntOrNull() ?: if (useSsl) 8883 else 1883
-                                    val cleanHost = brokerHost
-                                        .replace(Regex("^[a-zA-Z]+://"), "")
-                                        .substringBefore(":")
-                                        .substringBefore("/")
-                                        .trim()
-
-                                    configManager.saveConfig(
-                                        currentConfig.copy(
-                                            host = cleanHost,
-                                            port = parsedPort,
-                                            username = brokerUser.trim(),
-                                            password = brokerPass.trim(),
-                                            useSsl = useSsl,
-                                            topic = brokerTopic.trim().ifEmpty { currentConfig.topic },
-                                            autoConnect = autoConnect
-                                        )
-                                    )
-                                    onSave()
-                                    Toast.makeText(context, "MQTT 設定已儲存並重新連線", Toast.LENGTH_SHORT).show()
                                 },
-                                modifier = Modifier.fillMaxWidth().height(46.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
-                            ) {
-                                Icon(Icons.Default.Done, null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("儲存設定並重新連線", color = Color.Black, fontWeight = FontWeight.Bold)
-                            }
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Slate50,
+                                    unfocusedTextColor = Slate50,
+                                    focusedBorderColor = AccentEmerald,
+                                    unfocusedBorderColor = BorderSubtle,
+                                    focusedContainerColor = DarkSurfaceElevated,
+                                    unfocusedContainerColor = DarkSurfaceElevated
+                                ),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Topic
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("預設監聽主題 (Topic)", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            OutlinedTextField(
+                                value = brokerTopic,
+                                onValueChange = { brokerTopic = it },
+                                placeholder = { Text("username/feeds/feed-name", color = Slate500, fontSize = 13.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Slate50,
+                                    unfocusedTextColor = Slate50,
+                                    focusedBorderColor = AccentEmerald,
+                                    unfocusedBorderColor = BorderSubtle,
+                                    focusedContainerColor = DarkSurfaceElevated,
+                                    unfocusedContainerColor = DarkSurfaceElevated
+                                ),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // Auto Connect
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("開機自動連線 (Auto Connect)", color = Slate300, fontSize = 13.sp)
+                            Switch(
+                                checked = autoConnect,
+                                onCheckedChange = { autoConnect = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = AccentEmerald,
+                                    checkedTrackColor = AccentEmeraldDim
+                                )
+                            )
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Save Button
+                        Button(
+                            onClick = {
+                                val parsedPort = brokerPort.toIntOrNull() ?: if (useSsl) 8883 else 1883
+                                val cleanHost = brokerHost
+                                    .replace(Regex("^[a-zA-Z]+://"), "")
+                                    .substringBefore(":")
+                                    .substringBefore("/")
+                                    .trim()
+
+                                configManager.saveConfig(
+                                    currentConfig.copy(
+                                        host = cleanHost,
+                                        port = parsedPort,
+                                        username = brokerUser.trim(),
+                                        password = brokerPass.trim(),
+                                        useSsl = useSsl,
+                                        topic = brokerTopic.trim().ifEmpty { currentConfig.topic },
+                                        autoConnect = autoConnect
+                                    )
+                                )
+                                onSave()
+                                Toast.makeText(context, "MQTT 設定已儲存並重新連線", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.fillMaxWidth().height(46.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+                        ) {
+                            Icon(Icons.Default.Done, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("儲存設定並重新連線", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     }
                 }
 
                 // App Update Section
                 item {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .border(1.dp, GlassBorder, RoundedCornerShape(16.dp)),
-                        color = SurfaceGlass.copy(alpha = 0.4f),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            // Top highlight line
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(
-                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color.White.copy(alpha = 0.2f),
-                                                Color.Transparent
-                                            )
-                                        )
-                                    )
-                            )
-                            
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                    GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Icon with glow
-                                Box(contentAlignment = Alignment.Center) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .blur(16.dp)
-                                            .background(SettingsPrimary.copy(alpha = 0.3f), CircleShape)
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = SettingsPrimary,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                                
-                                Spacer(Modifier.height(16.dp))
-                                
                                 Text(
-                                    "關於與更新",
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.titleMedium,
+                                    "關於與軟體更新",
+                                    color = Slate50,
+                                    fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                
-                                Spacer(Modifier.height(4.dp))
-                                
-                                Text(
-                                    "家用喚醒助手 版本 $versionName",
-                                    color = Slate400,
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                
-                                // Update status message
-                                updateMessage?.let { message ->
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        message,
-                                        color = if (updateAvailable != null) NeonGreen else Slate400,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                                
-                                Spacer(Modifier.height(16.dp))
-                                
-                                // Check for updates / Download button
-                                if (updateAvailable != null) {
-                                    // Update available - show download button
-                                    Button(
-                                        onClick = {
-                                            updateAvailable?.let { url ->
-                                                updateManager.downloadAndInstall(url)
-                                                Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
-                                                updateAvailable = null
-                                                updateMessage = "正在下載並安裝更新，請稍候..."
-                                            }
-                                        },
-                                        modifier = Modifier.height(44.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = NeonGreen.copy(alpha = 0.2f)
-                                        ),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            NeonGreen.copy(alpha = 0.6f)
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = null,
-                                            tint = NeonGreen,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            "下載並安裝更新",
-                                            color = NeonGreen,
-                                            fontWeight = FontWeight.SemiBold,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
-                                } else {
-                                    // Check for updates button
-                                    Button(
-                                        onClick = {
-                                            isChecking = true
-                                            updateMessage = "正在檢查更新..."
-                                            updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
-                                                isChecking = false
-                                                if (hasUpdate && downloadUrl != null) {
-                                                    updateAvailable = downloadUrl
-                                                    updateMessage = "偵測到新版本：${tag ?: ""}"
-                                                } else {
-                                                    updateMessage = "已是最新版本"
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier.height(44.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = SettingsPrimary.copy(alpha = 0.1f)
-                                        ),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            1.dp,
-                                            SettingsPrimary.copy(alpha = 0.4f)
-                                        ),
-                                        enabled = !isChecking
-                                    ) {
-                                        if (isChecking) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = SettingsPrimary,
-                                                strokeWidth = 2.dp
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Done,
-                                                contentDescription = null,
-                                                tint = SettingsPrimary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            if (isChecking) "正在檢查..." else "檢查更新",
-                                            color = SettingsPrimary,
-                                            fontWeight = FontWeight.SemiBold,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(Modifier.height(12.dp))
-                                
-                                // GitHub link
-                                TextButton(
-                                    onClick = {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases"))
-                                        context.startActivity(intent)
-                                    }
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = DarkSurfaceElevated,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
                                 ) {
                                     Text(
-                                        "在 GitHub 上查看",
-                                        color = Slate400,
-                                        style = MaterialTheme.typography.labelSmall
+                                        text = "v$versionName",
+                                        color = AccentEmerald,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                     )
                                 }
+                            }
+                            
+                            Spacer(Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "家用喚醒助手 (Wake On LAN Home Gateway)",
+                                color = Slate400,
+                                fontSize = 12.sp,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                            
+                            updateMessage?.let { message ->
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    message,
+                                    color = if (updateAvailable != null) AccentEmerald else Slate300,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            
+                            Spacer(Modifier.height(16.dp))
+                            
+                            if (updateAvailable != null) {
+                                Button(
+                                    onClick = {
+                                        updateAvailable?.let { url ->
+                                            updateManager.downloadAndInstall(url)
+                                            Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
+                                            updateAvailable = null
+                                            updateMessage = "正在下載並安裝更新，請稍候..."
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("下載並安裝新版本", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        isChecking = true
+                                        updateMessage = "正在檢查更新..."
+                                        updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
+                                            isChecking = false
+                                            if (hasUpdate && downloadUrl != null) {
+                                                updateAvailable = downloadUrl
+                                                updateMessage = "偵測到新版本：${tag ?: ""}"
+                                            } else {
+                                                updateMessage = "已是最新版本"
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceElevated),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
+                                    enabled = !isChecking
+                                ) {
+                                    if (isChecking) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = AccentEmerald,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text("檢查最新版本", color = Slate200, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                            
+                            Spacer(Modifier.height(10.dp))
+                            
+                            TextButton(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases"))
+                                    context.startActivity(intent)
+                                }
+                            ) {
+                                Text("在 GitHub 查看發行版本", color = Slate400, fontSize = 12.sp)
                             }
                         }
                     }

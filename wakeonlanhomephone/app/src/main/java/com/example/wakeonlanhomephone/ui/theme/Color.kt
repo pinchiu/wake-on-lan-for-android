@@ -2,48 +2,74 @@ package com.example.wakeonlanhomephone.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Navy Palette (MQTT)
-val Navy950 = Color(0xFF0b1121)
-val Navy900 = Color(0xFF111827)
-val Navy850 = Color(0xFF161f32)
-val Navy800 = Color(0xFF1f2937)
-val Navy700 = Color(0xFF374151)
-val Navy600 = Color(0xFF4b5563)
+// Obsidian & Zinc Base (Dark Precision Hardware Aesthetic)
+val DarkBgPrimary = Color(0xFF090B10)
+val DarkBgSecondary = Color(0xFF10131B)
+val DarkSurface = Color(0xFF151924)
+val DarkSurfaceElevated = Color(0xFF1D2232)
+val DarkSurfaceHighlight = Color(0xFF262C3F)
 
-val PrimaryBlue = Color(0xFF3b82f6)
-val PrimaryHover = Color(0xFF2563eb)
-val AccentIndigo = Color(0xFF818cf8)
+// Precision Hairline Borders
+val BorderSubtle = Color(0x1AFFFFFF) // 10% white
+val BorderStandard = Color(0x28FFFFFF) // 16% white
+val BorderHover = Color(0x40FFFFFF) // 25% white
 
-// Neon Palette (WOL Server)
-val BackroundDark = Color(0xFF050b14)
-val NeonBlue = Color(0xFF00f0ff)
-val NeonGreen = Color(0xFF00ff9d)
-val NeonRed = Color(0xFFff2a6d)
-val CyberCyan = Color(0xFF00f3ff)
-val CyberPink = Color(0xFFff00ff)
-val CyberYellow = Color(0xFFfff200)
-val GlassBorder = Color(0x1FFFFFFF) // 0.12 alpha for more definition
-val GlassSurface = Color(0x14FFFFFF) // 0.08 alpha for better frosted effect
+// Precision Single Core Accent: Emerald (#10B981)
+val AccentEmerald = Color(0xFF10B981)
+val AccentEmeraldDim = Color(0x1F10B981) // 12% alpha
+val AccentEmeraldBorder = Color(0x4D10B981) // 30% alpha
+val AccentEmeraldGlow = Color(0x3310B981) // 20% alpha
 
-// Settings Screen Colors
-val SettingsPrimary = Color(0xFF135bec)
-val BackgroundDeepNavy = Color(0xFF051025)
-val PurpleAccent = Color(0xFF9333ea)
-val SurfaceGlass = Color(0xFF0f1522)
+// Semantic Palette
+val SemanticDanger = Color(0xFFF43F5E) // Rose/Crimson
+val SemanticDangerDim = Color(0x1FF43F5E)
+val SemanticDangerBorder = Color(0x4DF43F5E)
 
-// Slate
-val Slate50 = Color(0xFFf8fafc)
-val Slate100 = Color(0xFFf1f5f9)
-val Slate200 = Color(0xFFe2e8f0)
-val Slate300 = Color(0xFFcbd5e1)
-val Slate400 = Color(0xFF94a3b8)
-val Slate500 = Color(0xFF64748b)
+val SemanticWarning = Color(0xFFF59E0B) // Amber
+val SemanticWarningDim = Color(0x1FF59E0B)
+
+val SemanticInfo = Color(0xFF0EA5E9) // Sky
+val SemanticInfoDim = Color(0x1F0EA5E9)
+
+// High-Contrast Slate Typography Palette (WCAG AA Compliant)
+val Slate50 = Color(0xFFF8FAFC)
+val Slate100 = Color(0xFFF1F5F9)
+val Slate200 = Color(0xFFE2E8F0)
+val Slate300 = Color(0xFFCBD5E1)
+val Slate400 = Color(0xFF94A3B8)
+val Slate500 = Color(0xFF64748B)
 val Slate600 = Color(0xFF475569)
 val Slate700 = Color(0xFF334155)
-val Slate800 = Color(0xFF1e293b)
-val Slate900 = Color(0xFF0f172a)
+val Slate800 = Color(0xFF1E293B)
+val Slate900 = Color(0xFF0F172A)
 
-// Semantic
-val SuccessGreen = Color(0xFF34d399)
-val DangerRed = Color(0xFFf87171)
-val OfflineGray = Color(0xFF9ca3af)
+// Backward Compatibility Aliases remapped to cohesive palette
+val BackroundDark = DarkBgPrimary
+val SurfaceGlass = DarkSurface
+val GlassBorder = BorderSubtle
+val GlassSurface = DarkSurfaceElevated
+
+val NeonGreen = AccentEmerald
+val NeonBlue = AccentEmerald
+val CyberCyan = AccentEmerald
+val CyberYellow = SemanticWarning
+val NeonRed = SemanticDanger
+val CyberPink = SemanticDanger
+
+val PrimaryBlue = AccentEmerald
+val PrimaryHover = Color(0xFF059669)
+val AccentIndigo = AccentEmerald
+val SettingsPrimary = AccentEmerald
+val BackgroundDeepNavy = DarkBgPrimary
+val PurpleAccent = AccentEmerald
+
+val Navy950 = DarkBgPrimary
+val Navy900 = DarkBgSecondary
+val Navy850 = DarkSurface
+val Navy800 = DarkSurfaceElevated
+val Navy700 = Slate700
+val Navy600 = Slate600
+
+val SuccessGreen = AccentEmerald
+val DangerRed = SemanticDanger
+val OfflineGray = Slate500

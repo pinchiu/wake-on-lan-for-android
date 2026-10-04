@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -17,39 +16,27 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryBlue,
-    secondary = NeonGreen,
-    tertiary = NeonBlue,
-    background = Navy950,
-    surface = Navy900,
-    onPrimary = Color.White,
-    onSecondary = Navy950,
-    onTertiary = Navy950,
-    onBackground = Slate100,
-    onSurface = Slate100,
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = PrimaryBlue,
-    secondary = NeonGreen,
-    tertiary = NeonBlue,
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
+    primary = AccentEmerald,
+    secondary = AccentEmerald,
+    tertiary = SemanticInfo,
+    background = DarkBgPrimary,
+    surface = DarkSurface,
+    surfaceVariant = DarkSurfaceElevated,
+    onPrimary = Color.Black,
+    onSecondary = Color.Black,
     onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    onBackground = Slate50,
+    onSurface = Slate50,
+    onSurfaceVariant = Slate300,
+    outline = BorderStandard,
+    outlineVariant = BorderSubtle,
+    error = SemanticDanger
 )
 
 @Composable
 fun WakeOnLanTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = false, // Disable dynamic color to enforce our custom design
+    darkTheme: Boolean = true, // Default to dark hardware theme
+    dynamicColor: Boolean = false, // Keep consistent precision design across devices
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -57,15 +44,14 @@ fun WakeOnLanTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        else -> DarkColorScheme
     }
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 

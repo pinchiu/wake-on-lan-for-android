@@ -11,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Info
@@ -25,7 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,24 +52,31 @@ fun AddDeviceScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("MQTT Configuration", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Text(
+                        text = if (deviceToEdit != null) "編輯 MQTT 設備" else "新增 MQTT 設備",
+                        color = Slate50,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp
+                    ) 
+                },
                 navigationIcon = {
                     TextButton(onClick = onCancel) {
-                        Text("Cancel", color = Slate500)
+                        Text("取消", color = Slate400, fontSize = 14.sp)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Navy950,
-                    titleContentColor = Color.White
+                    containerColor = DarkBgPrimary,
+                    titleContentColor = Slate50
                 )
             )
         },
         bottomBar = {
-             Box(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Navy950)
-                    .padding(24.dp)
+                    .background(DarkBgPrimary)
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Button(
                     onClick = { 
@@ -81,7 +87,6 @@ fun AddDeviceScreen(
                             .substringBefore("/")
                             .trim()
 
-                        // Save broker config
                         configManager.saveConfig(
                             currentConfig.copy(
                                 brokerName = name.ifEmpty { currentConfig.brokerName },
@@ -102,133 +107,160 @@ fun AddDeviceScreen(
                         }
                         onSave(device) 
                     },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     enabled = name.isNotEmpty() && topic.isNotEmpty(),
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black),
-                    shape = RoundedCornerShape(8.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Done, null)
+                    Icon(Icons.Default.Done, null, tint = Color.Black, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Save Configuration", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("儲存並套用設定", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
             }
         },
-        containerColor = Navy950
+        containerColor = DarkBgPrimary
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Broker Connection Group
-            ConfigSectionHeader("Broker Connection", NeonGreen)
-            
-            // Broker Name
-            InputGroup("Broker Name", Icons.Default.Info) {
-                NavyInput(value = name, onValueChange = { name = it }, placeholder = "Adafruit IO")
-            }
-            
-            // Broker URL
-            InputGroup("Broker Host / URL", Icons.Default.Share) { // 'link' icon
-                NavyInput(value = brokerUrl, onValueChange = { brokerUrl = it }, placeholder = "io.adafruit.com")
-            }
-            
-            // Port & Protocol
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(modifier = Modifier.weight(1f)) {
-                     InputGroup("Port", Icons.Default.Edit) { // Tag icon
-                        NavyInput(value = port, onValueChange = { port = it }, placeholder = if (useSsl) "8883" else "1883")
-                     }
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Protocol", style = MaterialTheme.typography.labelMedium, color = Slate300, modifier = Modifier.padding(bottom = 8.dp))
-                    Row(
-                        modifier = Modifier.height(56.dp).fillMaxWidth().background(Navy900, RoundedCornerShape(8.dp)).border(1.dp, Navy700, RoundedCornerShape(8.dp)).padding(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                         Box(
-                             contentAlignment = Alignment.Center,
-                             modifier = Modifier
-                                 .weight(1f)
-                                 .fillMaxHeight()
-                                 .clip(RoundedCornerShape(6.dp))
-                                 .background(if (protocol == "TCP") PrimaryBlue.copy(alpha = 0.3f) else Color.Transparent)
-                                 .clickable { 
-                                     protocol = "TCP"
-                                     if (useSsl && port == "8084") port = "8883"
-                                     else if (!useSsl && port == "8083") port = "1883"
-                                 }
-                         ) {
-                             Text("TCP", color = if (protocol == "TCP") PrimaryBlue else Slate500, fontWeight = FontWeight.Bold)
-                         }
-                         Box(
-                             contentAlignment = Alignment.Center,
-                             modifier = Modifier
-                                 .weight(1f)
-                                 .fillMaxHeight()
-                                 .clip(RoundedCornerShape(6.dp))
-                                 .background(if (protocol != "TCP") PrimaryBlue.copy(alpha = 0.3f) else Color.Transparent)
-                                 .clickable { 
-                                     protocol = "WS"
-                                     if (useSsl && port == "8883") port = "8084"
-                                     else if (!useSsl && port == "1883") port = "8083"
-                                 }
-                         ) {
-                             Text("WS", color = if (protocol != "TCP") PrimaryBlue else Slate500, fontWeight = FontWeight.Bold)
-                         }
+            // Broker Connection Section
+            ConfigSectionCard(title = "Broker 連線資訊") {
+                PrecisionInputField(
+                    label = "設備 / Broker 名稱",
+                    value = name,
+                    onValueChange = { name = it },
+                    placeholder = "Adafruit IO"
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                PrecisionInputField(
+                    label = "Broker 伺服器網址 (Host)",
+                    value = brokerUrl,
+                    onValueChange = { brokerUrl = it },
+                    placeholder = "io.adafruit.com"
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        PrecisionInputField(
+                            label = "通訊埠 (Port)",
+                            value = port,
+                            onValueChange = { port = it },
+                            placeholder = if (useSsl) "8883" else "1883"
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "連線協議",
+                            fontSize = 11.sp,
+                            color = Slate400,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .height(50.dp)
+                                .fillMaxWidth()
+                                .background(DarkSurfaceElevated, RoundedCornerShape(10.dp))
+                                .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                                .padding(3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (protocol == "TCP") AccentEmeraldDim else Color.Transparent)
+                                    .clickable { 
+                                        protocol = "TCP"
+                                        if (useSsl && port == "8084") port = "8883"
+                                        else if (!useSsl && port == "8083") port = "1883"
+                                    }
+                            ) {
+                                Text(
+                                    "TCP",
+                                    color = if (protocol == "TCP") AccentEmerald else Slate400,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (protocol != "TCP") AccentEmeraldDim else Color.Transparent)
+                                    .clickable { 
+                                        protocol = "WS"
+                                        if (useSsl && port == "8883") port = "8084"
+                                        else if (!useSsl && port == "1883") port = "8083"
+                                    }
+                            ) {
+                                Text(
+                                    "WS",
+                                    color = if (protocol != "TCP") AccentEmerald else Slate400,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
-            
-            HorizontalDivider(color = Navy700)
-            
-            // Security Group
-            ConfigSectionHeader("Security & Auth", Slate400) // Icon security
-            
-            // SSL Toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Navy900, RoundedCornerShape(8.dp))
-                    .border(1.dp, Navy700, RoundedCornerShape(8.dp))
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                 Row(verticalAlignment = Alignment.CenterVertically) {
-                     Box(modifier = Modifier.size(40.dp).background(Navy800, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                         Icon(Icons.Default.Lock, null, tint = Slate400)
-                     }
-                     Spacer(Modifier.width(12.dp))
-                     Column {
-                         Text("Use SSL/TLS", color = Color.White, fontWeight = FontWeight.SemiBold)
-                         Text("Encrypt connection (Port 8883)", color = Slate400, style = MaterialTheme.typography.bodySmall)
-                     }
-                 }
-                 Switch(
-                     checked = useSsl,
-                     onCheckedChange = { checked ->
-                         useSsl = checked
-                         if (checked && port == "1883") port = "8883"
-                         else if (!checked && port == "8883") port = "1883"
-                     },
-                     colors = SwitchDefaults.colors(
-                         checkedThumbColor = NeonGreen,
-                         checkedTrackColor = Navy800
-                     )
-                 )
-            }
-            
-            // Username
-            InputGroup("Username (Adafruit Username)", Icons.Default.Person) {
-                NavyInput(value = username, onValueChange = { username = it }, placeholder = "your_username")
-            }
-             // Password
-            InputGroup("Password (Adafruit AIO Key)", Icons.Default.Lock) {
-                NavyInput(
+
+            // Security & Auth Section
+            ConfigSectionCard(title = "安全與身份驗證") {
+                // SSL Switch
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("SSL / TLS 加密連線", color = Slate50, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text("建議啟用 (預設 Port 8883)", color = Slate400, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = useSsl,
+                        onCheckedChange = { checked ->
+                            useSsl = checked
+                            if (checked && port == "1883") port = "8883"
+                            else if (!checked && port == "8883") port = "1883"
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AccentEmerald,
+                            checkedTrackColor = AccentEmeraldDim
+                        )
+                    )
+                }
+
+                Spacer(Modifier.height(14.dp))
+                HorizontalDivider(color = BorderSubtle)
+                Spacer(Modifier.height(14.dp))
+
+                PrecisionInputField(
+                    label = "使用者名稱 (Adafruit Username)",
+                    value = username,
+                    onValueChange = { username = it },
+                    placeholder = "username"
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                PrecisionInputField(
+                    label = "密碼 / 憑證 (Adafruit AIO Key)",
                     value = password,
                     onValueChange = { password = it },
                     placeholder = "aio_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -238,74 +270,93 @@ fun AddDeviceScreen(
                             Icon(
                                 imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                                 contentDescription = if (isPasswordVisible) "隱藏密碼" else "顯示密碼",
-                                tint = if (isPasswordVisible) NeonGreen else Slate400
+                                tint = if (isPasswordVisible) AccentEmerald else Slate400,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
                 )
             }
-            
-            HorizontalDivider(color = Navy700)
-            
-            // Target Settings
-            ConfigSectionHeader("Target Device", Slate400)
-            
-            // Target Topic
-            InputGroup("Target Topic", Icons.Default.Share) {
-                 NavyInput(value = topic, onValueChange = { topic = it }, placeholder = "username/feeds/feed-name")
+
+            // Target Topic Section
+            ConfigSectionCard(title = "目標主題配置") {
+                PrecisionInputField(
+                    label = "監聽主題 (Topic)",
+                    value = topic,
+                    onValueChange = { topic = it },
+                    placeholder = "username/feeds/feed-name"
+                )
             }
-            
-            Spacer(Modifier.height(80.dp)) // Scroll padding
+
+            Spacer(Modifier.height(40.dp))
         }
     }
 }
 
 @Composable
-fun ConfigSectionHeader(title: String, dotColor: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(6.dp).background(dotColor, CircleShape))
-        Spacer(Modifier.width(8.dp))
-        Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Slate400, letterSpacing = 2.sp)
+fun ConfigSectionCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp)),
+        color = DarkSurface
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            content = {
+                Text(
+                    text = title,
+                    color = Slate300,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(Modifier.height(14.dp))
+                content()
+            }
+        )
     }
 }
 
 @Composable
-fun InputGroup(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, content: @Composable () -> Unit) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = Slate300, modifier = Modifier.padding(bottom = 8.dp))
-        Box(contentAlignment = Alignment.CenterStart) {
-             content()
-             Icon(icon, null, tint = Slate500, modifier = Modifier.padding(start = 12.dp).size(20.dp))
-        }
-    }
-}
-
-@Composable
-fun NavyInput(
+fun PrecisionInputField(
+    label: String,
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
     visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        placeholder = { Text(placeholder, color = Slate500) },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Navy800,
-            unfocusedContainerColor = Navy900,
-            focusedBorderColor = NeonGreen,
-            unfocusedBorderColor = Navy700,
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White
-        ),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        singleLine = true,
-        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
-        visualTransformation = visualTransformation,
-        leadingIcon = { Spacer(Modifier.width(24.dp)) }, // Spacer for the external icon overlay
-        trailingIcon = trailingIcon
-    )
+    Column {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = Slate400,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder, color = Slate500, fontSize = 13.sp) },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = DarkSurfaceElevated,
+                unfocusedContainerColor = DarkSurfaceElevated,
+                focusedBorderColor = AccentEmerald,
+                unfocusedBorderColor = BorderSubtle,
+                focusedTextColor = Slate50,
+                unfocusedTextColor = Slate50
+            ),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp),
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            visualTransformation = visualTransformation,
+            trailingIcon = trailingIcon
+        )
+    }
 }
