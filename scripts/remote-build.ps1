@@ -44,14 +44,11 @@ $testConn = ssh -o BatchMode=yes -o ConnectTimeout=4 $HostName "echo ok" 2>$null
 if ($testConn -eq "ok") {
     Write-Host ">>> 已連線至 $HostName (CachyOS LTS)，開始遠端建置..." -ForegroundColor Green
 
-    # 確保遠端專案目錄存在
-    ssh $HostName "bash -c 'if [ ! -d $RemoteRepoPath ]; then git clone https://github.com/pinchiu/wake-on-lan-for-android.git $RemoteRepoPath; fi'"
-
     foreach ($proj in $projects) {
         Write-Host ">>> [$proj] 遠端執行: $tasksString" -ForegroundColor Green
-        $remoteScript = "export JAVA_HOME=`$HOME/jdk-21; export ANDROID_HOME=`$HOME/android-sdk; export ANDROID_SDK_ROOT=`$HOME/android-sdk; export PATH=`$JAVA_HOME/bin:`$ANDROID_HOME/cmdline-tools/latest/bin:`$ANDROID_HOME/platform-tools:`$PATH; cd $RemoteRepoPath && git pull && cd $proj && chmod +x ./gradlew && ./gradlew $tasksString --stacktrace"
+        $remoteCmd = "bash -c 'export PATH=/home/scott/jdk-21/bin:/home/scott/android-sdk/cmdline-tools/latest/bin:/home/scott/android-sdk/platform-tools:/usr/local/bin:/usr/bin:/bin; export JAVA_HOME=/home/scott/jdk-21; export ANDROID_HOME=/home/scott/android-sdk; export ANDROID_SDK_ROOT=/home/scott/android-sdk; cd $RemoteRepoPath/$proj && chmod +x ./gradlew && ./gradlew $tasksString --stacktrace'"
         
-        ssh $HostName "bash -lc `"$remoteScript`""
+        ssh $HostName $remoteCmd
         if ($LASTEXITCODE -ne 0) {
             Write-Error "[$proj] 遠端建置失敗 (Exit Code: $LASTEXITCODE)"
             exit $LASTEXITCODE

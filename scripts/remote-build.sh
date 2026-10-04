@@ -73,13 +73,10 @@ TEST_CONN=$(ssh -q -o BatchMode=yes -o ConnectTimeout=4 "$HOST_NAME" "echo ok" 2
 if [ "$TEST_CONN" = "ok" ]; then
     echo ">>> 已連線至 $HOST_NAME，開始遠端建置..."
 
-    # 確保遠端專案目錄存在
-    ssh "$HOST_NAME" "bash -c 'if [ ! -d $REMOTE_REPO_PATH ]; then git clone https://github.com/pinchiu/wake-on-lan-for-android.git $REMOTE_REPO_PATH; fi'"
-
     for PROJ in "${PROJECTS[@]}"; do
         echo ">>> [$PROJ] 遠端執行: $TASKS_STRING"
-        REMOTE_SCRIPT="export JAVA_HOME=\$HOME/jdk-21; export ANDROID_HOME=\$HOME/android-sdk; export ANDROID_SDK_ROOT=\$HOME/android-sdk; export PATH=\$JAVA_HOME/bin:\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools:\$PATH; cd $REMOTE_REPO_PATH && git pull && cd $PROJ && chmod +x ./gradlew && ./gradlew $TASKS_STRING --stacktrace"
-        ssh "$HOST_NAME" "bash -lc \"$REMOTE_SCRIPT\""
+        REMOTE_SCRIPT="export PATH=/home/scott/jdk-21/bin:/home/scott/android-sdk/cmdline-tools/latest/bin:/home/scott/android-sdk/platform-tools:/usr/local/bin:/usr/bin:/bin; export JAVA_HOME=/home/scott/jdk-21; export ANDROID_HOME=/home/scott/android-sdk; export ANDROID_SDK_ROOT=/home/scott/android-sdk; cd $REMOTE_REPO_PATH/$PROJ && chmod +x ./gradlew && ./gradlew $TASKS_STRING --stacktrace"
+        ssh "$HOST_NAME" "bash -c '$REMOTE_SCRIPT'"
     done
 
     # 若包含 build，下載 APK 至本地專案根目錄
