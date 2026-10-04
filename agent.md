@@ -128,20 +128,28 @@
 
 ---
 
-## 6. 建置、測試與驗證標準作業程序 (SOP)
+## 6. 建置、測試與驗證指令
 
-依據專案協定，**往後不再於本機執行耗時的 Gradle assemble 或打包工作**，改為全面交由 GitHub Actions 雲端 CI/CD 執行自動化測試、編譯與產出：
+在提交或推播程式碼前，必須在 Windows PowerShell 依序執行以下驗證：
 
-1. **本機工作**：專注撰寫或修改程式碼，確保無語法問題。
-2. **提交與推播**：執行 Git Commit 並 Push 至遠端儲存庫（`origin master`）。
-3. **雲端驗證**：透過 GitHub Actions CI 流水線自動執行單元測試（`testDebugUnitTest`）與 APK 打包（`assembleRelease`）。
-4. **日誌排查**：若 CI 流程未通過，透過 GitHub Actions 網頁或 `gh run view --log` 讀取雲端日誌進行修復。
-5. **成品取得**：建置完成之 APK 直接由 Actions Artifacts 下載或 GitHub Releases 取得。
-
-（可選本機快速檢查）：
-若需在推播前做輕量快速語法檢查，可執行（不強制）：
-* 單元測試：`cd wakeonlanhomephone; .\gradlew.bat testDebugUnitTest`
-* Python 語法：`python -m py_compile computer\pc_onoff.py`
+* **執行深模組單元測試（必須 100% 通過）**：
+  ```powershell
+  cd wakeonlanhomephone
+  .\gradlew.bat testDebugUnitTest
+  ```
+* **Kotlin 編譯檢查**：
+  ```powershell
+  .\gradlew.bat compileDebugKotlin
+  ```
+* **建置 Release APK 並同步至根目錄**：
+  ```powershell
+  .\gradlew.bat assembleRelease
+  Copy-Item -Path app\build\outputs\apk\release\app-release.apk -Destination ..\wakeonlan-home-phone.apk -Force
+  ```
+* **驗證電腦端 Python 腳本語法**：
+  ```powershell
+  python -m py_compile computer\pc_onoff.py
+  ```
 
 ---
 
