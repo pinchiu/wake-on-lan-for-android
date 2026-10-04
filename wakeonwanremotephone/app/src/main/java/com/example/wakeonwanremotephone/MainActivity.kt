@@ -22,6 +22,11 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Bolt
@@ -105,31 +110,40 @@ fun UltimateTheme(content: @Composable () -> Unit) {
 @Composable
 fun UltimateRemoteScreen() {
     val context = LocalContext.current
-    val sharedPrefs = remember {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    }
+    val deviceManager = remember { DeviceProfileManager(context) }
+    var devices by remember { mutableStateOf(deviceManager.getDevices()) }
+    var selectedDeviceId by remember { mutableStateOf(deviceManager.getSelectedDeviceId()) }
+    val currentSelectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
 
     // State
-    var helperIpv6Address by remember { mutableStateOf(sharedPrefs.getString(KEY_IPV6, "") ?: "") }
-    var computerMacAddress by remember { mutableStateOf(sharedPrefs.getString(KEY_MAC, "") ?: "") }
-    var computerLocalIpv4 by remember { mutableStateOf(sharedPrefs.getString(KEY_IPV4, "") ?: "") }
-    var localLanMode by remember { mutableStateOf(sharedPrefs.getBoolean(KEY_LAN_MODE, false)) }
+    var helperIpv6Address by remember { mutableStateOf(deviceManager.getHelperIpv6()) }
+    var computerMacAddress by remember { mutableStateOf(currentSelectedDevice?.mac ?: "") }
+    var computerLocalIpv4 by remember { mutableStateOf(currentSelectedDevice?.ip ?: "") }
+    var localLanMode by remember { mutableStateOf(deviceManager.isLocalLanMode()) }
 
     var statusMessage by remember { mutableStateOf("") }
     var isStatusError by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showAddDeviceDialog by remember { mutableStateOf(false) }
+    var showEditDeviceDialog by remember { mutableStateOf(false) }
+    var deviceToEdit by remember { mutableStateOf<DeviceProfile?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
 
-    fun sendCommand(command: String) {
-        // Save current fields to shared preferences immediately
-        sharedPrefs.edit().apply {
-            putString(KEY_IPV6, helperIpv6Address.trim())
-            putString(KEY_MAC, computerMacAddress.trim())
-            putString(KEY_IPV4, computerLocalIpv4.trim())
-            apply()
+    fun syncCurrentDevice(mac: String = computerMacAddress, ip: String = computerLocalIpv4) {
+        val dev = devices.find { it.id == selectedDeviceId }
+        if (dev != null) {
+            val updated = dev.copy(mac = mac.trim(), ip = ip.trim())
+            deviceManager.updateDevice(updated)
+            devices = deviceManager.getDevices()
         }
+    }
+
+    fun sendCommand(command: String) {
+        syncCurrentDevice()
+        deviceManager.setHelperIpv6(helperIpv6Address)
+        deviceManager.setLocalLanMode(localLanMode)
         isLoading = true
         statusMessage = "Sending..."
         isStatusError = false
@@ -139,14 +153,14 @@ fun UltimateRemoteScreen() {
             val result = if (localLanMode) {
                 if (command.startsWith("WAKE:")) {
                     val mac = command.substringAfter("WAKE:")
-                    sendLocalMagicPacket(mac)
+                    RemoteNetworkUtil.sendLocalMagicPacket(mac)
                 } else {
                     val action = command.substringBefore(":")
                     val ip = command.substringAfter(":")
-                    sendDirectCommandToPC(ip, action.lowercase(Locale.ROOT))
+                    RemoteNetworkUtil.sendDirectCommandToPC(ip, action.lowercase(Locale.ROOT))
                 }
             } else {
-                sendTcpCommand(helperIpv6Address, command)
+                RemoteNetworkUtil.sendTcpCommand(helperIpv6Address, command)
             }
             statusMessage = result
             isStatusError = result.startsWith("Send failed") || result.startsWith("Address") ||
@@ -232,6 +246,116 @@ fun UltimateRemoteScreen() {
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Target Computers Selector Section
+            GlassCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Computer,
+                                contentDescription = null,
+                                tint = NeonBlue,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "TARGET COMPUTERS (${devices.size})",
+                                color = NeonBlue,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        IconButton(
+                            onClick = { showAddDeviceDialog = true },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add Computer",
+                                tint = NeonGreen
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (devices.isEmpty()) {
+                        Text(
+                            "尚未新增電腦，點擊右上角 + 新增",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(devices) { device ->
+                                val isSelected = device.id == selectedDeviceId
+                                val borderColor = if (isSelected) NeonGreen else Color.White.copy(alpha = 0.15f)
+                                val bgColor = if (isSelected) NeonGreen.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f)
+
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            selectedDeviceId = device.id
+                                            deviceManager.setSelectedDeviceId(device.id)
+                                            computerMacAddress = device.mac
+                                            computerLocalIpv4 = device.ip
+                                        },
+                                    color = bgColor,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                device.name,
+                                                color = if (isSelected) NeonGreen else Color.White,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                device.mac.ifEmpty { "無 MAC" },
+                                                color = Color.White.copy(alpha = 0.6f),
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        IconButton(
+                                            onClick = {
+                                                deviceToEdit = device
+                                                showEditDeviceDialog = true
+                                            },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit",
+                                                tint = Color.White.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Configuration Section
             GlassCard {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -275,7 +399,7 @@ fun UltimateRemoteScreen() {
                             checked = localLanMode,
                             onCheckedChange = {
                                 localLanMode = it
-                                sharedPrefs.edit().putBoolean(KEY_LAN_MODE, it).apply()
+                                deviceManager.setLocalLanMode(it)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = NeonGreen,
@@ -293,31 +417,37 @@ fun UltimateRemoteScreen() {
                         icon = Icons.Default.Dns,
                         modifier = Modifier.onFocusChanged {
                             if (!it.isFocused) {
-                                sharedPrefs.edit().putString(KEY_IPV6, helperIpv6Address.trim()).apply()
+                                deviceManager.setHelperIpv6(helperIpv6Address)
                             }
                         }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     NeonTextField(
                         value = computerMacAddress,
-                        onValueChange = { computerMacAddress = it },
+                        onValueChange = {
+                            computerMacAddress = it
+                            syncCurrentDevice(mac = it)
+                        },
                         label = "Target MAC",
                         icon = Icons.Default.Lan,
                         modifier = Modifier.onFocusChanged {
                             if (!it.isFocused) {
-                                sharedPrefs.edit().putString(KEY_MAC, computerMacAddress.trim()).apply()
+                                syncCurrentDevice()
                             }
                         }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     NeonTextField(
                         value = computerLocalIpv4,
-                        onValueChange = { computerLocalIpv4 = it },
+                        onValueChange = {
+                            computerLocalIpv4 = it
+                            syncCurrentDevice(ip = it)
+                        },
                         label = "Target IPv4",
                         icon = Icons.Default.Computer,
                         modifier = Modifier.onFocusChanged {
                             if (!it.isFocused) {
-                                sharedPrefs.edit().putString(KEY_IPV4, computerLocalIpv4.trim()).apply()
+                                syncCurrentDevice()
                             }
                         }
                     )
@@ -541,6 +671,53 @@ fun UltimateRemoteScreen() {
                 }
             }
         }
+
+        if (showAddDeviceDialog) {
+            AddDeviceDialog(
+                onDismiss = { showAddDeviceDialog = false },
+                onConfirm = { name, mac, ip ->
+                    val newDev = deviceManager.addDevice(name, mac, ip)
+                    devices = deviceManager.getDevices()
+                    selectedDeviceId = newDev.id
+                    computerMacAddress = newDev.mac
+                    computerLocalIpv4 = newDev.ip
+                    showAddDeviceDialog = false
+                }
+            )
+        }
+
+        if (showEditDeviceDialog && deviceToEdit != null) {
+            EditDeviceDialog(
+                device = deviceToEdit!!,
+                canDelete = devices.size > 1,
+                onDismiss = {
+                    showEditDeviceDialog = false
+                    deviceToEdit = null
+                },
+                onSave = { name, mac, ip ->
+                    val updated = deviceToEdit!!.copy(name = name, mac = mac, ip = ip)
+                    deviceManager.updateDevice(updated)
+                    devices = deviceManager.getDevices()
+                    if (selectedDeviceId == updated.id) {
+                        computerMacAddress = updated.mac
+                        computerLocalIpv4 = updated.ip
+                    }
+                    showEditDeviceDialog = false
+                    deviceToEdit = null
+                },
+                onDelete = {
+                    val idToDelete = deviceToEdit!!.id
+                    deviceManager.deleteDevice(idToDelete)
+                    devices = deviceManager.getDevices()
+                    selectedDeviceId = deviceManager.getSelectedDeviceId()
+                    val nextDev = devices.find { it.id == selectedDeviceId }
+                    computerMacAddress = nextDev?.mac ?: ""
+                    computerLocalIpv4 = nextDev?.ip ?: ""
+                    showEditDeviceDialog = false
+                    deviceToEdit = null
+                }
+            )
+        }
     }
 }
 
@@ -647,78 +824,171 @@ fun CommandButton(
     }
 }
 
-private suspend fun sendTcpCommand(host: String, command: String): String {
-    return withContext(Dispatchers.IO) {
-        if (host.isBlank() || command.isBlank()) {
-            return@withContext "Address or command cannot be empty!"
-        }
-        try {
-            val targetAddr = InetAddress.getByName(host.trim())
-            val socket = Socket()
-            val socketAddress = InetSocketAddress(targetAddr, 9876)
-            socket.connect(socketAddress, 5000)
-            socket.soTimeout = 5000
-            socket.use { s ->
-                val writer = s.getOutputStream().bufferedWriter()
-                writer.write(command.trim() + "\n")
-                writer.flush()
+@Composable
+fun AddDeviceDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, mac: String, ip: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var mac by remember { mutableStateOf("") }
+    var ip by remember { mutableStateOf("") }
 
-                val reader = s.getInputStream().bufferedReader()
-                val response = reader.readLine()
-                response ?: "Command sent, but no response from server."
-            }
-        } catch (e: Exception) {
-            "Send failed: ${e.message}"
-        }
-    }
-}
-
-private suspend fun sendLocalMagicPacket(macAddress: String): String {
-    return withContext(Dispatchers.IO) {
-        try {
-            val macBytes = getMacBytes(macAddress) ?: return@withContext "Invalid MAC address format"
-            val magicPacket = ByteArray(102).apply {
-                (0..5).forEach { this[it] = 0xFF.toByte() }
-                for (i in 1..16) {
-                    macBytes.copyInto(this, i * 6)
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, NeonBlue.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
+            color = Charcoal.copy(alpha = 0.95f),
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    "新增目標電腦",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                NeonTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "電腦名稱 (例: 臥室主機)",
+                    icon = Icons.Default.Computer
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                NeonTextField(
+                    value = mac,
+                    onValueChange = { mac = it },
+                    label = "網卡 MAC (例: AA:BB:CC:DD:EE:FF)",
+                    icon = Icons.Default.Lan
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                NeonTextField(
+                    value = ip,
+                    onValueChange = { ip = it },
+                    label = "區域網路 IPv4 (可選)",
+                    icon = Icons.Default.Dns
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("取消", color = Color.Gray)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (mac.isNotBlank()) {
+                                onConfirm(name.ifBlank { "新主機" }, mac.trim(), ip.trim())
+                            }
+                        },
+                        enabled = mac.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.25f)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("新增", color = NeonGreen, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-
-            val broadcastAddr = "255.255.255.255"
-            val packet = DatagramPacket(magicPacket, magicPacket.size, InetAddress.getByName(broadcastAddr), 9)
-            DatagramSocket().use { socket ->
-                socket.broadcast = true
-                socket.send(packet)
-            }
-            "Magic Packet broadcasted directly on LAN"
-        } catch (e: Exception) {
-            "LAN WoL failed: ${e.message}"
         }
     }
 }
 
-private fun getMacBytes(macStr: String): ByteArray? {
-    val bytes = ByteArray(6)
-    val hex = macStr.split(':', '-')
-    if (hex.size != 6) return null
-    try {
-        for (i in 0..5) { bytes[i] = hex[i].toInt(16).toByte() }
-    } catch (e: NumberFormatException) { return null }
-    return bytes
-}
+@Composable
+fun EditDeviceDialog(
+    device: DeviceProfile,
+    canDelete: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (name: String, mac: String, ip: String) -> Unit,
+    onDelete: () -> Unit
+) {
+    var name by remember { mutableStateOf(device.name) }
+    var mac by remember { mutableStateOf(device.mac) }
+    var ip by remember { mutableStateOf(device.ip) }
 
-private suspend fun sendDirectCommandToPC(pcIp: String, command: String): String {
-    return withContext(Dispatchers.IO) {
-        if (pcIp.isBlank() || command.isBlank()) {
-            return@withContext "PC IP or command cannot be empty!"
-        }
-        try {
-            val commandBytes = command.toByteArray()
-            val packet = DatagramPacket(commandBytes, commandBytes.size, InetAddress.getByName(pcIp), 9877)
-            DatagramSocket().use { socket -> socket.send(packet) }
-            "Direct command '$command' sent to PC"
-        } catch (e: Exception) {
-            "Direct send failed: ${e.message}"
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, NeonBlue.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
+            color = Charcoal.copy(alpha = 0.95f),
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    "編輯目標電腦",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                NeonTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "電腦名稱",
+                    icon = Icons.Default.Computer
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                NeonTextField(
+                    value = mac,
+                    onValueChange = { mac = it },
+                    label = "網卡 MAC",
+                    icon = Icons.Default.Lan
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                NeonTextField(
+                    value = ip,
+                    onValueChange = { ip = it },
+                    label = "區域網路 IPv4 (可選)",
+                    icon = Icons.Default.Dns
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (canDelete) {
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = NeonRed)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
+                    Row {
+                        TextButton(onClick = onDismiss) {
+                            Text("取消", color = Color.Gray)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (mac.isNotBlank()) {
+                                    onSave(name.ifBlank { "主機" }, mac.trim(), ip.trim())
+                                }
+                            },
+                            enabled = mac.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonBlue.copy(alpha = 0.25f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, NeonBlue),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("儲存", color = NeonBlue, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
 }

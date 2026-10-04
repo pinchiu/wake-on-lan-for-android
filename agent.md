@@ -93,6 +93,9 @@
 | **設定值管理** | `wakeonlanhomephone/.../MqttConfigManager.kt` | 管理目標電腦 MAC、MQTT 伺服器配置之 SharedPreferences 存取。 |
 | **捷徑靜態註冊** | `wakeonlanhomephone/.../res/xml/shortcuts.xml` | 宣告 Google 助理可用之靜態捷徑 `wake_pc_shortcut`。 |
 | **日誌記錄器** | `wakeonlanhomephone/.../AppLogger.kt` | 提供全域 UI 即時日誌快取與顯示。 |
+| **外出端多主機管理** | `wakeonwanremotephone/.../DeviceProfileManager.kt` | 外出端多電腦設定管理（支援多台電腦名稱、MAC、IP 儲存、新增、編輯與切換）。 |
+| **外出端桌面小工具** | `wakeonwanremotephone/.../RemoteWakeWidgetProvider.kt` | 外出端桌面小工具，單鍵遠端喚醒當前選定電腦。 |
+| **外出端網路工具庫** | `wakeonwanremotephone/.../RemoteNetworkUtil.kt` | 外出端網路指令封裝（TCP 9876、LAN WoL 廣播、UDP 9877 直連）。 |
 | **電腦端守護程式** | `computer/pc_onoff.py` | 於 PC 監聽 UDP 9877，接收電源控制指令執行 Windows 系統操作。 |
 
 ---
