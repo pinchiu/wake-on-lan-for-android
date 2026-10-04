@@ -37,8 +37,8 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
 
-      - name: Check Kotlin & Assemble Release APK
-        run: ./gradlew assembleRelease --stacktrace
+      - name: Run Unit Tests & Assemble Release APK
+        run: ./gradlew testDebugUnitTest assembleRelease --stacktrace
 
       - name: Upload Home Phone APK Artifact
         uses: actions/upload-artifact@v4

@@ -15,6 +15,7 @@ import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAck
 import com.hivemq.client.mqtt.mqtt3.message.subscribe.suback.Mqtt3SubAckReturnCode
+import kotlinx.coroutines.runBlocking
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
@@ -23,6 +24,12 @@ class MqttWolService : Service() {
     private var mqttClient: Mqtt3AsyncClient? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var cachedConfig: MqttConfig? = null
+
+    private val dispatcher by lazy {
+        PcActionDispatcher(
+            defaultMacProvider = { getMqttConfig().targetMac }
+        )
+    }
 
     companion object {
         const val TAG = "MqttWolService"
@@ -254,53 +261,15 @@ class MqttWolService : Service() {
                 acquireWakeLock(5000L)
                 val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
                 Log.d(TAG, "Received message: $payload")
-                AppLogger.log("MQTT Received: $payload")
                 
-
-                val config = getMqttConfig()
-
-                // 1. Check for "ACTION,MAC" format
-                if (payload.contains(",")) {
-                    val parts = payload.split(",")
-                    if (parts.size >= 2) {
-                        val action = parts[0].trim()
-                        val macAddress = parts[1].trim()
-                        
-                        if (action.equals("WAKE", ignoreCase = true)) {
-                            // Helper method to format MAC if needed or just pass strict check
-                            if (macAddress.matches(Regex("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$"))) {
-                                val result = WolUtil.sendMagicPacket(macAddress)
-                                Log.d(TAG, "WOL Result: $result")
-                                updateNotification("WOL Sent to $macAddress")
-                                AppLogger.log("MQTT Action: WOL Sent to $macAddress")
-                            } else {
-                                Log.e(TAG, "Invalid MAC in command: $macAddress")
-                                AppLogger.log("Error: Invalid MAC in WAKE command")
-                            }
-                        }
-                    }
+                val actionResult = runBlocking {
+                    dispatcher.dispatch(payload, "MQTT")
                 }
-                // 2. Check for simple "WAKE" or "ON" (uses Target MAC from settings)
-                else if (payload.equals("WAKE", ignoreCase = true) || payload.equals("ON", ignoreCase = true)) {
-                    if (config.targetMac.isNotEmpty()) {
-                         val result = WolUtil.sendMagicPacket(config.targetMac)
-                         Log.d(TAG, "WOL Result: $result")
-                         updateNotification("WOL Sent to ${config.targetMac}")
-                         AppLogger.log("MQTT Action: WOL Sent to default MAC (${config.targetMac})")
-                    } else {
-                        Log.e(TAG, "WAKE command received but no Target MAC configured")
-                        AppLogger.log("Error: WAKE received but Target MAC is empty")
-                    }
+                if (actionResult is PcActionResult.Success) {
+                    updateNotification(actionResult.message)
+                } else if (actionResult is PcActionResult.Failure) {
+                    Log.w(TAG, "MQTT Command failed: ${actionResult.error}")
                 }
-                // 3. Triggering WOL if it looks like a MAC directly
-                 else if (payload.matches(Regex("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$"))) {
-                     val result = WolUtil.sendMagicPacket(payload)
-                     Log.d(TAG, "WOL Result: $result")
-                     updateNotification("WOL Sent to $payload")
-                     AppLogger.log("MQTT Action: WOL Sent ($result)")
-                 } else {
-                     Log.d(TAG, "Ignored unknown payload: $payload")
-                 }
             }
             .send()
             .whenComplete { subAck, throwable ->

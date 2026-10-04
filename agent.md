@@ -1,106 +1,155 @@
 # Agent 開發與維護指南 (agent.md)
 
-本文件供 AI Agent 快速理解本專案之架構、通訊邏輯及各模組檔案職責，特別針對「語音喚醒（Gemini / Google 助理）與 Wake-on-LAN 廣播」功能提供精確之程式碼定位與修改指引。
+本文件供後續維護或功能擴充之 AI Agent 與開發者使用，詳細說明本專案之核心架構、深模組設計、指令分派管線、各檔案職責與測試驗證規範。
 
 ---
 
-## 1. 專案整體模組結構
+## 1. 專案整體架構與核心模組
 
 本專案由三大核心子系統組成：
 
-* `wakeonlanhomephone/`：**家用助手端 Android 應用程式**。放置於家中常駐連線 Wi-Fi，負責在區域網路發送 UDP WoL 廣播、監聽外網 TCP (Port 9876)、訂閱 MQTT Broker 以及接收語音捷徑指令。
-* `wakeonwanremotephone/`：**外出遙控端 Android 應用程式**。供使用者隨身攜帶，透過 TCP (IPv6/IPv4)、MQTT 或內網直連發送控制指令。
-* `computer/`：**目標電腦端控制程式**。`pc_onoff.py` 於電腦背景監聽 UDP Port 9877，接收關機、重啟、睡眠與休眠指令。
+* `wakeonlanhomephone/`：**家用助手端 Android 應用程式**。放置於家中常駐連線 Wi-Fi，作為外網進入區域網路之控制樞紐。負責在區域網路發送 UDP WoL 廣播、監聽外網 TCP (Port 9876)、訂閱 MQTT Broker、接收語音捷徑觸發，並透過 `PcActionDispatcher` 統一分派與執行指令。
+* `wakeonwanremotephone/`：**外出遙控端 Android 應用程式**。供使用者隨身攜帶，透過 TCP (IPv6/IPv4)、MQTT 或內網直連向家用助手或目標電腦發送控制指令。
+* `computer/`：**目標電腦端控制程式**。`pc_onoff.py` 於電腦背景監聽 UDP Port 9877，接收關機、重啟、睡眠與休眠指令並執行對應 OS 系統呼叫。
 
 ---
 
-## 2. 語音喚醒 (Gemini / Google Assistant) 與捷徑架構
+## 2. 核心深模組架構：PcActionDispatcher
 
-### 2.1 執行鏈路 (Execution Flow)
-1. **語音輸入**：使用者對 homephone 說出「Hey Google，打開電腦」。
-2. **助理觸發**：Gemini / Google 助理日常安排 (Routine) 匹配語音指令，啟動應用程式捷徑 `wake_pc_shortcut`。
-3. **無介面入口**：系統啟動透明 Activity `VoiceWakeActivity`（不顯示完整 UI，不干擾畫面）。
-4. **讀取設定**：`VoiceWakeActivity` 讀取 `MqttConfigManager` 儲存的目標電腦 MAC 地址（或 Intent Extra `EXTRA_MAC`）。
-5. **發送封包**：透過協程在背景執行緒呼叫 `WolUtil.sendMagicPacket()`，發送 UDP Magic Packet 廣播至 `255.255.255.255:9`。
-6. **記錄與結束**：寫入 `AppLogger`，彈出 Toast 提示，立即呼叫 `finish()` 關閉 Activity。
+為了消除傳輸協議與業務邏輯之緊密耦合，家用端 (`wakeonlanhomephone`) 採用「深模組 (Deep Module)」架構設計：
 
-### 2.2 核心檔案職責對照表
+```
+[外部輸入端 (Transport Adapters)]
+  ├── TCP 監聽器 (WolListenerService: 9876)
+  ├── MQTT 訂閱器 (MqttWolService: wakeonlan/#)
+  └── 語音/捷徑 (VoiceWakeActivity: Routine / Shortcut)
+                │
+                ▼ (統一呼叫)
+┌─────────────────────────────────────────────────────────────┐
+│          PcActionDispatcher (深模組 / 核心業務收斂)          │
+│                                                             │
+│  介面: suspend fun dispatch(rawCommand, source): PcActionResult
+│                                                             │
+│  職責:                                                      │
+│    1. 指令語法解析與正規化 (分開分隔符 :, 處理與空白修整)    │
+│    2. 參數提取 (MAC 地址校驗、IP 地址解析)                  │
+│    3. 業務操作執行:                                          │
+│       - WAKE: 發送 WoL UDP 廣播封包 (Port 9)               │
+│       - SHUTDOWN/REBOOT/SLEEP/HIBERNATE:                    │
+│         發送電腦電源控制 UDP 封包至 目標IP:9877             │
+│    4. 結構化結果契約封裝 (PcActionResult)                    │
+└─────────────────────────────────────────────────────────────┘
+                │
+                ▼ (回傳結果)
+        PcActionResult (Success / Failure)
+                │
+                ├─► TCP Adapter: 回傳 toProtocolString() ("SUCCESS: ..." / "ERROR: ...")
+                ├─► MQTT / Voice Adapter: 記錄 AppLogger 與系統通知
+```
+
+### 2.1 介面與契約定義
+
+* **入口介面**：
+  ```kotlin
+  suspend fun dispatch(rawCommand: String, source: String = "local"): PcActionResult
+  ```
+* **結果型別**：
+  ```kotlin
+  sealed class PcActionResult {
+      data class Success(val message: String, val details: String? = null) : PcActionResult()
+      data class Failure(val errorMessage: String, val cause: Throwable? = null) : PcActionResult()
+      fun toProtocolString(): String
+  }
+  ```
+  `toProtocolString()` 產生符合 TCP 通訊協議之字串格式，成功為 `SUCCESS: <訊息>`，失敗為 `ERROR: <原因>`。
+
+### 2.2 支援的指令語法
+
+`PcActionDispatcher` 支援以下所有指令格式（大小寫不敏感，支援 `:` 與 `,` 分隔符）：
+
+| 指令格式 | 範例 | 說明 |
+| :--- | :--- | :--- |
+| `WAKE` | `WAKE` | 使用系統預設的 MAC 地址發送 WoL 廣播封包 |
+| `WAKE:<MAC>` 或 `WAKE,<MAC>` | `WAKE:AA:BB:CC:DD:EE:FF` | 使用指定 MAC 地址發送 WoL 廣播封包 |
+| `<MAC>` (純 MAC) | `AA:BB:CC:DD:EE:FF` | 自動識別為 MAC 地址並發送 WoL 封包 |
+| `SHUTDOWN:<IP>` 或 `SHUTDOWN,<IP>` | `SHUTDOWN:192.168.1.100` | 發送 UDP 電源指令 `shutdown` 至 `192.168.1.100:9877` |
+| `REBOOT:<IP>` 或 `REBOOT,<IP>` | `REBOOT:192.168.1.100` | 發送 UDP 電源指令 `reboot` 至 `192.168.1.100:9877` |
+| `SLEEP:<IP>` 或 `SLEEP,<IP>` | `SLEEP:192.168.1.100` | 發送 UDP 電源指令 `sleep` 至 `192.168.1.100:9877` |
+| `HIBERNATE:<IP>` 或 `HIBERNATE,<IP>` | `HIBERNATE:192.168.1.100` | 發送 UDP 電源指令 `hibernate` 至 `192.168.1.100:9877` |
+
+---
+
+## 3. 各模組檔案職責速查表
 
 | 功能區塊 | 檔案路徑 | 核心職責 |
 | :--- | :--- | :--- |
-| **語音捷徑 Activity** | `wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/VoiceWakeActivity.kt` | 接收語音/捷徑 Intent，讀取 MAC，背景非同步發送 WoL 封包並快速銷毀。 |
-| **WoL 發送核心** | `wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolUtil.kt` | 組裝 102 位元組 Magic Packet（6x 0xFF + 16x MAC），透過 UDP DatagramSocket 廣播。 |
-| **捷徑宣告** | `wakeonlanhomephone/app/src/main/res/xml/shortcuts.xml` | 靜態註冊 `wake_pc_shortcut`，標籤為「打開電腦」，目標指向 `VoiceWakeActivity`。 |
-| **捷徑字串** | `wakeonlanhomephone/app/src/main/res/values/strings.xml` | 定義 `shortcut_wake_pc_short` 與 `shortcut_wake_pc_long`。 |
-| **清單檔權限與元件** | `wakeonlanhomephone/app/src/main/AndroidManifest.xml` | 在 `MainActivity` 關聯 `shortcuts.xml`；宣告 `VoiceWakeActivity` 為透明主題且 `excludeFromRecents="true"`。 |
-| **電腦參數管理** | `wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttConfigManager.kt` | 管理目標電腦之 `targetMac`（儲存於 `mqtt_config` SharedPreferences）。 |
-| **日誌模組** | `wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/AppLogger.kt` | 提供全域執行日誌記錄，可在主畫面直接查看發送狀態。 |
+| **指令分派核心 (深模組)** | `wakeonlanhomephone/.../PcActionDispatcher.kt` | 指令語法切割、參數檢核、WoL 與 UDP 9877 發送、封裝 `PcActionResult`。純 JVM 實作，完全解耦 Android 依賴。 |
+| **單元測試套件** | `wakeonlanhomephone/.../PcActionDispatcherTest.kt` | 涵蓋所有指令格式、邊界條件與例外處理之單元測試（10 項完整測試案例）。 |
+| **TCP 服務適配器** | `wakeonlanhomephone/.../WolListenerService.kt` | 監聽 TCP 9876，將連線輸入導向 `dispatcher.dispatch()`，並回寫 `toProtocolString()`。 |
+| **MQTT 服務適配器** | `wakeonlanhomephone/.../MqttWolService.kt` | 訂閱 MQTT Topic，將訊息 Payload 導向 `dispatcher.dispatch()`。 |
+| **語音捷徑適配器** | `wakeonlanhomephone/.../VoiceWakeActivity.kt` | 接收語音/捷徑 Intent，呼叫 `dispatcher.dispatch("WAKE")`，非同步發送後立即關閉。 |
+| **WoL 底層廣播公用程式** | `wakeonlanhomephone/.../WolUtil.kt` | 底層 Magic Packet 二進位封包組裝與 UDP Socket 發送。 |
+| **設定值管理** | `wakeonlanhomephone/.../MqttConfigManager.kt` | 管理目標電腦 MAC、MQTT 伺服器配置之 SharedPreferences 存取。 |
+| **捷徑靜態註冊** | `wakeonlanhomephone/.../res/xml/shortcuts.xml` | 宣告 Google 助理可用之靜態捷徑 `wake_pc_shortcut`。 |
+| **日誌記錄器** | `wakeonlanhomephone/.../AppLogger.kt` | 提供全域 UI 即時日誌快取與顯示。 |
+| **電腦端守護程式** | `computer/pc_onoff.py` | 於 PC 監聽 UDP 9877，接收電源控制指令執行 Windows 系統操作。 |
 
 ---
 
-## 3. 常見擴充與修改指引 (How-To for Future Agents)
+## 4. 語音喚醒 (Gemini / Google 助理) 執行鏈路
 
-### 3.1 若需要修改廣播 IP 或 Port（例如改為子網定向廣播）
-* **定位檔案**：`wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolUtil.kt`
-* **修改點**：`WolUtil.sendMagicPacket(macAddress, broadcastAddr, port)` 已具備預設參數 `broadcastAddr = "255.255.255.255"`, `port = 9`。若需改為特定子網廣播（如 `192.168.1.255`），在 `VoiceWakeActivity.kt` 中傳入第二個參數即可。
-
-### 3.2 若需要支援語音控制多台電腦開機
-1. **修改 `shortcuts.xml`**：在 `<shortcuts>` 內加入第二組 `<shortcut>`，使用不同 `android:shortcutId`（如 `wake_pc_2`）及不同標籤。
-2. **Intent 傳遞參數**：在 `<shortcut>` 的 `<intent>` 節點中加入：
-   ```xml
-   <extra android:name="EXTRA_MAC" android:value="目標電腦MAC" />
-   ```
-3. **`VoiceWakeActivity` 已原生支援**：`VoiceWakeActivity.kt` 會優先檢查 `intent.getStringExtra("EXTRA_MAC")`，若存在則直接發送該 MAC，無須更動 Activity 代碼。
-
-### 3.3 若需要新增語音關機 / 睡眠指令
-1. 目標電腦需在背景運行 `computer/pc_onoff.py`（監聽 UDP 9877）。
-2. 在 `shortcuts.xml` 中宣告新捷徑（如「關閉電腦」），目標指向新 Activity 或於 Intent Extra 帶入 `ACTION=SHUTDOWN` 與目標電腦 IP。
-3. 發送 UDP 封包至 `電腦IP:9877`，Payload 為指令字串（`shutdown`、`sleep`、`reboot`、`hibernate`），邏輯可參考 `WolListenerService.kt` 中的 `sendCommandToPC()`。
+1. **語音觸發**：使用者對家用手機說出「Hey Google，打開電腦」。
+2. **助理匹配**：Gemini / Google 助理日常安排 (Routine) 匹配語音詞條，啟動應用程式捷徑 `wake_pc_shortcut`。
+3. **無介面入口**：系統啟動透明 Activity `VoiceWakeActivity`（不顯示完整 UI，不干擾畫面）。
+4. **委派深模組**：`VoiceWakeActivity` 呼叫 `PcActionDispatcher.dispatch(command, "VoiceWakeActivity")`。
+5. **廣播發送**：Dispatcher 讀取目標 MAC 並由背景執行緒發送 UDP Magic Packet 廣播至 `255.255.255.255:9`。
+6. **結束生命週期**：寫入 `AppLogger`，彈出 Toast 提示，立即呼叫 `finish()` 關閉 Activity。
 
 ---
 
-## 4. 建置與編譯檢查指令
+## 5. 常見擴充與修改指引 (How-To for Future Agents)
 
-修改 `wakeonlanhomephone` 後，必須執行下列指令確認編譯無誤：
+### 5.1 若需要新增一項電腦控制指令 (例如鎖定螢幕 LOCK)
+1. **修改 `PcActionDispatcher.kt`**：
+   * 在指令前綴匹配中加入 `rawUpper.startsWith("LOCK:") || rawUpper.startsWith("LOCK,")`。
+   * 呼叫 `sendUdpCommand(ip, 9877, "lock")`。
+2. **修改 `computer/pc_onoff.py`**：
+   * 在指令判斷區塊加入 `elif cmd == 'lock': ctypes.windll.user32.LockWorkStation()`。
+3. **編寫單元測試**：
+   * 在 `PcActionDispatcherTest.kt` 中加入 `dispatch_lockCommand_sendsUdpPacket` 測試。
+4. **所有傳輸管道自動生效**：TCP、MQTT、語音皆無需修改任何通訊程式碼即可直接支援該新指令。
 
-* **Kotlin 語法與編譯檢查**：
-  ```powershell
-  cd wakeonlanhomephone
-  .\gradlew.bat compileDebugKotlin
-  ```
-* **建置 Debug APK**：
-  ```powershell
-  .\gradlew.bat assembleDebug
-  # 輸出路徑：app/build/outputs/apk/debug/app-debug.apk
-  ```
-* **建置 Release APK 並同步至根目錄**：
-  ```powershell
-  .\gradlew.bat assembleRelease
-  Copy-Item -Path app\build\outputs\apk\release\app-release.apk -Destination ..\wakeonlan-home-phone.apk -Force
-  ```
+### 5.2 若需要支援多台電腦開機或定向子網廣播
+* 在 `PcActionDispatcher` 初始化或呼叫時，`dispatch("WAKE:11:22:33:44:55:66")` 或 `dispatch("WAKE", ...)` 已支援動態傳入 MAC。
+* 定向子網廣播可於 `PcActionDispatcher` 增加廣播位址參數（預設仍為 `255.255.255.255`）。
 
----
-
-## 5. homephone 實機環境必備設定
-
-Agent 若需協助使用者排查語音無反應之問題，請依序檢查以下三項手機端設定：
-
-1. **Google 助理日常安排 (Routine)**：
-   * 觸發指令：「打開電腦」或「開機」。
-   * 動作：選取「wake on lan home phone」之「打開電腦」捷徑。
-2. **應用程式電池最佳化**：
-   * 進入 Android 設定 -> 應用程式 -> wake on lan home phone -> 電池 -> 設定為「無限制 (Unrestricted)」，避免系統休眠截斷網路。
-3. **目標 MAC 地址儲存**：
-   * 確認 App 內之「Target MAC」已正確儲存電腦網卡實體位址。
+### 5.3 若需要新增傳輸通道 (例如 Webhook HTTP Server 或 BLE)
+* 僅需建立新的傳輸適配器 Service/Receiver，將收到的文字指令直接丟入 `dispatcher.dispatch(raw, source)`，完全無須重寫指令解析與網路發送邏輯。
 
 ---
 
-## 6. GitHub Actions CI/CD 流水線
+## 6. 建置、測試與驗證標準作業程序 (SOP)
+
+依據專案協定，**往後不再於本機執行耗時的 Gradle assemble 或打包工作**，改為全面交由 GitHub Actions 雲端 CI/CD 執行自動化測試、編譯與產出：
+
+1. **本機工作**：專注撰寫或修改程式碼，確保無語法問題。
+2. **提交與推播**：執行 Git Commit 並 Push 至遠端儲存庫（`origin master`）。
+3. **雲端驗證**：透過 GitHub Actions CI 流水線自動執行單元測試（`testDebugUnitTest`）與 APK 打包（`assembleRelease`）。
+4. **日誌排查**：若 CI 流程未通過，透過 GitHub Actions 網頁或 `gh run view --log` 讀取雲端日誌進行修復。
+5. **成品取得**：建置完成之 APK 直接由 Actions Artifacts 下載或 GitHub Releases 取得。
+
+（可選本機快速檢查）：
+若需在推播前做輕量快速語法檢查，可執行（不強制）：
+* 單元測試：`cd wakeonlanhomephone; .\gradlew.bat testDebugUnitTest`
+* Python 語法：`python -m py_compile computer\pc_onoff.py`
+
+---
+
+## 7. GitHub Actions CI/CD 流水線
 
 * **設定檔路徑**：`.github/workflows/ci.yml`
 * **觸發條件**：`push` 或 `pull_request` 至 `master` / `main`，或透過 `workflow_dispatch` 手動觸發。
-* **驗證與建置項目**：
-  1. `build-home-phone`：以 JDK 21 建置 `wakeonlanhomephone` Release APK，產出構件上傳。
-  2. `build-remote-phone`：以 JDK 21 建置 `wakeonwanremotephone` Release APK，產出構件上傳。
-  3. `verify-computer-script`：以 Python 3.11 語法編譯檢查 `computer/pc_onoff.py`。
-
+* **流水線工作 (Jobs)**：
+  1. `build-home-phone`：以 JDK 21 執行 `./gradlew testDebugUnitTest` 與 `assembleRelease`，驗證單元測試與 APK 建置。
+  2. `build-remote-phone`：以 JDK 21 建置 `wakeonwanremotephone` Release APK。
+  3. `verify-computer-script`：以 Python 3.11 語法檢查 `computer/pc_onoff.py`。

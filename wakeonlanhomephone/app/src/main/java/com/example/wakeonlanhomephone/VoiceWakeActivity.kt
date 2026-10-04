@@ -4,9 +4,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class VoiceWakeActivity : ComponentActivity() {
 
@@ -14,27 +12,26 @@ class VoiceWakeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val intentMac = intent?.getStringExtra("EXTRA_MAC")
-        val config = MqttConfigManager(this).getConfig()
-        val targetMac = when {
-            !intentMac.isNullOrBlank() -> intentMac.trim()
-            config.targetMac.isNotBlank() -> config.targetMac.trim()
-            else -> ""
-        }
-
-        if (targetMac.isBlank()) {
-            Toast.makeText(this, "尚未設定目標電腦 MAC 地址，請先開啟 App 設定", Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            val result = WolUtil.sendMagicPacket(targetMac)
-            AppLogger.log("Voice/Shortcut WOL: $result (MAC: $targetMac)")
-
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@VoiceWakeActivity, "已發送開機訊號至 $targetMac", Toast.LENGTH_SHORT).show()
-                finish()
+        val dispatcher = PcActionDispatcher(
+            defaultMacProvider = {
+                if (!intentMac.isNullOrBlank()) intentMac
+                else MqttConfigManager(this).getConfig().targetMac
             }
+        )
+
+        lifecycleScope.launch {
+            val command = if (!intentMac.isNullOrBlank()) "WAKE:$intentMac" else "WAKE"
+            val result = dispatcher.dispatch(command, "Voice/Shortcut")
+
+            when (result) {
+                is PcActionResult.Success -> {
+                    Toast.makeText(this@VoiceWakeActivity, "已發送開機訊號至電腦", Toast.LENGTH_SHORT).show()
+                }
+                is PcActionResult.Failure -> {
+                    Toast.makeText(this@VoiceWakeActivity, result.error, Toast.LENGTH_LONG).show()
+                }
+            }
+            finish()
         }
     }
 }
