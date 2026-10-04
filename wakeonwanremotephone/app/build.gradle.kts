@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.wakeonwanremotephone"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.5.6"
+        versionCode = 15
+        versionName = "1.5.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -54,6 +54,8 @@ fun ServerScreen(
     var selectedDeviceId by remember { mutableStateOf(profileManager.getSelectedDeviceId()) }
     var showAddDeviceDialog by remember { mutableStateOf(false) }
     var deviceToEdit by remember { mutableStateOf<DeviceProfile?>(null) }
+    var confirmPowerAction by remember { mutableStateOf<String?>(null) }
+    var confirmPowerDevice by remember { mutableStateOf<DeviceProfile?>(null) }
 
     val refreshDevices = {
         devices = profileManager.getDevices()
@@ -389,72 +391,58 @@ fun ServerScreen(
                         // Primary Action: Wake Selected Device
                         val selectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
                         if (selectedDevice != null) {
-                            Button(
-                                onClick = { onWakeComputer?.invoke(selectedDevice) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = AccentEmerald
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Bolt,
-                                        contentDescription = null,
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = "喚醒 ${selectedDevice.name}",
-                                        color = Color.Black,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
+                            MasterWakeButton(
+                                enabled = selectedDevice.mac.isNotBlank(),
+                                deviceName = selectedDevice.name,
+                                deviceMac = selectedDevice.mac,
+                                onClick = { onWakeComputer?.invoke(selectedDevice) }
+                            )
 
                             // Secondary Power Actions (if IP configured)
                             if (selectedDevice.ip.isNotBlank()) {
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Button(
-                                        onClick = { onPowerCommand?.invoke(selectedDevice, "shutdown") },
-                                        modifier = Modifier.weight(1f).height(38.dp),
+                                        onClick = {
+                                            confirmPowerAction = "sleep"
+                                            confirmPowerDevice = selectedDevice
+                                        },
+                                        modifier = Modifier.weight(1f).height(40.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SemanticWarningDim),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, SemanticWarningDim),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("睡眠", color = SemanticWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            confirmPowerAction = "reboot"
+                                            confirmPowerDevice = selectedDevice
+                                        },
+                                        modifier = Modifier.weight(1f).height(40.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = SemanticInfoDim),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, SemanticInfo.copy(alpha = 0.35f)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("重啟", color = SemanticInfo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            confirmPowerAction = "shutdown"
+                                            confirmPowerDevice = selectedDevice
+                                        },
+                                        modifier = Modifier.weight(1f).height(40.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = SemanticDangerDim),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, SemanticDangerBorder),
-                                        shape = RoundedCornerShape(8.dp),
+                                        shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("關機", color = SemanticDanger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                    Button(
-                                        onClick = { onPowerCommand?.invoke(selectedDevice, "reboot") },
-                                        modifier = Modifier.weight(1f).height(38.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceElevated),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("重啟", color = Slate200, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                    Button(
-                                        onClick = { onPowerCommand?.invoke(selectedDevice, "sleep") },
-                                        modifier = Modifier.weight(1f).height(38.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceElevated),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("睡眠", color = Slate200, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("關機", color = SemanticDanger, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -463,25 +451,35 @@ fun ServerScreen(
                 }
             }
 
-            // Real-Time System Log Header
+            // Real-Time System Log Header (Terminal HUD)
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "系統即時日誌",
-                        color = Slate400,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(modifier = Modifier.size(8.dp).background(SemanticDanger, CircleShape))
+                        Box(modifier = Modifier.size(8.dp).background(SemanticWarning, CircleShape))
+                        Box(modifier = Modifier.size(8.dp).background(AccentEmerald, CircleShape))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "即時日誌 TERMINAL",
+                            color = Slate300,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
                     Text(
                         text = "清除日誌",
                         color = AccentEmerald,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable { onClearLogs() }
                     )
                 }
@@ -535,6 +533,36 @@ fun ServerScreen(
                     profileManager.deleteDevice(device.id)
                     refreshDevices()
                     deviceToEdit = null
+                }
+            )
+        }
+
+        // Confirmation Dialog for Power Actions
+        if (confirmPowerAction != null && confirmPowerDevice != null) {
+            val isDestructive = confirmPowerAction == "shutdown"
+            val actionName = when (confirmPowerAction) {
+                "shutdown" -> "電腦關機"
+                "reboot" -> "電腦重新開機"
+                "sleep" -> "電腦睡眠"
+                else -> confirmPowerAction!!.uppercase()
+            }
+            ConfirmPowerDialog(
+                actionName = actionName,
+                targetName = confirmPowerDevice!!.name,
+                targetIp = confirmPowerDevice!!.ip,
+                isDestructive = isDestructive,
+                onConfirm = {
+                    val act = confirmPowerAction
+                    val dev = confirmPowerDevice
+                    confirmPowerAction = null
+                    confirmPowerDevice = null
+                    if (act != null && dev != null) {
+                        onPowerCommand?.invoke(dev, act)
+                    }
+                },
+                onDismiss = {
+                    confirmPowerAction = null
+                    confirmPowerDevice = null
                 }
             )
         }

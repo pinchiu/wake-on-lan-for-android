@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.rounded.AcUnit
@@ -53,7 +55,10 @@ import android.widget.Toast
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import com.example.wakeonwanremotephone.ui.theme.*
+import com.example.wakeonwanremotephone.ui.components.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,8 +97,11 @@ fun RemoteWakeMainScreen() {
     var showAddDeviceDialog by remember { mutableStateOf(false) }
     var showEditDeviceDialog by remember { mutableStateOf(false) }
     var deviceToEdit by remember { mutableStateOf<DeviceProfile?>(null) }
+    var confirmAction by remember { mutableStateOf<String?>(null) }
+    var confirmIsDestructive by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
+    val clipboardManager = LocalClipboardManager.current
 
     fun syncCurrentDevice(mac: String = computerMacAddress, ip: String = computerLocalIpv4) {
         val dev = devices.find { it.id == selectedDeviceId }
@@ -148,7 +156,7 @@ fun RemoteWakeMainScreen() {
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // App Header
+            // App Header Bar with Telemetry Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -162,12 +170,33 @@ fun RemoteWakeMainScreen() {
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (localLanMode) "模式：內網直連 WoL 廣播" else "模式：遠端 TCP 9876 網關",
-                        color = if (localLanMode) AccentEmerald else Slate400,
-                        fontSize = 12.sp
-                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (localLanMode) AccentEmeraldDim else SemanticInfoDim,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (localLanMode) AccentEmeraldBorder else SemanticInfo.copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AnimatedStatusDot(
+                                color = if (localLanMode) AccentEmerald else SemanticInfo,
+                                size = 5.dp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (localLanMode) "LAN BROADCAST (內網直連)" else "WAN TCP 9876 (外網網關)",
+                                color = if (localLanMode) AccentEmerald else SemanticInfo,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -177,129 +206,269 @@ fun RemoteWakeMainScreen() {
                             color = AccentEmerald,
                             strokeWidth = 2.dp
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                     }
-                    IconButton(onClick = { showAboutDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "關於與更新",
-                            tint = Slate400,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = DarkSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                    ) {
+                        IconButton(
+                            onClick = { showAboutDialog = true },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "關於與更新",
+                                tint = Slate300,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Target Computers Selector Card
-            PrecisionCard {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "目標電腦",
-                                color = Slate50,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = DarkSurfaceElevated,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
-                            ) {
-                                Text(
-                                    text = "${devices.size} 台",
-                                    color = Slate400,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
+            // Segmented Mode Selector
+            SegmentedModeSelector(
+                localLanMode = localLanMode,
+                onModeChange = {
+                    localLanMode = it
+                    deviceManager.setLocalLanMode(it)
+                }
+            )
 
-                        IconButton(
-                            onClick = { showAddDeviceDialog = true },
-                            modifier = Modifier.size(28.dp)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Target Computers Selector Cockpit Card
+            PrecisionSurfaceCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "目標主機清單",
+                            color = Slate50,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = DarkSurfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "新增電腦",
-                                tint = AccentEmerald,
-                                modifier = Modifier.size(20.dp)
+                            Text(
+                                text = "${devices.size} 台",
+                                color = AccentEmerald,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (devices.isEmpty()) {
-                        Text(
-                            text = "尚未新增目標電腦，請點擊右上角「+」新增",
-                            color = Slate500,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(vertical = 8.dp)
+                    IconButton(
+                        onClick = { showAddDeviceDialog = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "新增電腦",
+                            tint = AccentEmerald,
+                            modifier = Modifier.size(20.dp)
                         )
-                    } else {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            items(devices) { device ->
-                                val isSelected = device.id == selectedDeviceId
-                                val borderColor = if (isSelected) AccentEmeraldBorder else BorderSubtle
-                                val bgColor = if (isSelected) AccentEmeraldDim else DarkSurfaceElevated
+                    }
+                }
 
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Active Target Detail Banner
+                if (currentSelectedDevice != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = DarkSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .background(AccentEmeraldDim, RoundedCornerShape(8.dp))
+                                            .border(1.dp, AccentEmeraldBorder, RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Computer,
+                                            contentDescription = null,
+                                            tint = AccentEmerald,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = currentSelectedDevice.name,
+                                            color = Slate50,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "當前選定目標主機",
+                                            color = Slate400,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        deviceToEdit = currentSelectedDevice
+                                        showEditDeviceDialog = true
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "編輯主機設定",
+                                        tint = Slate300,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Fast copy address chips
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                                 Surface(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                        .weight(1f)
                                         .clickable {
-                                            selectedDeviceId = device.id
-                                            deviceManager.setSelectedDeviceId(device.id)
-                                            computerMacAddress = device.mac
-                                            computerLocalIpv4 = device.ip
+                                            clipboardManager.setText(AnnotatedString(currentSelectedDevice.mac))
+                                            Toast.makeText(context, "已複製 MAC 地址", Toast.LENGTH_SHORT).show()
                                         },
-                                    color = bgColor,
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = DarkSurface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Column {
+                                            Text("MAC", color = Slate500, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                             Text(
-                                                text = device.name,
-                                                color = if (isSelected) Slate50 else Slate300,
-                                                fontSize = 13.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                            )
-                                            Text(
-                                                text = device.mac.ifEmpty { "無 MAC" },
-                                                color = if (isSelected) AccentEmerald else Slate500,
+                                                text = currentSelectedDevice.mac.ifBlank { "無 MAC" },
+                                                color = Slate200,
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
                                         }
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        IconButton(
-                                            onClick = {
-                                                deviceToEdit = device
-                                                showEditDeviceDialog = true
-                                            },
-                                            modifier = Modifier.size(22.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = "編輯",
-                                                tint = if (isSelected) AccentEmerald else Slate500,
-                                                modifier = Modifier.size(13.dp)
+                                        Icon(Icons.Default.Share, null, tint = Slate500, modifier = Modifier.size(11.dp))
+                                    }
+                                }
+
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            if (currentSelectedDevice.ip.isNotBlank()) {
+                                                clipboardManager.setText(AnnotatedString(currentSelectedDevice.ip))
+                                                Toast.makeText(context, "已複製 IP 地址", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = DarkSurface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column {
+                                            Text("IPv4", color = Slate500, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            Text(
+                                                text = currentSelectedDevice.ip.ifBlank { "未指定" },
+                                                color = Slate200,
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace
                                             )
                                         }
+                                        Icon(Icons.Default.Share, null, tint = Slate500, modifier = Modifier.size(11.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Quick Switcher Carousel
+                if (devices.isNotEmpty()) {
+                    Text(
+                        text = "切換目標主機",
+                        color = Slate400,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(devices) { device ->
+                            val isSelected = device.id == selectedDeviceId
+                            val borderColor = if (isSelected) AccentEmeraldBorder else BorderSubtle
+                            val bgColor = if (isSelected) AccentEmeraldDim else DarkSurfaceElevated
+
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        selectedDeviceId = device.id
+                                        deviceManager.setSelectedDeviceId(device.id)
+                                        computerMacAddress = device.mac
+                                        computerLocalIpv4 = device.ip
+                                    },
+                                color = bgColor,
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = device.name,
+                                            color = if (isSelected) Slate50 else Slate300,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = device.mac.ifEmpty { "無 MAC" },
+                                            color = if (isSelected) AccentEmerald else Slate500,
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                     }
                                 }
                             }
@@ -310,216 +479,122 @@ fun RemoteWakeMainScreen() {
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Configuration & Connection Mode Card
-            PrecisionCard {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "連線配置",
-                        color = Slate400,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
+            // Configuration & Connection Parameters
+            PrecisionSurfaceCard {
+                Text(
+                    text = "連線位址設定",
+                    color = Slate400,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                if (!localLanMode) {
+                    PrecisionOutlinedTextField(
+                        value = helperIpv6Address,
+                        onValueChange = { helperIpv6Address = it },
+                        label = "家用助手 IPv6 位址 (Port 9876)",
+                        icon = Icons.Default.Dns,
+                        modifier = Modifier.onFocusChanged {
+                            if (!it.isFocused) {
+                                deviceManager.setHelperIpv6(helperIpv6Address)
+                            }
+                        }
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
-
-                    // LAN Mode Switch
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(DarkSurfaceElevated, RoundedCornerShape(10.dp))
-                            .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "區域網路直連 (Local LAN)",
-                                color = Slate50,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = if (localLanMode) "使用內網 UDP 廣播，無需連線家用助手" else "透過家用助手連線 (外網/WAN)",
-                                color = Slate400,
-                                fontSize = 11.sp
-                            )
-                        }
-                        Switch(
-                            checked = localLanMode,
-                            onCheckedChange = {
-                                localLanMode = it
-                                deviceManager.setLocalLanMode(it)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = AccentEmerald,
-                                checkedTrackColor = AccentEmeraldDim
-                            )
-                        )
-                    }
-
-                    if (!localLanMode) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        PrecisionOutlinedTextField(
-                            value = helperIpv6Address,
-                            onValueChange = { helperIpv6Address = it },
-                            label = "家用助手 IPv6 位址",
-                            icon = Icons.Default.Dns,
-                            modifier = Modifier.onFocusChanged {
-                                if (!it.isFocused) {
-                                    deviceManager.setHelperIpv6(helperIpv6Address)
-                                }
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    PrecisionOutlinedTextField(
-                        value = computerMacAddress,
-                        onValueChange = {
-                            computerMacAddress = it
-                            syncCurrentDevice(mac = it)
-                        },
-                        label = "目標電腦 MAC 地址",
-                        icon = Icons.Default.Lan,
-                        modifier = Modifier.onFocusChanged {
-                            if (!it.isFocused) {
-                                syncCurrentDevice()
-                            }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    PrecisionOutlinedTextField(
-                        value = computerLocalIpv4,
-                        onValueChange = {
-                            computerLocalIpv4 = it
-                            syncCurrentDevice(ip = it)
-                        },
-                        label = "目標電腦區域 IPv4 (電源控制用)",
-                        icon = Icons.Default.Computer,
-                        modifier = Modifier.onFocusChanged {
-                            if (!it.isFocused) {
-                                syncCurrentDevice()
-                            }
-                        }
-                    )
                 }
+
+                PrecisionOutlinedTextField(
+                    value = computerMacAddress,
+                    onValueChange = {
+                        computerMacAddress = it
+                        syncCurrentDevice(mac = it)
+                    },
+                    label = "目標電腦 MAC 地址 (WoL Magic Packet)",
+                    icon = Icons.Default.Lan,
+                    modifier = Modifier.onFocusChanged {
+                        if (!it.isFocused) {
+                            syncCurrentDevice()
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                PrecisionOutlinedTextField(
+                    value = computerLocalIpv4,
+                    onValueChange = {
+                        computerLocalIpv4 = it
+                        syncCurrentDevice(ip = it)
+                    },
+                    label = "目標電腦區域 IPv4 (電源控制 Port 9877)",
+                    icon = Icons.Default.Computer,
+                    modifier = Modifier.onFocusChanged {
+                        if (!it.isFocused) {
+                            syncCurrentDevice()
+                        }
+                    }
+                )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Action Controls Section
-            // Primary Hero Button: Wake PC
-            Button(
-                onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") },
+            // Master Hero Trigger: Wake PC
+            MasterWakeTriggerButton(
                 enabled = !isLoading && computerMacAddress.isNotBlank(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Bolt,
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "喚醒目標電腦 (WAKE PC)",
-                        color = Color.Black,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Secondary Power Controls Bento Grid (2x2)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    HardwareCommandCard(
-                        title = "睡眠",
-                        subtitle = "SLEEP",
-                        icon = Icons.Rounded.Bedtime,
-                        onClick = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    HardwareCommandCard(
-                        title = "休眠",
-                        subtitle = "HIBERNATE",
-                        icon = Icons.Rounded.AcUnit,
-                        onClick = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    HardwareCommandCard(
-                        title = "重啟",
-                        subtitle = "REBOOT",
-                        icon = Icons.Rounded.Refresh,
-                        onClick = { sendCommand("REBOOT:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    HardwareCommandCard(
-                        title = "關機",
-                        subtitle = "SHUTDOWN",
-                        icon = Icons.Rounded.PowerSettingsNew,
-                        isDestructive = true,
-                        onClick = { sendCommand("SHUTDOWN:${computerLocalIpv4.trim()}") },
-                        enabled = !isLoading && computerLocalIpv4.isNotBlank()
-                    )
-                }
-            }
+                isLoading = isLoading,
+                targetName = currentSelectedDevice?.name ?: "",
+                targetMac = computerMacAddress,
+                onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Real-Time Status Feedback Banner
-            if (statusMessage.isNotEmpty()) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isStatusError) SemanticDangerDim else AccentEmeraldDim,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isStatusError) SemanticDangerBorder else AccentEmeraldBorder
-                    )
-                ) {
-                    Text(
-                        text = statusMessage,
-                        color = if (isStatusError) SemanticDanger else AccentEmerald,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                    )
+            // Secondary Power Command Bento Grid (2x2)
+            ModernPowerCommandGrid(
+                enabled = !isLoading && computerLocalIpv4.isNotBlank(),
+                onSleep = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
+                onHibernate = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
+                onReboot = {
+                    confirmAction = "REBOOT"
+                    confirmIsDestructive = false
+                },
+                onShutdown = {
+                    confirmAction = "SHUTDOWN"
+                    confirmIsDestructive = true
                 }
-            }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Terminal HUD Console Output
+            TerminalHudStatusCard(
+                statusMessage = statusMessage,
+                isStatusError = isStatusError,
+                isLoading = isLoading
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // Confirmation Dialog for Destructive Power Actions
+        if (confirmAction != null) {
+            ConfirmPowerDialog(
+                actionName = if (confirmAction == "SHUTDOWN") "電腦關機" else "電腦重新開機",
+                targetName = currentSelectedDevice?.name ?: "目標主機",
+                targetIp = computerLocalIpv4,
+                isDestructive = confirmIsDestructive,
+                onConfirm = {
+                    val act = confirmAction
+                    confirmAction = null
+                    if (act != null) {
+                        sendCommand("$act:${computerLocalIpv4.trim()}")
+                    }
+                },
+                onDismiss = { confirmAction = null }
+            )
         }
 
         // About & Update Dialog
