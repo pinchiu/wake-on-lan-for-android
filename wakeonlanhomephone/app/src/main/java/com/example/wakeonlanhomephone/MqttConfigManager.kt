@@ -19,7 +19,7 @@ data class MqttConfig(
     val autoConnect: Boolean
 )
 
-class MqttConfigManager(context: Context) {
+class MqttConfigManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("mqtt_config", Context.MODE_PRIVATE)
 
     companion object {
@@ -87,6 +87,21 @@ class MqttConfigManager(context: Context) {
             putInt(KEY_KEEP_ALIVE, config.keepAlive)
             putBoolean(KEY_AUTO_CONNECT, config.autoConnect)
             apply()
+        }
+
+        try {
+            val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
+            val componentName = android.content.ComponentName(context, WakePcWidgetProvider::class.java)
+            val widgetIds = appWidgetManager.getAppWidgetIds(componentName)
+            if (widgetIds.isNotEmpty()) {
+                val intent = android.content.Intent(context, WakePcWidgetProvider::class.java).apply {
+                    action = android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
+                }
+                context.sendBroadcast(intent)
+            }
+        } catch (_: Exception) {
+            // Widget update is best-effort
         }
     }
 }

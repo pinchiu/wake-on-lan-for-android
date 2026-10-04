@@ -88,6 +88,7 @@
 | **TCP 服務適配器** | `wakeonlanhomephone/.../WolListenerService.kt` | 監聽 TCP 9876，將連線輸入導向 `dispatcher.dispatch()`，並回寫 `toProtocolString()`。 |
 | **MQTT 服務適配器** | `wakeonlanhomephone/.../MqttWolService.kt` | 訂閱 MQTT Topic，將訊息 Payload 導向 `dispatcher.dispatch()`。 |
 | **語音捷徑適配器** | `wakeonlanhomephone/.../VoiceWakeActivity.kt` | 接收語音/捷徑 Intent，呼叫 `dispatcher.dispatch("WAKE")`，非同步發送後立即關閉。 |
+| **桌面小工具 (Widget)** | `wakeonlanhomephone/.../WakePcWidgetProvider.kt` | Android 桌面微型小工具，提供單鍵點擊呼叫 `dispatcher.dispatch("WAKE")` 發送開機封包。 |
 | **WoL 底層廣播公用程式** | `wakeonlanhomephone/.../WolUtil.kt` | 底層 Magic Packet 二進位封包組裝與 UDP Socket 發送。 |
 | **設定值管理** | `wakeonlanhomephone/.../MqttConfigManager.kt` | 管理目標電腦 MAC、MQTT 伺服器配置之 SharedPreferences 存取。 |
 | **捷徑靜態註冊** | `wakeonlanhomephone/.../res/xml/shortcuts.xml` | 宣告 Google 助理可用之靜態捷徑 `wake_pc_shortcut`。 |

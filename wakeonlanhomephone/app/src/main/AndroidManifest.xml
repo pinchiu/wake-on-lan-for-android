@@ -73,6 +73,19 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
+
+        <!-- 桌面開機小工具 (App Widget) -->
+        <receiver
+            android:name=".WakePcWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.wakeonlanhomephone.ACTION_WAKE_PC" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_wake_pc_info" />
+        </receiver>
     </application>
 
 </manifest>

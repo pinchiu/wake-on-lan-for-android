@@ -2,4 +2,8 @@
     <string name="app_name">wake on lan home phone</string>
     <string name="shortcut_wake_pc_short">打開電腦</string>
     <string name="shortcut_wake_pc_long">透過區域網路喚醒電腦</string>
+    <string name="widget_name">打開電腦 (桌面小工具)</string>
+    <string name="widget_default_hint">點擊發送開機封包</string>
+    <string name="widget_wake_success">已發送開機封包</string>
+    <string name="widget_no_mac_hint">尚未設定目標 MAC</string>
 </resources>

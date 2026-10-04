@@ -10,3 +10,6 @@ local.properties
 *.log
 .vscode/
 .idea/
+
+# Local agent instructions (do not commit to GitHub)
+AGENTS.md
