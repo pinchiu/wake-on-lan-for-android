@@ -225,7 +225,7 @@
 
 ---
 
-## 7. GitHub Actions CI/CD 流水線
+## 7. GitHub Actions CI/CD 流水線與自動化驗證守則
 
 * **設定檔路徑**：[`.github/workflows/ci.yml`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/.github/workflows/ci.yml)
 * **觸發條件**：`push` 或 `pull_request` 至 `master` / `main`，或透過 `workflow_dispatch` 手動觸發。
@@ -233,6 +233,19 @@
   1. `build-home-phone`：以 JDK 21 執行 `./gradlew testDebugUnitTest` 與 `assembleRelease`，驗證單元測試與 APK 建置。
   2. `build-remote-phone`：以 JDK 21 建置 `wakeonwanremotephone` Release APK。
   3. `verify-computer-script`：以 Python 3.11 語法檢查 `computer/pc_onoff.py`。
+
+### 7.1 強制性 CI/CD 監控與修復循環規範 (Post-Push Verification Loop)
+
+> [!IMPORTANT]
+> **推播後必檢規範 (Mandatory CI/CD Verification)**：
+> 任何 AI Agent 或開發者在完成 `git push origin <branch>` 推播程式碼後，**絕對不得直接結束任務**。必須依循以下程序：
+> 1. **監控 CI/CD 狀態**：使用 GitHub CLI 執行 `gh run list -L 1` 取得剛觸發的 Run ID，並使用 `gh run watch <RunID>`（或在背景追蹤）等待流水線執行完畢。
+> 2. **檢驗執行結果**：確認所有 Jobs（`build-home-phone`、`build-remote-phone`、`verify-computer-script`）皆為綠燈通過（Success）。
+> 3. **錯誤即時修復與重推 (Fix & Push Again)**：
+>    - 若任何 Job 失敗（Failure / Error），必須立即調閱失敗工作之錯誤日誌（如 `gh run view <RunID> --log-failed`）。
+>    - 深入分析失敗根因（例如單元測試斷言失敗、Kotlin 編譯錯誤、依賴套件衝突等）並進行程式碼修復。
+>    - 重新在本機執行測試確認修復後，再次提交 (`git commit`) 並推播至 GitHub (`git push`)。
+>    - 持續重複監控直到 CI/CD 100% 通過為止。
 
 ---
 
