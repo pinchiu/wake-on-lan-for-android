@@ -102,6 +102,14 @@ if ($testConn -eq "ok") {
                 Write-Host ">>> 已同步家用端 APK 至: $apkDst" -ForegroundColor Green
             }
         }
+        if ($Target -eq 'remote' -or $Target -eq 'both') {
+            $apkSrc = Join-Path $rootDir "wakeonwanremotephone\app\build\outputs\apk\release\app-release.apk"
+            $apkDst = Join-Path $rootDir "wakeonwan-remote-phone.apk"
+            if (Test-Path $apkSrc) {
+                Copy-Item -Path $apkSrc -Destination $apkDst -Force
+                Write-Host ">>> 已同步外出端 APK 至: $apkDst" -ForegroundColor Green
+            }
+        }
     }
 }
 

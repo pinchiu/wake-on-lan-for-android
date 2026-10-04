@@ -11,5 +11,10 @@ local.properties
 .vscode/
 .idea/
 
-# Local agent instructions (do not commit to GitHub)
-AGENTS.md
+# Local private agent instructions (optional developer overrides)
+AGENTS.local.md
+
+# Python
+__pycache__/
+*.py[cod]
+
