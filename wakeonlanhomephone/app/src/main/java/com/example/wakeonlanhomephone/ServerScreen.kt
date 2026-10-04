@@ -6,15 +6,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +28,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.wakeonlanhomephone.ui.theme.*
 import com.example.wakeonlanhomephone.ui.components.*
 import java.net.NetworkInterface
@@ -43,8 +42,23 @@ fun ServerScreen(
     onStopService: () -> Unit,
     logs: List<String>,
     onClearLogs: () -> Unit = {},
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    deviceProfileManager: DeviceProfileManager? = null,
+    onWakeComputer: ((DeviceProfile) -> Unit)? = null,
+    onPowerCommand: ((DeviceProfile, String) -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val profileManager = remember(deviceProfileManager) { deviceProfileManager ?: DeviceProfileManager(context) }
+    var devices by remember { mutableStateOf(profileManager.getDevices()) }
+    var selectedDeviceId by remember { mutableStateOf(profileManager.getSelectedDeviceId()) }
+    var showAddDeviceDialog by remember { mutableStateOf(false) }
+    var deviceToEdit by remember { mutableStateOf<DeviceProfile?>(null) }
+
+    val refreshDevices = {
+        devices = profileManager.getDevices()
+        selectedDeviceId = profileManager.getSelectedDeviceId()
+    }
+
     val statusColor = if (isRunning) NeonGreen else Slate500
     val ipv6Addresses = remember { getDeviceIPv6Addresses() }
     val displayedLogs = remember(logs) { logs.asReversed().take(10) }
@@ -277,6 +291,199 @@ fun ServerScreen(
                 }
             }
             
+            // Target Computers Management & Instant Controls Card
+            item {
+                GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Computer,
+                                contentDescription = null,
+                                tint = CyberCyan,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "TARGET COMPUTERS (${devices.size})",
+                                color = CyberCyan,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        IconButton(
+                            onClick = { showAddDeviceDialog = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add Computer",
+                                tint = NeonGreen
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (devices.isEmpty()) {
+                        Text(
+                            "尚未新增目標電腦，請點擊右上角 + 新增",
+                            color = Slate400,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        // Chips row
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(devices) { device ->
+                                val isSelected = device.id == selectedDeviceId
+                                val borderColor = if (isSelected) NeonGreen else GlassBorder
+                                val bgColor = if (isSelected) NeonGreen.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.04f)
+
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            selectedDeviceId = device.id
+                                            profileManager.setSelectedDeviceId(device.id)
+                                            refreshDevices()
+                                        },
+                                    color = bgColor,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = device.name,
+                                                color = if (isSelected) Color.White else Slate300,
+                                                fontSize = 13.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = device.mac,
+                                                color = if (isSelected) CyberCyan else Slate500,
+                                                fontSize = 10.sp,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        IconButton(
+                                            onClick = { deviceToEdit = device },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit",
+                                                tint = if (isSelected) NeonGreen else Slate400,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Direct LAN Wake Button
+                        val selectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
+                        if (selectedDevice != null) {
+                            Button(
+                                onClick = { onWakeComputer?.invoke(selectedDevice) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = NeonGreen.copy(alpha = 0.2f)
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, NeonGreen),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PowerSettingsNew,
+                                        contentDescription = null,
+                                        tint = NeonGreen,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(horizontalAlignment = Alignment.Start) {
+                                        Text(
+                                            "WAKE ${selectedDevice.name.uppercase()}",
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                        Text(
+                                            "內網廣播 WoL Magic Packet (${selectedDevice.mac})",
+                                            color = NeonGreen.copy(alpha = 0.85f),
+                                            fontSize = 10.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Optional Power Controls if IP is set
+                            if (selectedDevice.ip.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { onPowerCommand?.invoke(selectedDevice, "shutdown") },
+                                        modifier = Modifier.weight(1f).height(40.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = NeonRed.copy(alpha = 0.15f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonRed.copy(alpha = 0.6f)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("關機", color = NeonRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = { onPowerCommand?.invoke(selectedDevice, "reboot") },
+                                        modifier = Modifier.weight(1f).height(40.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = CyberYellow.copy(alpha = 0.15f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, CyberYellow.copy(alpha = 0.6f)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("重啟", color = CyberYellow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = { onPowerCommand?.invoke(selectedDevice, "sleep") },
+                                        modifier = Modifier.weight(1f).height(40.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue.copy(alpha = 0.15f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.6f)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("睡眠", color = PrimaryBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Control Buttons
             item {
                 Row(
@@ -289,7 +496,7 @@ fun ServerScreen(
                     ControlButton(
                         onClick = onStartService,
                         label = "INITIALIZE",
-                        subtitle = "WOL BROADCAST",
+                        subtitle = "TCP:9876 SERVICE",
                         accentColor = CyberCyan,
                         modifier = Modifier.weight(1f)
                     )
@@ -298,7 +505,7 @@ fun ServerScreen(
                     ControlButton(
                         onClick = onStopService,
                         label = "TERMINATE",
-                        subtitle = "SYS SHUTDOWN",
+                        subtitle = "STOP SERVICE",
                         accentColor = NeonRed,
                         isStop = true,
                         modifier = Modifier.weight(1f)
@@ -335,6 +542,35 @@ fun ServerScreen(
             ) { _, log ->
                 LogItem(log = log)
             }
+        }
+
+        if (showAddDeviceDialog) {
+            AddComputerDialog(
+                onDismiss = { showAddDeviceDialog = false },
+                onConfirm = { name, mac, ip ->
+                    profileManager.addDevice(name, mac, ip)
+                    refreshDevices()
+                    showAddDeviceDialog = false
+                }
+            )
+        }
+
+        deviceToEdit?.let { device ->
+            EditComputerDialog(
+                device = device,
+                canDelete = devices.size > 1,
+                onDismiss = { deviceToEdit = null },
+                onSave = { name, mac, ip ->
+                    profileManager.updateDevice(device.copy(name = name, mac = mac, ip = ip))
+                    refreshDevices()
+                    deviceToEdit = null
+                },
+                onDelete = {
+                    profileManager.deleteDevice(device.id)
+                    refreshDevices()
+                    deviceToEdit = null
+                }
+            )
         }
     }
 }
@@ -592,3 +828,227 @@ private fun getDeviceIPv6Addresses(): List<String> {
     }
     return list
 }
+
+@Composable
+fun AddComputerDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, mac: String, ip: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var mac by remember { mutableStateOf("") }
+    var ip by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, CyberCyan.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
+            color = Navy900.copy(alpha = 0.95f),
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    "新增目標電腦",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("電腦名稱 (例: 臥室主機)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberCyan,
+                        unfocusedBorderColor = GlassBorder,
+                        focusedLabelColor = CyberCyan,
+                        unfocusedLabelColor = Slate400,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = mac,
+                    onValueChange = { mac = it },
+                    label = { Text("網卡 MAC (例: AA:BB:CC:DD:EE:FF)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberCyan,
+                        unfocusedBorderColor = GlassBorder,
+                        focusedLabelColor = CyberCyan,
+                        unfocusedLabelColor = Slate400,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = ip,
+                    onValueChange = { ip = it },
+                    label = { Text("區域網路 IPv4 (可選，供關機/重啟)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberCyan,
+                        unfocusedBorderColor = GlassBorder,
+                        focusedLabelColor = CyberCyan,
+                        unfocusedLabelColor = Slate400,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("取消", color = Slate400)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (mac.isNotBlank()) {
+                                onConfirm(name.ifBlank { "新主機" }, mac.trim(), ip.trim())
+                            }
+                        },
+                        enabled = mac.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.25f)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("新增", color = NeonGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EditComputerDialog(
+    device: DeviceProfile,
+    canDelete: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (name: String, mac: String, ip: String) -> Unit,
+    onDelete: () -> Unit
+) {
+    var name by remember { mutableStateOf(device.name) }
+    var mac by remember { mutableStateOf(device.mac) }
+    var ip by remember { mutableStateOf(device.ip) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, CyberCyan.copy(alpha = 0.3f), RoundedCornerShape(20.dp)),
+            color = Navy900.copy(alpha = 0.95f),
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    "編輯目標電腦",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("電腦名稱") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberCyan,
+                        unfocusedBorderColor = GlassBorder,
+                        focusedLabelColor = CyberCyan,
+                        unfocusedLabelColor = Slate400,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = mac,
+                    onValueChange = { mac = it },
+                    label = { Text("網卡 MAC") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberCyan,
+                        unfocusedBorderColor = GlassBorder,
+                        focusedLabelColor = CyberCyan,
+                        unfocusedLabelColor = Slate400,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = ip,
+                    onValueChange = { ip = it },
+                    label = { Text("區域網路 IPv4 (可選)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyberCyan,
+                        unfocusedBorderColor = GlassBorder,
+                        focusedLabelColor = CyberCyan,
+                        unfocusedLabelColor = Slate400,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (canDelete) {
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = NeonRed)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
+                    Row {
+                        TextButton(onClick = onDismiss) {
+                            Text("取消", color = Slate400)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (mac.isNotBlank()) {
+                                    onSave(name.ifBlank { "主機" }, mac.trim(), ip.trim())
+                                }
+                            },
+                            enabled = mac.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan.copy(alpha = 0.25f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("儲存", color = CyberCyan, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

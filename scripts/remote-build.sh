@@ -78,7 +78,7 @@ if [ "$TEST_CONN" = "ok" ]; then
 
     for PROJ in "${PROJECTS[@]}"; do
         echo ">>> [$PROJ] 遠端執行: $TASKS_STRING"
-        REMOTE_SCRIPT="export ANDROID_HOME=\$HOME/android-sdk; export ANDROID_SDK_ROOT=\$HOME/android-sdk; export PATH=\$PATH:\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools; cd $REMOTE_REPO_PATH && git pull && cd $PROJ && chmod +x ./gradlew && ./gradlew $TASKS_STRING --stacktrace"
+        REMOTE_SCRIPT="export JAVA_HOME=\$HOME/jdk-21; export ANDROID_HOME=\$HOME/android-sdk; export ANDROID_SDK_ROOT=\$HOME/android-sdk; export PATH=\$JAVA_HOME/bin:\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools:\$PATH; cd $REMOTE_REPO_PATH && git pull && cd $PROJ && chmod +x ./gradlew && ./gradlew $TASKS_STRING --stacktrace"
         ssh "$HOST_NAME" "bash -lc \"$REMOTE_SCRIPT\""
     done
 

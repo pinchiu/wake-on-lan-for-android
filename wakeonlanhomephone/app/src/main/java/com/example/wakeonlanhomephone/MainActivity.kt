@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.border
@@ -196,6 +197,8 @@ fun MainScreen(
     deviceManager: DeviceManager
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val deviceProfileManager = remember { DeviceProfileManager(context) }
     var currentTab by remember { mutableStateOf(Tab.Server) }
     var showAddDevice by remember { mutableStateOf(false) } 
     var deviceToEdit by remember { mutableStateOf<MqttDevice?>(null) } 
@@ -250,7 +253,30 @@ fun MainScreen(
                                 },
                                 logs = logs,
                                 onClearLogs = { AppLogger.clear() },
-                                onSettings = { currentTab = Tab.Settings }
+                                onSettings = { currentTab = Tab.Settings },
+                                deviceProfileManager = deviceProfileManager,
+                                onWakeComputer = { device ->
+                                    coroutineScope.launch {
+                                        val dispatcher = PcActionDispatcher()
+                                        val result = dispatcher.dispatch("WAKE:${device.mac}", "HomePhoneUI")
+                                        if (result.isSuccess) {
+                                            Toast.makeText(context, "已廣播喚醒 ${device.name} (${device.mac})", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "發送失敗: ${(result as PcActionResult.Failure).error}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                },
+                                onPowerCommand = { device, action ->
+                                    coroutineScope.launch {
+                                        val dispatcher = PcActionDispatcher()
+                                        val result = dispatcher.dispatch("${action.uppercase()}:${device.ip}", "HomePhoneUI")
+                                        if (result.isSuccess) {
+                                            Toast.makeText(context, "已發送 $action 指令至 ${device.name} (${device.ip})", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "發送失敗: ${(result as PcActionResult.Failure).error}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
                             )
                         }
                         Tab.Connections -> {

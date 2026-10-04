@@ -18,3 +18,7 @@ AGENTS.local.md
 __pycache__/
 *.py[cod]
 
+# Agents internal artifacts
+.agents/
+skills-lock.json
+

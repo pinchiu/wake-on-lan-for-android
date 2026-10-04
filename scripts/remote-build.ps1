@@ -49,7 +49,7 @@ if ($testConn -eq "ok") {
 
     foreach ($proj in $projects) {
         Write-Host ">>> [$proj] 遠端執行: $tasksString" -ForegroundColor Green
-        $remoteScript = "export ANDROID_HOME=`$HOME/android-sdk; export ANDROID_SDK_ROOT=`$HOME/android-sdk; export PATH=`$PATH:`$ANDROID_HOME/cmdline-tools/latest/bin:`$ANDROID_HOME/platform-tools; cd $RemoteRepoPath && git pull && cd $proj && chmod +x ./gradlew && ./gradlew $tasksString --stacktrace"
+        $remoteScript = "export JAVA_HOME=`$HOME/jdk-21; export ANDROID_HOME=`$HOME/android-sdk; export ANDROID_SDK_ROOT=`$HOME/android-sdk; export PATH=`$JAVA_HOME/bin:`$ANDROID_HOME/cmdline-tools/latest/bin:`$ANDROID_HOME/platform-tools:`$PATH; cd $RemoteRepoPath && git pull && cd $proj && chmod +x ./gradlew && ./gradlew $tasksString --stacktrace"
         
         ssh $HostName "bash -lc `"$remoteScript`""
         if ($LASTEXITCODE -ne 0) {
