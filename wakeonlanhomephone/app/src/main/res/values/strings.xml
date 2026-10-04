@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">wake on lan home phone</string>
+    <string name="shortcut_wake_pc_short">打開電腦</string>
+    <string name="shortcut_wake_pc_long">透過區域網路喚醒電腦</string>
 </resources>

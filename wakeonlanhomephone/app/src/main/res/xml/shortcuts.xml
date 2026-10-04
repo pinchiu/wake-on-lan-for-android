@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="wake_pc_shortcut"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_wake_pc_short"
+        android:shortcutLongLabel="@string/shortcut_wake_pc_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.wakeonlanhomephone"
+            android:targetClass="com.example.wakeonlanhomephone.VoiceWakeActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+</shortcuts>

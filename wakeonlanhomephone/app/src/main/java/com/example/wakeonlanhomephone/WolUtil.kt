@@ -8,7 +8,7 @@ import java.net.InetAddress
 object WolUtil {
     private const val TAG = "WolUtil"
 
-    fun sendMagicPacket(macAddress: String): String {
+    fun sendMagicPacket(macAddress: String, broadcastAddr: String = "255.255.255.255", port: Int = 9): String {
         try {
             val macBytes = getMacBytes(macAddress) ?: return "Invalid MAC address format"
             val magicPacket = ByteArray(102).apply {
@@ -18,13 +18,12 @@ object WolUtil {
                 }
             }
 
-            val broadcastAddr = "255.255.255.255"
-            val packet = DatagramPacket(magicPacket, magicPacket.size, InetAddress.getByName(broadcastAddr), 9)
+            val packet = DatagramPacket(magicPacket, magicPacket.size, InetAddress.getByName(broadcastAddr), port)
             DatagramSocket().use { socket ->
                 socket.broadcast = true
                 socket.send(packet)
             }
-            return "Magic Packet broadcasted to $broadcastAddr:9"
+            return "Magic Packet broadcasted to $broadcastAddr:$port"
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send Magic Packet", e)
             return "Send failed: ${e.message}"
