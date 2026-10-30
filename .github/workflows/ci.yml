@@ -1,14 +1,20 @@
-name: Android CI/CD Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
       - master
       - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   pull_request:
     branches:
       - master
       - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   workflow_dispatch:
 
 concurrency:
@@ -16,8 +22,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    name: Detect Changed Subsystems
+    runs-on: ubuntu-latest
+    outputs:
+      home-phone: ${{ steps.filter.outputs.home-phone }}
+      remote-phone: ${{ steps.filter.outputs.remote-phone }}
+      computer: ${{ steps.filter.outputs.computer }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Filter Changed Paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            home-phone:
+              - 'wakeonlanhomephone/**'
+              - '.github/workflows/ci.yml'
+            remote-phone:
+              - 'wakeonwanremotephone/**'
+              - '.github/workflows/ci.yml'
+            computer:
+              - 'computer/**'
+              - 'pc_onoff.exe'
+              - '.github/workflows/ci.yml'
+
   build-home-phone:
     name: Build Home Phone (Wake-on-LAN Helper)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.home-phone == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -49,6 +84,8 @@ jobs:
 
   build-remote-phone:
     name: Build Remote Phone (Wake-on-WAN Remote)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.remote-phone == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -78,8 +115,10 @@ jobs:
           path: wakeonwanremotephone/app/build/outputs/apk/release/*.apk
           retention-days: 14
 
-  verify-computer-script:
-    name: Verify Computer Listener Script
+  build-computer:
+    name: Build & Test Computer Daemon (Rust & Python)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.computer == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -91,5 +130,22 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Compile and Verify Python Syntax
+      - name: Verify Python Script Syntax
         run: python -m py_compile computer/pc_onoff.py
+
+      - name: Run Rust Unit Tests
+        run: cargo test --verbose
+        working-directory: computer
+
+      - name: Build Linux Release Binary
+        run: |
+          cargo build --release
+          strip target/release/pc_onoff
+        working-directory: computer
+
+      - name: Upload Linux Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc_onoff-linux-x86_64
+          path: computer/target/release/pc_onoff
+          retention-days: 14

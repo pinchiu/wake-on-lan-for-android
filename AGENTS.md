@@ -230,9 +230,10 @@
 * **設定檔路徑**：[`.github/workflows/ci.yml`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/.github/workflows/ci.yml)
 * **觸發條件**：`push` 或 `pull_request` 至 `master` / `main`，或透過 `workflow_dispatch` 手動觸發。
 * **流水線工作 (Jobs)**：
-  1. `build-home-phone`：以 JDK 21 執行 `./gradlew testDebugUnitTest` 與 `assembleRelease`，驗證單元測試與 APK 建置。
-  2. `build-remote-phone`：以 JDK 21 建置 `wakeonwanremotephone` Release APK。
-  3. `verify-computer-script`：以 Python 3.11 語法檢查 `computer/pc_onoff.py`。
+  1. `detect-changes`：使用 `dorny/paths-filter` 檢測變更子系統，未變更之子模組自動略過，避免冗餘編譯。
+  2. `build-home-phone`：以 JDK 21 執行 `./gradlew testDebugUnitTest` 與 `assembleRelease`，驗證單元測試與 APK 建置（僅在助手端變更時執行）。
+  3. `build-remote-phone`：以 JDK 21 建置 `wakeonwanremotephone` Release APK（僅在遠端控制端變更時執行）。
+  4. `build-computer`：以 Rust 執行 `cargo test` 與 `cargo build --release` 打包 Linux 二進位產物，並以 Python 3.11 檢驗 `computer/pc_onoff.py` 語法（僅在電腦端變更時執行）。
 
 ### 7.1 強制性 CI/CD 監控與修復循環規範 (Post-Push Verification Loop)
 

@@ -6,7 +6,9 @@ use std::io::Write;
 use std::net::{SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+#[cfg(windows)]
+use std::sync::atomic::AtomicUsize;
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
@@ -17,88 +19,151 @@ const BUFFER_SIZE: usize = 1024;
 const APP_NAME: &str = "pc_onoff";
 const CONFIG_FILE_NAME: &str = "config.ini";
 
+#[cfg(windows)]
 // Windows 登錄檔常數
 const REG_RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+#[cfg(windows)]
 const REG_RUN_NAME: &str = "WakeOnLanPcOnOff";
 
-// Win32 訊息常數
+#[cfg(windows)]
 const WM_DESTROY: u32 = 0x0002;
+#[cfg(windows)]
 const WM_CLOSE: u32 = 0x0010;
+#[cfg(windows)]
 const WM_COMMAND: u32 = 0x0111;
+#[cfg(windows)]
 const WM_USER: u32 = 0x0400;
+#[cfg(windows)]
 const WM_TRAYICON: u32 = WM_USER + 1;
+#[cfg(windows)]
 const WM_UPDATE_LOG: u32 = WM_USER + 2;
 
+#[cfg(windows)]
 const WM_LBUTTONDBLCLK: usize = 0x0203;
+#[cfg(windows)]
 const WM_RBUTTONUP: usize = 0x0205;
 
 // Win32 視窗樣式
+#[cfg(windows)]
 const WS_OVERLAPPED: u32 = 0x00000000;
+#[cfg(windows)]
 const WS_CAPTION: u32 = 0x00C00000;
+#[cfg(windows)]
 const WS_SYSMENU: u32 = 0x00080000;
+#[cfg(windows)]
 const WS_MINIMIZEBOX: u32 = 0x00020000;
+#[cfg(windows)]
 const WS_VISIBLE: u32 = 0x10000000;
+#[cfg(windows)]
 const WS_CHILD: u32 = 0x40000000;
+#[cfg(windows)]
 const WS_BORDER: u32 = 0x00800000;
+#[cfg(windows)]
 const WS_VSCROLL: u32 = 0x00200000;
 
 // 控制項樣式
+#[cfg(windows)]
 const BS_GROUPBOX: u32 = 0x00000007;
+#[cfg(windows)]
 const BS_AUTOCHECKBOX: u32 = 0x00000003;
+#[cfg(windows)]
 const BS_PUSHBUTTON: u32 = 0x00000000;
 
+#[cfg(windows)]
 const ES_MULTILINE: u32 = 0x0004;
+#[cfg(windows)]
 const ES_AUTOVSCROLL: u32 = 0x0040;
+#[cfg(windows)]
 const ES_READONLY: u32 = 0x0800;
 
+#[cfg(windows)]
 const BM_GETCHECK: u32 = 0x00F0;
+#[cfg(windows)]
 const BM_SETCHECK: u32 = 0x00F1;
+#[cfg(windows)]
 const BST_CHECKED: usize = 1;
+#[cfg(windows)]
 const BST_UNCHECKED: usize = 0;
 
+#[cfg(windows)]
 const SW_HIDE: i32 = 0;
+#[cfg(windows)]
 const SW_SHOWNORMAL: i32 = 1;
+#[cfg(windows)]
 const SW_RESTORE: i32 = 9;
 
+#[cfg(windows)]
 const IDI_APPLICATION: usize = 32512;
+#[cfg(windows)]
 const IDC_ARROW: usize = 32512;
+#[cfg(windows)]
 const COLOR_BTNFACE: usize = 15;
+#[cfg(windows)]
 const DEFAULT_GUI_FONT: usize = 17;
+#[cfg(windows)]
 const WM_SETFONT: u32 = 0x0030;
+#[cfg(windows)]
 const WM_VSCROLL_MSG: u32 = 0x0115;
+#[cfg(windows)]
 const SB_BOTTOM: usize = 7;
 
+#[cfg(windows)]
 const NIM_ADD: u32 = 0x00000000;
+#[cfg(windows)]
 const NIM_DELETE: u32 = 0x00000002;
+#[cfg(windows)]
 const NIF_MESSAGE: u32 = 0x00000001;
+#[cfg(windows)]
 const NIF_ICON: u32 = 0x00000002;
+#[cfg(windows)]
 const NIF_TIP: u32 = 0x00000004;
+#[cfg(windows)]
 const NIF_INFO: u32 = 0x00000010;
 
+#[cfg(windows)]
 const TPM_RIGHTBUTTON: u32 = 0x0002;
+#[cfg(windows)]
 const MF_STRING: u32 = 0x00000000;
+#[cfg(windows)]
 const MF_CHECKED: u32 = 0x00000008;
+#[cfg(windows)]
 const MF_UNCHECKED: u32 = 0x00000000;
 
 // 控制項 ID
+#[cfg(windows)]
 const ID_EDIT_PORT: usize = 101;
+#[cfg(windows)]
 const ID_CHK_AUTOSTART: usize = 102;
+#[cfg(windows)]
 const ID_CHK_MINIMIZED: usize = 103;
+#[cfg(windows)]
 const ID_BTN_SAVE: usize = 104;
+#[cfg(windows)]
 const ID_BTN_FIREWALL: usize = 105;
+#[cfg(windows)]
 const ID_BTN_LOCK: usize = 106;
+#[cfg(windows)]
 const ID_BTN_LOG: usize = 107;
+#[cfg(windows)]
 const ID_BTN_TRAY: usize = 108;
+#[cfg(windows)]
 const ID_STATIC_STATUS: usize = 109;
+#[cfg(windows)]
 const ID_STATIC_IP: usize = 110;
+#[cfg(windows)]
 const ID_EDIT_LOGS: usize = 111;
 
 // 系統匣選單 ID
+#[cfg(windows)]
 const ID_TRAY_OPEN: usize = 201;
+#[cfg(windows)]
 const ID_TRAY_AUTOSTART: usize = 202;
+#[cfg(windows)]
 const ID_TRAY_LOG: usize = 203;
+#[cfg(windows)]
 const ID_TRAY_EXIT: usize = 204;
 
+#[cfg(windows)]
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy)]
 struct SystemTimeWin {
@@ -112,6 +177,7 @@ struct SystemTimeWin {
     w_milliseconds: u16,
 }
 
+#[cfg(windows)]
 #[repr(C)]
 struct NotifyIconDataW {
     cb_size: u32,
@@ -131,12 +197,14 @@ struct NotifyIconDataW {
     h_balloon_icon: *mut std::ffi::c_void,
 }
 
+#[cfg(windows)]
 #[repr(C)]
 struct PointWin {
     x: i32,
     y: i32,
 }
 
+#[cfg(windows)]
 #[repr(C)]
 struct MsgWin {
     hwnd: *mut std::ffi::c_void,
@@ -148,6 +216,7 @@ struct MsgWin {
     l_private: u32,
 }
 
+#[cfg(windows)]
 #[repr(C)]
 struct WndClassExW {
     cb_size: u32,
@@ -342,6 +411,7 @@ impl AppConfig {
 }
 
 // 全域共享狀態
+#[cfg(windows)]
 static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
 static RECENT_LOGS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
@@ -402,6 +472,7 @@ fn get_log_file_path() -> PathBuf {
     get_app_dir().join(format!("{}.log", APP_NAME))
 }
 
+#[cfg(windows)]
 fn get_installed_exe_path() -> PathBuf {
     #[cfg(windows)]
     {
@@ -437,6 +508,7 @@ fn get_local_timestamp() -> String {
     }
 }
 
+#[cfg(windows)]
 fn get_local_ip() -> String {
     if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
         if socket.connect("8.8.8.8:80").is_ok() {
