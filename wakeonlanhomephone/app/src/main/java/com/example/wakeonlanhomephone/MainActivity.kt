@@ -1,6 +1,7 @@
 package com.example.wakeonlanhomephone
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Bundle
@@ -14,9 +15,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import android.widget.Toast
 import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +68,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.CornerRadius
 
 class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     private var wolService by mutableStateOf<WolListenerService?>(null)
     private var isBound by mutableStateOf(false)
@@ -200,7 +207,7 @@ fun MainScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val deviceProfileManager = remember { DeviceProfileManager(context) }
-    var currentTab by remember { mutableStateOf(Tab.Server) }
+    var currentTab by rememberSaveable { mutableStateOf(Tab.Server) }
     var showAddDevice by remember { mutableStateOf(false) } 
     var deviceToEdit by remember { mutableStateOf<MqttDevice?>(null) } 
 
@@ -261,9 +268,20 @@ fun MainScreen(
                                         val dispatcher = PcActionDispatcher()
                                         val result = dispatcher.dispatch("WAKE:${device.mac}", "HomePhoneUI")
                                         if (result.isSuccess) {
-                                            Toast.makeText(context, "已廣播喚醒 ${device.name} (${device.mac})", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.toast_wake_broadcast, device.name, device.mac),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         } else {
-                                            Toast.makeText(context, "發送失敗: ${(result as PcActionResult.Failure).error}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(
+                                                    R.string.toast_send_failed,
+                                                    (result as PcActionResult.Failure).error
+                                                ),
+                                                Toast.LENGTH_LONG
+                                            ).show()
                                         }
                                     }
                                 },
@@ -272,9 +290,25 @@ fun MainScreen(
                                         val dispatcher = PcActionDispatcher()
                                         val result = dispatcher.dispatch("${action.uppercase()}:${device.ip}", "HomePhoneUI")
                                         if (result.isSuccess) {
-                                            Toast.makeText(context, "已發送 $action 指令至 ${device.name} (${device.ip})", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(
+                                                    R.string.toast_power_command_sent,
+                                                    action,
+                                                    device.name,
+                                                    device.ip
+                                                ),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         } else {
-                                            Toast.makeText(context, "發送失敗: ${(result as PcActionResult.Failure).error}", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(
+                                                    R.string.toast_send_failed,
+                                                    (result as PcActionResult.Failure).error
+                                                ),
+                                                Toast.LENGTH_LONG
+                                            ).show()
                                         }
                                     }
                                 }
@@ -308,8 +342,8 @@ fun MainScreen(
                                             context.startService(intent)
                                         }
                                     }
-                                    val action = if(isOnline) "Disconnecting" else "Connecting"
-                                    Toast.makeText(context, "$action...", Toast.LENGTH_SHORT).show()
+                                    val action = if (isOnline) R.string.toast_device_disconnecting else R.string.toast_device_connecting
+                                    Toast.makeText(context, context.getString(action), Toast.LENGTH_SHORT).show()
                                 },
                                 onSettings = { currentTab = Tab.Settings },
                                 brokerUrl = brokerUrl
@@ -337,7 +371,7 @@ fun MainScreen(
                             selected = currentTab == Tab.Server,
                             onClick = { currentTab = Tab.Server },
                             icon = { Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(24.dp)) },
-                            label = "伺服器",
+                            label = stringResource(R.string.tab_server),
                             selectedColor = AccentEmerald
                         )
                         
@@ -355,7 +389,7 @@ fun MainScreen(
                             selected = currentTab == Tab.Settings,
                             onClick = { currentTab = Tab.Settings },
                             icon = { Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(24.dp)) },
-                            label = "設定",
+                            label = stringResource(R.string.tab_settings),
                             selectedColor = AccentEmerald
                         )
                     }
@@ -562,7 +596,7 @@ fun StyledTextField(label: String, value: String, onValueChange: (String) -> Uni
                 ) {
                     Icon(
                         imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) "隱藏密碼" else "顯示密碼",
+                        contentDescription = if (passwordVisible) stringResource(R.string.password_hide) else stringResource(R.string.password_show),
                         tint = labelColor,
                         modifier = Modifier.size(18.dp)
                     )
@@ -627,14 +661,14 @@ fun NewSettingsScreen(
             ) {
                 Column {
                     Text(
-                        text = "系統設定",
+                        text = stringResource(R.string.settings_title),
                         color = Slate50,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "MQTT Broker 連線與軟體更新維護",
+                        text = stringResource(R.string.settings_subtitle),
                         color = Slate400,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -658,7 +692,7 @@ fun NewSettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "MQTT Broker 配置",
+                                text = stringResource(R.string.settings_mqtt_panel_title),
                                 color = Slate50,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
@@ -702,10 +736,10 @@ fun NewSettingsScreen(
                                     Spacer(Modifier.width(6.dp))
                                     Text(
                                         text = when (mqttState) {
-                                            MqttConnectionState.CONNECTED -> "已連線"
-                                            MqttConnectionState.CONNECTING -> "連線中"
-                                            MqttConnectionState.FAILED -> "連線失敗"
-                                            MqttConnectionState.DISCONNECTED -> "未連線"
+                                            MqttConnectionState.CONNECTED -> stringResource(R.string.mqtt_status_connected)
+                                            MqttConnectionState.CONNECTING -> stringResource(R.string.mqtt_status_connecting)
+                                            MqttConnectionState.FAILED -> stringResource(R.string.mqtt_status_failed)
+                                            MqttConnectionState.DISCONNECTED -> stringResource(R.string.mqtt_status_disconnected)
                                         },
                                         color = when (mqttState) {
                                             MqttConnectionState.CONNECTED -> AccentEmerald
@@ -729,7 +763,7 @@ fun NewSettingsScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = "連線失敗原因：${lastError ?: ""}",
+                                    text = stringResource(R.string.settings_connection_error, lastError ?: ""),
                                     color = SemanticDanger,
                                     fontSize = 12.sp,
                                     modifier = Modifier.padding(10.dp)
@@ -789,7 +823,7 @@ fun NewSettingsScreen(
                             }
 
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("SSL/TLS 加密", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.settings_ssl_encryption), color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                                 Spacer(Modifier.height(6.dp))
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -817,7 +851,7 @@ fun NewSettingsScreen(
 
                         // Username
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Username (Adafruit 使用者名稱)", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.settings_username_label), color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                             OutlinedTextField(
                                 value = brokerUser,
                                 onValueChange = { brokerUser = it },
@@ -852,7 +886,7 @@ fun NewSettingsScreen(
                                     IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                                         Icon(
                                             imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                            contentDescription = if (isPasswordVisible) "隱藏密碼" else "顯示密碼",
+                                            contentDescription = if (isPasswordVisible) stringResource(R.string.password_hide) else stringResource(R.string.password_show),
                                             tint = if (isPasswordVisible) AccentEmerald else Slate400,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -876,7 +910,7 @@ fun NewSettingsScreen(
 
                         // Topic
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("預設監聽主題 (Topic)", color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.settings_topic_label), color = Slate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                             OutlinedTextField(
                                 value = brokerTopic,
                                 onValueChange = { brokerTopic = it },
@@ -904,7 +938,7 @@ fun NewSettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("開機自動連線 (Auto Connect)", color = Slate300, fontSize = 13.sp)
+                            Text(stringResource(R.string.settings_auto_connect), color = Slate300, fontSize = 13.sp)
                             Switch(
                                 checked = autoConnect,
                                 onCheckedChange = { autoConnect = it },
@@ -939,7 +973,7 @@ fun NewSettingsScreen(
                                     )
                                 )
                                 onSave()
-                                Toast.makeText(context, "MQTT 設定已儲存並重新連線", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_mqtt_saved), Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.fillMaxWidth().height(46.dp),
                             shape = RoundedCornerShape(10.dp),
@@ -947,7 +981,7 @@ fun NewSettingsScreen(
                         ) {
                             Icon(Icons.Default.Done, null, tint = Color.Black, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("儲存設定並重新連線", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(stringResource(R.string.settings_save_reconnect), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     }
                 }
@@ -965,7 +999,7 @@ fun NewSettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    "關於與軟體更新",
+                                    stringResource(R.string.about_title),
                                     color = Slate50,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
@@ -990,7 +1024,7 @@ fun NewSettingsScreen(
                             Spacer(Modifier.height(8.dp))
                             
                             Text(
-                                text = "家用喚醒助手 (Wake On LAN Home Gateway)",
+                                text = stringResource(R.string.about_app_title),
                                 color = Slate400,
                                 fontSize = 12.sp,
                                 modifier = Modifier.align(Alignment.Start)
@@ -1012,9 +1046,9 @@ fun NewSettingsScreen(
                                     onClick = {
                                         updateAvailable?.let { url ->
                                             updateManager.downloadAndInstall(url)
-                                            Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.toast_downloading), Toast.LENGTH_SHORT).show()
                                             updateAvailable = null
-                                            updateMessage = "正在下載並安裝更新，請稍候..."
+                                            updateMessage = context.getString(R.string.update_downloading_message)
                                         }
                                     },
                                     modifier = Modifier.fillMaxWidth().height(42.dp),
@@ -1023,20 +1057,20 @@ fun NewSettingsScreen(
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text("下載並安裝新版本", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(stringResource(R.string.update_install_button), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 }
                             } else {
                                 Button(
                                     onClick = {
                                         isChecking = true
-                                        updateMessage = "正在檢查更新..."
+                                        updateMessage = context.getString(R.string.update_checking)
                                         updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
                                             isChecking = false
                                             if (hasUpdate && downloadUrl != null) {
                                                 updateAvailable = downloadUrl
-                                                updateMessage = "偵測到新版本：${tag ?: ""}"
+                                                updateMessage = context.getString(R.string.update_available, tag ?: "")
                                             } else {
-                                                updateMessage = "已是最新版本"
+                                                updateMessage = context.getString(R.string.update_latest)
                                             }
                                         }
                                     },
@@ -1053,7 +1087,7 @@ fun NewSettingsScreen(
                                             strokeWidth = 2.dp
                                         )
                                     } else {
-                                        Text("檢查最新版本", color = Slate200, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Text(stringResource(R.string.update_check_button), color = Slate200, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                     }
                                 }
                             }
@@ -1066,11 +1100,91 @@ fun NewSettingsScreen(
                                     context.startActivity(intent)
                                 }
                             ) {
-                                Text("在 GitHub 查看發行版本", color = Slate400, fontSize = 12.sp)
+                                Text(stringResource(R.string.about_view_releases), color = Slate400, fontSize = 12.sp)
                             }
                         }
                     }
                 }
+
+                // Language Selection Section
+                item {
+                    GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = stringResource(R.string.settings_language_title),
+                                color = Slate50,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.settings_language_description),
+                                color = Slate400,
+                                fontSize = 12.sp
+                            )
+                            Spacer(Modifier.height(12.dp))
+
+                            val currentLanguage = AppLocale.currentTag(context)
+                            LanguageOption(
+                                label = stringResource(R.string.language_system),
+                                selected = currentLanguage == AppLocale.TAG_SYSTEM,
+                                onClick = { AppLocale.set(context, AppLocale.TAG_SYSTEM) }
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            LanguageOption(
+                                label = stringResource(R.string.language_chinese_traditional),
+                                selected = currentLanguage == AppLocale.TAG_TRADITIONAL_CHINESE,
+                                onClick = { AppLocale.set(context, AppLocale.TAG_TRADITIONAL_CHINESE) }
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            LanguageOption(
+                                label = stringResource(R.string.language_english),
+                                selected = currentLanguage == AppLocale.TAG_ENGLISH,
+                                onClick = { AppLocale.set(context, AppLocale.TAG_ENGLISH) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LanguageOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .border(1.dp, if (selected) AccentEmeraldBorder else BorderSubtle, RoundedCornerShape(10.dp))
+            .clickable { if (!selected) onClick() },
+        color = if (selected) AccentEmeraldDim else DarkSurfaceElevated,
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = if (selected) AccentEmerald else Slate200,
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Done,
+                    contentDescription = null,
+                    tint = AccentEmerald,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }

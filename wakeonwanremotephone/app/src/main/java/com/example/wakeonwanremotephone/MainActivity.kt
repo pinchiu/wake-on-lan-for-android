@@ -43,9 +43,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -61,6 +63,10 @@ import com.example.wakeonwanremotephone.ui.theme.*
 import com.example.wakeonwanremotephone.ui.components.*
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -117,7 +123,7 @@ fun RemoteWakeMainScreen() {
         deviceManager.setHelperIpv6(helperIpv6Address)
         deviceManager.setLocalLanMode(localLanMode)
         isLoading = true
-        statusMessage = "指令傳送中..."
+        statusMessage = context.getString(R.string.command_sending)
         isStatusError = false
         coroutineScope.launch {
             delay(200)
@@ -164,7 +170,7 @@ fun RemoteWakeMainScreen() {
             ) {
                 Column {
                     Text(
-                        text = "遠端喚醒控制",
+                        text = stringResource(R.string.app_title),
                         color = Slate50,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -189,7 +195,7 @@ fun RemoteWakeMainScreen() {
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (localLanMode) "LAN BROADCAST (內網直連)" else "WAN TCP 9876 (外網網關)",
+                                text = if (localLanMode) stringResource(R.string.mode_status_lan) else stringResource(R.string.mode_status_wan),
                                 color = if (localLanMode) AccentEmerald else SemanticInfo,
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -219,7 +225,7 @@ fun RemoteWakeMainScreen() {
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
-                                contentDescription = "關於與更新",
+                                contentDescription = stringResource(R.string.about_title),
                                 tint = Slate300,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -250,7 +256,7 @@ fun RemoteWakeMainScreen() {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "目標主機清單",
+                            text = stringResource(R.string.target_device_list),
                             color = Slate50,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -262,7 +268,7 @@ fun RemoteWakeMainScreen() {
                             border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
                         ) {
                             Text(
-                                text = "${devices.size} 台",
+                                text = stringResource(R.string.device_count, devices.size),
                                 color = AccentEmerald,
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -278,7 +284,7 @@ fun RemoteWakeMainScreen() {
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "新增電腦",
+                            contentDescription = stringResource(R.string.add_computer),
                             tint = AccentEmerald,
                             modifier = Modifier.size(20.dp)
                         )
@@ -325,7 +331,7 @@ fun RemoteWakeMainScreen() {
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            text = "當前選定目標主機",
+                                            text = stringResource(R.string.current_selected_target),
                                             color = Slate400,
                                             fontSize = 11.sp
                                         )
@@ -341,7 +347,7 @@ fun RemoteWakeMainScreen() {
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Edit,
-                                        contentDescription = "編輯主機設定",
+                                        contentDescription = stringResource(R.string.edit_device_settings),
                                         tint = Slate300,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -360,7 +366,7 @@ fun RemoteWakeMainScreen() {
                                         .weight(1f)
                                         .clickable {
                                             clipboardManager.setText(AnnotatedString(currentSelectedDevice.mac))
-                                            Toast.makeText(context, "已複製 MAC 地址", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.mac_copied), Toast.LENGTH_SHORT).show()
                                         },
                                     shape = RoundedCornerShape(8.dp),
                                     color = DarkSurface,
@@ -374,7 +380,7 @@ fun RemoteWakeMainScreen() {
                                         Column {
                                             Text("MAC", color = Slate500, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                             Text(
-                                                text = currentSelectedDevice.mac.ifBlank { "無 MAC" },
+                                                text = currentSelectedDevice.mac.ifBlank { stringResource(R.string.no_mac) },
                                                 color = Slate200,
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
@@ -390,7 +396,7 @@ fun RemoteWakeMainScreen() {
                                         .clickable {
                                             if (currentSelectedDevice.ip.isNotBlank()) {
                                                 clipboardManager.setText(AnnotatedString(currentSelectedDevice.ip))
-                                                Toast.makeText(context, "已複製 IP 地址", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, context.getString(R.string.ip_copied), Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                     shape = RoundedCornerShape(8.dp),
@@ -405,7 +411,7 @@ fun RemoteWakeMainScreen() {
                                         Column {
                                             Text("IPv4", color = Slate500, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                             Text(
-                                                text = currentSelectedDevice.ip.ifBlank { "未指定" },
+                                                text = currentSelectedDevice.ip.ifBlank { stringResource(R.string.not_specified) },
                                                 color = Slate200,
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
@@ -424,7 +430,7 @@ fun RemoteWakeMainScreen() {
                 // Quick Switcher Carousel
                 if (devices.isNotEmpty()) {
                     Text(
-                        text = "切換目標主機",
+                        text = stringResource(R.string.switch_target_device),
                         color = Slate400,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
@@ -464,7 +470,7 @@ fun RemoteWakeMainScreen() {
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                         )
                                         Text(
-                                            text = device.mac.ifEmpty { "無 MAC" },
+                                            text = device.mac.ifEmpty { stringResource(R.string.no_mac) },
                                             color = if (isSelected) AccentEmerald else Slate500,
                                             fontSize = 10.sp,
                                             fontFamily = FontFamily.Monospace
@@ -482,7 +488,7 @@ fun RemoteWakeMainScreen() {
             // Configuration & Connection Parameters
             PrecisionSurfaceCard {
                 Text(
-                    text = "連線位址設定",
+                    text = stringResource(R.string.connection_settings),
                     color = Slate400,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -495,7 +501,7 @@ fun RemoteWakeMainScreen() {
                     PrecisionOutlinedTextField(
                         value = helperIpv6Address,
                         onValueChange = { helperIpv6Address = it },
-                        label = "家用助手 IPv6 位址 (Port 9876)",
+                        label = stringResource(R.string.helper_ipv6_label),
                         icon = Icons.Default.Dns,
                         modifier = Modifier.onFocusChanged {
                             if (!it.isFocused) {
@@ -512,7 +518,7 @@ fun RemoteWakeMainScreen() {
                         computerMacAddress = it
                         syncCurrentDevice(mac = it)
                     },
-                    label = "目標電腦 MAC 地址 (WoL Magic Packet)",
+                    label = stringResource(R.string.target_mac_label),
                     icon = Icons.Default.Lan,
                     modifier = Modifier.onFocusChanged {
                         if (!it.isFocused) {
@@ -529,7 +535,7 @@ fun RemoteWakeMainScreen() {
                         computerLocalIpv4 = it
                         syncCurrentDevice(ip = it)
                     },
-                    label = "目標電腦區域 IPv4 (電源控制 Port 9877)",
+                    label = stringResource(R.string.target_ipv4_label),
                     icon = Icons.Default.Computer,
                     modifier = Modifier.onFocusChanged {
                         if (!it.isFocused) {
@@ -582,8 +588,8 @@ fun RemoteWakeMainScreen() {
         // Confirmation Dialog for Destructive Power Actions
         if (confirmAction != null) {
             ConfirmPowerDialog(
-                actionName = if (confirmAction == "SHUTDOWN") "電腦關機" else "電腦重新開機",
-                targetName = currentSelectedDevice?.name ?: "目標主機",
+                actionName = if (confirmAction == "SHUTDOWN") stringResource(R.string.power_shutdown) else stringResource(R.string.power_reboot),
+                targetName = currentSelectedDevice?.name ?: stringResource(R.string.default_target_name),
                 targetIp = computerLocalIpv4,
                 isDestructive = confirmIsDestructive,
                 onConfirm = {
@@ -615,7 +621,7 @@ fun RemoteWakeMainScreen() {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "關於與更新",
+                            text = stringResource(R.string.about_title),
                             color = Slate50,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
@@ -623,7 +629,7 @@ fun RemoteWakeMainScreen() {
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
-                            text = "遠端喚醒控制端 (Wake On WAN Remote)",
+                            text = stringResource(R.string.about_app_subtitle),
                             color = Slate400,
                             fontSize = 13.sp
                         )
@@ -636,12 +642,66 @@ fun RemoteWakeMainScreen() {
                             }
                         }
                         Text(
-                            text = "目前版本：v$versionName",
+                            text = stringResource(R.string.about_version, versionName),
                             color = AccentEmerald,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(top = 4.dp)
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Language selector: the preference is the single source of truth.
+                        val currentLanguageTag = remember { AppLocale.currentTag(context) }
+                        Text(
+                            text = stringResource(R.string.language_title),
+                            color = Slate400,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            val languageOptions = listOf(
+                                AppLocale.TAG_SYSTEM to stringResource(R.string.language_system),
+                                AppLocale.TAG_ZH_TW to stringResource(R.string.language_zh_tw),
+                                AppLocale.TAG_EN to stringResource(R.string.language_en)
+                            )
+                            languageOptions.forEach { (tag, label) ->
+                                val isSelected = tag == currentLanguageTag
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) AccentEmeraldBorder else BorderSubtle,
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable {
+                                            if (!isSelected) {
+                                                AppLocale.set(context, tag)
+                                            }
+                                        },
+                                    color = if (isSelected) AccentEmeraldDim else DarkSurface,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) AccentEmerald else Slate300,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 4.dp, vertical = 7.dp)
+                                    )
+                                }
+                            }
+                        }
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         val updateManager = remember { UpdateManager(context) }
@@ -662,26 +722,26 @@ fun RemoteWakeMainScreen() {
                             Button(
                                 onClick = {
                                     updateManager.downloadAndInstall(updateAvailable!!)
-                                    Toast.makeText(context, "正在下載更新...", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.downloading_update_toast), Toast.LENGTH_SHORT).show()
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.fillMaxWidth().height(42.dp)
                             ) {
-                                Text("下載並安裝新版本", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(stringResource(R.string.download_and_install), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         } else {
                             Button(
                                 onClick = {
                                     isChecking = true
-                                    updateMessage = "正在檢查更新..."
+                                    updateMessage = context.getString(R.string.checking_update)
                                     updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
                                         isChecking = false
                                         if (hasUpdate && downloadUrl != null) {
                                             updateAvailable = downloadUrl
-                                            updateMessage = "偵測到新版本：${tag ?: ""}"
+                                            updateMessage = context.getString(R.string.update_found, tag ?: "")
                                         } else {
-                                            updateMessage = "已是最新版本"
+                                            updateMessage = context.getString(R.string.already_latest)
                                         }
                                     }
                                 },
@@ -698,7 +758,7 @@ fun RemoteWakeMainScreen() {
                                         strokeWidth = 2.dp
                                     )
                                 } else {
-                                    Text("檢查最新版本", color = Slate200, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    Text(stringResource(R.string.check_latest_version), color = Slate200, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 }
                             }
                         }
@@ -711,13 +771,13 @@ fun RemoteWakeMainScreen() {
                                 context.startActivity(intent)
                             }
                         ) {
-                            Text("在 GitHub 上查看發行版", color = Slate400, fontSize = 12.sp)
+                            Text(stringResource(R.string.view_on_github), color = Slate400, fontSize = 12.sp)
                         }
                         
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         TextButton(onClick = { showAboutDialog = false }) {
-                            Text("關閉", color = Slate500, fontSize = 13.sp)
+                            Text(stringResource(R.string.close), color = Slate500, fontSize = 13.sp)
                         }
                     }
                 }
@@ -912,6 +972,7 @@ fun AddDeviceDialog(
     var name by remember { mutableStateOf("") }
     var mac by remember { mutableStateOf("") }
     var ip by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -928,7 +989,7 @@ fun AddDeviceDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "新增目標電腦",
+                    text = stringResource(R.string.add_device_title),
                     color = Slate50,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
@@ -937,21 +998,21 @@ fun AddDeviceDialog(
                 PrecisionOutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = "電腦名稱 (例: 臥室主機)",
+                    label = stringResource(R.string.device_name_hint),
                     icon = Icons.Default.Computer
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 PrecisionOutlinedTextField(
                     value = mac,
                     onValueChange = { mac = it },
-                    label = "網卡 MAC (例: AA:BB:CC:DD:EE:FF)",
+                    label = stringResource(R.string.mac_hint),
                     icon = Icons.Default.Lan
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 PrecisionOutlinedTextField(
                     value = ip,
                     onValueChange = { ip = it },
-                    label = "區域網路 IPv4 (可選)",
+                    label = stringResource(R.string.lan_ipv4_optional),
                     icon = Icons.Default.Dns
                 )
                 Spacer(modifier = Modifier.height(18.dp))
@@ -960,20 +1021,20 @@ fun AddDeviceDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("取消", color = Slate400)
+                        Text(stringResource(R.string.cancel), color = Slate400)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
                             if (mac.isNotBlank()) {
-                                onConfirm(name.ifBlank { "新主機" }, mac.trim(), ip.trim())
+                                onConfirm(name.ifBlank { context.getString(R.string.new_device_default_name) }, mac.trim(), ip.trim())
                             }
                         },
                         enabled = mac.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("新增", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.add), color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -992,6 +1053,7 @@ fun EditDeviceDialog(
     var name by remember { mutableStateOf(device.name) }
     var mac by remember { mutableStateOf(device.mac) }
     var ip by remember { mutableStateOf(device.ip) }
+    val context = LocalContext.current
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -1008,7 +1070,7 @@ fun EditDeviceDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "編輯目標電腦",
+                    text = stringResource(R.string.edit_device_title),
                     color = Slate50,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
@@ -1017,21 +1079,21 @@ fun EditDeviceDialog(
                 PrecisionOutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = "電腦名稱",
+                    label = stringResource(R.string.device_name_label),
                     icon = Icons.Default.Computer
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 PrecisionOutlinedTextField(
                     value = mac,
                     onValueChange = { mac = it },
-                    label = "網卡 MAC",
+                    label = stringResource(R.string.mac_label),
                     icon = Icons.Default.Lan
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 PrecisionOutlinedTextField(
                     value = ip,
                     onValueChange = { ip = it },
-                    label = "區域網路 IPv4 (可選)",
+                    label = stringResource(R.string.lan_ipv4_optional),
                     icon = Icons.Default.Dns
                 )
                 Spacer(modifier = Modifier.height(18.dp))
@@ -1042,27 +1104,27 @@ fun EditDeviceDialog(
                 ) {
                     if (canDelete) {
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "刪除", tint = SemanticDanger)
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = SemanticDanger)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
                     }
                     Row {
                         TextButton(onClick = onDismiss) {
-                            Text("取消", color = Slate400)
+                            Text(stringResource(R.string.cancel), color = Slate400)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
                                 if (mac.isNotBlank()) {
-                                    onSave(name.ifBlank { "主機" }, mac.trim(), ip.trim())
+                                    onSave(name.ifBlank { context.getString(R.string.device_fallback_name) }, mac.trim(), ip.trim())
                                 }
                             },
                             enabled = mac.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("儲存", color = Color.Black, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.save), color = Color.Black, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

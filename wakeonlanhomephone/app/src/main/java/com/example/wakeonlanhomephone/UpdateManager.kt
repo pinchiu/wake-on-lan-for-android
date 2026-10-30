@@ -24,6 +24,9 @@ interface GithubService {
 
 class UpdateManager(private val context: Context) {
 
+    private val localizedContext: Context
+        get() = AppLocale.wrap(context)
+
     private val retrofit = Retrofit.Builder()
         .baseUrl("https://api.github.com/repos/pinchiu/wake-on-lan-for-android/")
         .addConverterFactory(GsonConverterFactory.create())
@@ -82,8 +85,8 @@ class UpdateManager(private val context: Context) {
         }
 
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("下載更新")
-            .setDescription("正在下載最新版本的家用喚醒助手")
+            .setTitle(localizedContext.getString(R.string.update_download_title))
+            .setDescription(localizedContext.getString(R.string.update_download_description))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "wakeonlanhomephone_update.apk")
             .setMimeType("application/vnd.android.package-archive")
@@ -109,7 +112,7 @@ class UpdateManager(private val context: Context) {
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
                         installApk()
                     } else {
-                        Toast.makeText(context, "下載失敗", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, localizedContext.getString(R.string.update_download_failed), Toast.LENGTH_SHORT).show()
                     }
                     try {
                         context.applicationContext.unregisterReceiver(this)
@@ -136,7 +139,7 @@ class UpdateManager(private val context: Context) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } else {
-            Toast.makeText(context, "找不到安裝檔", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, localizedContext.getString(R.string.update_installer_missing), Toast.LENGTH_SHORT).show()
         }
     }
 }

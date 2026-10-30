@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,6 +50,7 @@ fun ServerScreen(
     onPowerCommand: ((DeviceProfile, String) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val noMacLabel = stringResource(R.string.server_no_mac)
     val profileManager = remember(deviceProfileManager) { deviceProfileManager ?: DeviceProfileManager(context) }
     var devices by remember { mutableStateOf(profileManager.getDevices()) }
     var selectedDeviceId by remember { mutableStateOf(profileManager.getSelectedDeviceId()) }
@@ -85,7 +87,7 @@ fun ServerScreen(
                 ) {
                     Column {
                         Text(
-                            text = "家用喚醒助手",
+                            text = stringResource(R.string.server_title),
                             color = Slate50,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
@@ -93,7 +95,7 @@ fun ServerScreen(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "區域網路 WoL 廣播 · TCP 9876 控制樞紐",
+                            text = stringResource(R.string.server_subtitle),
                             color = Slate400,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -123,7 +125,7 @@ fun ServerScreen(
                             }
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = if (isRunning) "監聽中" else "已停止",
+                                text = if (isRunning) stringResource(R.string.server_status_listening) else stringResource(R.string.server_status_stopped),
                                 color = if (isRunning) AccentEmerald else Slate400,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -166,13 +168,13 @@ fun ServerScreen(
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "TCP 監聽服務",
+                                    text = stringResource(R.string.server_tcp_service),
                                     color = Slate50,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = if (isRunning) "Port 9876 正常運作中" else "服務未啟動",
+                                    text = if (isRunning) stringResource(R.string.server_tcp_running) else stringResource(R.string.server_tcp_stopped),
                                     color = if (isRunning) AccentEmerald else Slate400,
                                     fontSize = 12.sp
                                 )
@@ -193,7 +195,7 @@ fun ServerScreen(
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = if (isRunning) "停止服務" else "啟動服務",
+                                text = if (isRunning) stringResource(R.string.server_stop_service) else stringResource(R.string.server_start_service),
                                 color = if (isRunning) SemanticDanger else AccentEmerald,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
@@ -212,14 +214,14 @@ fun ServerScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "本機連線位址 (IPv6)",
+                            text = stringResource(R.string.server_ipv6_title),
                             color = Slate400,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 0.5.sp
                         )
                         Text(
-                            text = "點擊可複製",
+                            text = stringResource(R.string.server_tap_to_copy),
                             color = Slate500,
                             fontSize = 11.sp
                         )
@@ -229,7 +231,7 @@ fun ServerScreen(
 
                     if (ipv6Addresses.isEmpty()) {
                         Text(
-                            text = "目前未偵測到全域 IPv6 位址",
+                            text = stringResource(R.string.server_no_ipv6),
                             color = Slate500,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
@@ -244,7 +246,11 @@ fun ServerScreen(
                                         .fillMaxWidth()
                                         .clickable {
                                             clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(ip))
-                                            android.widget.Toast.makeText(context, "已複製位址：$ip", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                context.getString(R.string.toast_ip_copied, ip),
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
                                         },
                                     color = DarkSurfaceElevated,
                                     shape = RoundedCornerShape(8.dp),
@@ -264,7 +270,7 @@ fun ServerScreen(
                                         )
                                         Icon(
                                             imageVector = Icons.Default.Share,
-                                            contentDescription = "複製",
+                                            contentDescription = stringResource(R.string.content_copy),
                                             tint = Slate400,
                                             modifier = Modifier.size(14.dp)
                                         )
@@ -286,7 +292,7 @@ fun ServerScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "目標電腦管理",
+                                text = stringResource(R.string.server_targets_title),
                                 color = Slate50,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
@@ -298,7 +304,7 @@ fun ServerScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
                             ) {
                                 Text(
-                                    text = "${devices.size} 台",
+                                    text = stringResource(R.string.server_device_count, devices.size),
                                     color = Slate400,
                                     fontSize = 11.sp,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -312,7 +318,7 @@ fun ServerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "新增目標電腦",
+                                contentDescription = stringResource(R.string.content_add_target),
                                 tint = AccentEmerald,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -323,7 +329,7 @@ fun ServerScreen(
 
                     if (devices.isEmpty()) {
                         Text(
-                            text = "尚未新增目標電腦，請點擊右上角「+」新增",
+                            text = stringResource(R.string.server_no_devices),
                             color = Slate500,
                             fontSize = 13.sp,
                             modifier = Modifier.padding(vertical = 12.dp)
@@ -363,7 +369,7 @@ fun ServerScreen(
                                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                             )
                                             Text(
-                                                text = device.mac.ifEmpty { "無 MAC" },
+                                                text = device.mac.ifEmpty { noMacLabel },
                                                 color = if (isSelected) AccentEmerald else Slate500,
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
@@ -376,7 +382,7 @@ fun ServerScreen(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Edit,
-                                                contentDescription = "編輯",
+                                                contentDescription = stringResource(R.string.action_edit),
                                                 tint = if (isSelected) AccentEmerald else Slate500,
                                                 modifier = Modifier.size(13.dp)
                                             )
@@ -416,7 +422,7 @@ fun ServerScreen(
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("睡眠", color = SemanticWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.power_sleep), color = SemanticWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Button(
                                         onClick = {
@@ -429,7 +435,7 @@ fun ServerScreen(
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("重啟", color = SemanticInfo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.power_reboot), color = SemanticInfo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Button(
                                         onClick = {
@@ -442,7 +448,7 @@ fun ServerScreen(
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("關機", color = SemanticDanger, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.power_shutdown), color = SemanticDanger, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -467,7 +473,7 @@ fun ServerScreen(
                         Box(modifier = Modifier.size(8.dp).background(AccentEmerald, CircleShape))
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = "即時日誌 TERMINAL",
+                            text = stringResource(R.string.server_logs_title),
                             color = Slate300,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -476,7 +482,7 @@ fun ServerScreen(
                         )
                     }
                     Text(
-                        text = "清除日誌",
+                        text = stringResource(R.string.server_logs_clear),
                         color = AccentEmerald,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -489,7 +495,7 @@ fun ServerScreen(
             if (displayedLogs.isEmpty()) {
                 item {
                     Text(
-                        text = "暫無日誌記錄",
+                        text = stringResource(R.string.server_logs_empty),
                         color = Slate500,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
@@ -541,9 +547,9 @@ fun ServerScreen(
         if (confirmPowerAction != null && confirmPowerDevice != null) {
             val isDestructive = confirmPowerAction == "shutdown"
             val actionName = when (confirmPowerAction) {
-                "shutdown" -> "電腦關機"
-                "reboot" -> "電腦重新開機"
-                "sleep" -> "電腦睡眠"
+                "shutdown" -> stringResource(R.string.power_action_shutdown)
+                "reboot" -> stringResource(R.string.power_action_reboot)
+                "sleep" -> stringResource(R.string.power_action_sleep)
                 else -> confirmPowerAction!!.uppercase()
             }
             ConfirmPowerDialog(
@@ -571,6 +577,16 @@ fun ServerScreen(
 
 @Composable
 fun LogItem(log: String) {
+    val systemSource = stringResource(R.string.log_source_system)
+    val mqttConnectedLabel = stringResource(R.string.log_status_mqtt_connected)
+    val mqttDisconnectedLabel = stringResource(R.string.log_status_mqtt_disconnected)
+    val mqttConnectingLabel = stringResource(R.string.log_status_mqtt_connecting)
+    val connectionErrorLabel = stringResource(R.string.log_status_connection_error)
+    val serviceReadyLabel = stringResource(R.string.log_status_service_ready)
+    val commandReceivedLabel = stringResource(R.string.log_status_command_received)
+    val commandExecutedLabel = stringResource(R.string.log_status_command_executed)
+    val systemMessageLabel = stringResource(R.string.log_status_system_message)
+
     val parsed = remember(log) {
         val hasTimestamp = log.startsWith("[") && log.contains("]")
         val timestamp = if (hasTimestamp) log.substring(1, log.indexOf("]")) else ""
@@ -588,7 +604,7 @@ fun LogItem(log: String) {
         val fromText = if (message.contains(":")) {
             message.substringBefore(":").trim()
         } else {
-            "系統"
+            systemSource
         }
         val detailText = if (message.contains(":")) {
             message.substringAfter(":").trim()
@@ -607,28 +623,28 @@ fun LogItem(log: String) {
         
         when {
             lowerFrom.contains("mqtt") && lowerMessage.contains("connected") -> {
-                "MQTT 已連線" to AccentEmerald
+                mqttConnectedLabel to AccentEmerald
             }
             lowerFrom.contains("mqtt") && (lowerMessage.contains("disconnected") || lowerMessage.contains("closed")) -> {
-                "MQTT 已中斷" to SemanticDanger
+                mqttDisconnectedLabel to SemanticDanger
             }
             lowerFrom.contains("mqtt") && lowerMessage.contains("connecting") -> {
-                "MQTT 連線中" to SemanticWarning
+                mqttConnectingLabel to SemanticWarning
             }
             lowerMessage.contains("error") || lowerMessage.contains("failed") -> {
-                "連線錯誤" to SemanticDanger
+                connectionErrorLabel to SemanticDanger
             }
             lowerMessage.contains("listening") || lowerMessage.contains("started") || lowerMessage.contains("connected") -> {
-                "服務就緒" to AccentEmerald
+                serviceReadyLabel to AccentEmerald
             }
             lowerMessage.contains("received") -> {
-                "收到指令" to SemanticInfo
+                commandReceivedLabel to SemanticInfo
             }
             lowerMessage.contains("action") || lowerMessage.contains("published") || lowerMessage.contains("sent") -> {
-                "指令已執行" to AccentEmerald
+                commandExecutedLabel to AccentEmerald
             }
             else -> {
-                "系統訊息" to Slate400
+                systemMessageLabel to Slate400
             }
         }
     }
@@ -723,6 +739,7 @@ fun AddComputerDialog(
     var name by remember { mutableStateOf("") }
     var mac by remember { mutableStateOf("") }
     var ip by remember { mutableStateOf("") }
+    val newHostName = stringResource(R.string.default_device_new_host)
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -739,7 +756,7 @@ fun AddComputerDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "新增目標電腦",
+                    text = stringResource(R.string.dialog_add_target_title),
                     color = Slate50,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
@@ -748,7 +765,7 @@ fun AddComputerDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("電腦名稱 (例: 臥室主機)") },
+                    label = { Text(stringResource(R.string.dialog_name_with_example)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentEmerald,
@@ -765,7 +782,7 @@ fun AddComputerDialog(
                 OutlinedTextField(
                     value = mac,
                     onValueChange = { mac = it },
-                    label = { Text("網卡 MAC (例: AA:BB:CC:DD:EE:FF)") },
+                    label = { Text(stringResource(R.string.dialog_mac_with_example)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentEmerald,
@@ -782,7 +799,7 @@ fun AddComputerDialog(
                 OutlinedTextField(
                     value = ip,
                     onValueChange = { ip = it },
-                    label = { Text("區域網路 IPv4 (可選，供關機/重啟)") },
+                    label = { Text(stringResource(R.string.dialog_ip_optional_power)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentEmerald,
@@ -801,20 +818,20 @@ fun AddComputerDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("取消", color = Slate400)
+                        Text(stringResource(R.string.action_cancel), color = Slate400)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
                             if (mac.isNotBlank()) {
-                                onConfirm(name.ifBlank { "新主機" }, mac.trim(), ip.trim())
+                                onConfirm(name.ifBlank { newHostName }, mac.trim(), ip.trim())
                             }
                         },
                         enabled = mac.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("新增", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.action_add), color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -833,6 +850,7 @@ fun EditComputerDialog(
     var name by remember { mutableStateOf(device.name) }
     var mac by remember { mutableStateOf(device.mac) }
     var ip by remember { mutableStateOf(device.ip) }
+    val fallbackHostName = stringResource(R.string.default_device_host)
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -849,7 +867,7 @@ fun EditComputerDialog(
                     .padding(20.dp)
             ) {
                 Text(
-                    text = "編輯目標電腦",
+                    text = stringResource(R.string.dialog_edit_target_title),
                     color = Slate50,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
@@ -858,7 +876,7 @@ fun EditComputerDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("電腦名稱") },
+                    label = { Text(stringResource(R.string.dialog_name)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentEmerald,
@@ -875,7 +893,7 @@ fun EditComputerDialog(
                 OutlinedTextField(
                     value = mac,
                     onValueChange = { mac = it },
-                    label = { Text("網卡 MAC") },
+                    label = { Text(stringResource(R.string.dialog_mac)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentEmerald,
@@ -892,7 +910,7 @@ fun EditComputerDialog(
                 OutlinedTextField(
                     value = ip,
                     onValueChange = { ip = it },
-                    label = { Text("區域網路 IPv4 (可選)") },
+                    label = { Text(stringResource(R.string.dialog_ip_optional)) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentEmerald,
@@ -913,27 +931,27 @@ fun EditComputerDialog(
                 ) {
                     if (canDelete) {
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "刪除", tint = SemanticDanger)
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete), tint = SemanticDanger)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
                     }
                     Row {
                         TextButton(onClick = onDismiss) {
-                            Text("取消", color = Slate400)
+                            Text(stringResource(R.string.action_cancel), color = Slate400)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
                                 if (mac.isNotBlank()) {
-                                    onSave(name.ifBlank { "主機" }, mac.trim(), ip.trim())
+                                    onSave(name.ifBlank { fallbackHostName }, mac.trim(), ip.trim())
                                 }
                             },
                             enabled = mac.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("儲存", color = Color.Black, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.action_save), color = Color.Black, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

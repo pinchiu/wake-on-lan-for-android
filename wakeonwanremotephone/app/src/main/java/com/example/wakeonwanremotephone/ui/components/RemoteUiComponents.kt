@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import android.widget.Toast
 import com.example.wakeonwanremotephone.DeviceProfile
+import com.example.wakeonwanremotephone.R
 import com.example.wakeonwanremotephone.ui.theme.*
 
 /**
@@ -174,7 +177,7 @@ fun SegmentedModeSelector(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "區域網路直連",
+                        text = stringResource(R.string.mode_lan_direct),
                         color = if (isLanSelected) Slate50 else Slate400,
                         fontSize = 12.sp,
                         fontWeight = if (isLanSelected) FontWeight.Bold else FontWeight.Medium
@@ -207,7 +210,7 @@ fun SegmentedModeSelector(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "遠端助手 (WAN)",
+                        text = stringResource(R.string.mode_wan_helper),
                         color = if (isWanSelected) Slate50 else Slate400,
                         fontSize = 12.sp,
                         fontWeight = if (isWanSelected) FontWeight.Bold else FontWeight.Medium
@@ -221,9 +224,9 @@ fun SegmentedModeSelector(
         // Mode Explanatory Subtitle
         Text(
             text = if (localLanMode)
-                "內網模式：發送 UDP 255.255.255.255:9 WoL 廣播封包"
+                stringResource(R.string.mode_lan_description)
             else
-                "外網模式：透過 TCP Port 9876 轉發給常駐家用助手",
+                stringResource(R.string.mode_wan_description),
             color = if (localLanMode) AccentEmerald.copy(alpha = 0.8f) else SemanticInfo.copy(alpha = 0.8f),
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
@@ -323,7 +326,7 @@ fun MasterWakeTriggerButton(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "正在傳送喚醒封包...",
+                            text = stringResource(R.string.sending_wake_packet),
                             color = Color.Black,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
@@ -357,14 +360,14 @@ fun MasterWakeTriggerButton(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = if (targetName.isNotBlank()) "喚醒 $targetName" else "一鍵喚醒電腦 (WAKE)",
+                                    text = if (targetName.isNotBlank()) stringResource(R.string.wake_target, targetName) else stringResource(R.string.wake_computer_one_tap),
                                     color = if (enabled) Color.Black else Slate500,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.3.sp
                                 )
                                 Text(
-                                    text = if (targetMac.isNotBlank()) "MAC: $targetMac" else "尚未設定 MAC",
+                                    text = if (targetMac.isNotBlank()) stringResource(R.string.mac_prefix, targetMac) else stringResource(R.string.mac_not_set),
                                     color = if (enabled) Color.Black.copy(alpha = 0.75f) else Slate600,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace
@@ -408,7 +411,7 @@ fun ModernPowerCommandGrid(
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 ModernTacticalTile(
-                    title = "電腦睡眠",
+                    title = stringResource(R.string.power_sleep),
                     subtitle = "CMD: SLEEP",
                     icon = Icons.Rounded.Bedtime,
                     accentColor = SemanticWarning,
@@ -418,7 +421,7 @@ fun ModernPowerCommandGrid(
             }
             Box(modifier = Modifier.weight(1f)) {
                 ModernTacticalTile(
-                    title = "電腦休眠",
+                    title = stringResource(R.string.power_hibernate),
                     subtitle = "CMD: HIBERNATE",
                     icon = Icons.Rounded.AcUnit,
                     accentColor = SemanticWarning,
@@ -435,7 +438,7 @@ fun ModernPowerCommandGrid(
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 ModernTacticalTile(
-                    title = "重新開機",
+                    title = stringResource(R.string.power_reboot),
                     subtitle = "CMD: REBOOT",
                     icon = Icons.Rounded.Refresh,
                     accentColor = SemanticInfo,
@@ -445,7 +448,7 @@ fun ModernPowerCommandGrid(
             }
             Box(modifier = Modifier.weight(1f)) {
                 ModernTacticalTile(
-                    title = "電腦關機",
+                    title = stringResource(R.string.power_shutdown),
                     subtitle = "CMD: SHUTDOWN",
                     icon = Icons.Rounded.PowerSettingsNew,
                     accentColor = SemanticDanger,
@@ -608,13 +611,13 @@ fun TerminalHudStatusCard(
                 IconButton(
                     onClick = {
                         clipboardManager.setText(AnnotatedString(statusMessage))
-                        Toast.makeText(context, "已複製狀態日誌至剪貼簿", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.status_log_copied), Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.size(20.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
-                        contentDescription = "複製狀態日誌",
+                        contentDescription = stringResource(R.string.copy_status_log),
                         tint = Slate400,
                         modifier = Modifier.size(12.dp)
                     )
@@ -636,7 +639,7 @@ fun TerminalHudStatusCard(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = if (isLoading) "正在傳送網路控制封包，請稍候..." else statusMessage,
+                    text = if (isLoading) stringResource(R.string.sending_control_packet) else statusMessage,
                     color = if (isStatusError) SemanticDanger else Slate100,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
@@ -693,7 +696,7 @@ fun ConfirmPowerDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "確認執行「$actionName」？",
+                        text = stringResource(R.string.confirm_action_title, actionName),
                         color = Slate50,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -703,7 +706,7 @@ fun ConfirmPowerDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "即將向目標電腦「$targetName」($targetIp:9877) 發送 UDP 控制封包。請確保電腦已儲存未完成的工作。",
+                    text = stringResource(R.string.confirm_action_message, targetName, targetIp),
                     color = Slate300,
                     fontSize = 13.sp,
                     lineHeight = 19.sp
@@ -716,7 +719,7 @@ fun ConfirmPowerDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("取消", color = Slate400, fontSize = 13.sp)
+                        Text(stringResource(R.string.cancel), color = Slate400, fontSize = 13.sp)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -726,10 +729,11 @@ fun ConfirmPowerDialog(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isDestructive) SemanticDanger else SemanticInfo
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("confirm_power_action")
                     ) {
                         Text(
-                            text = "確認執行",
+                            text = stringResource(R.string.confirm_execute),
                             color = Color.White,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold

@@ -82,8 +82,8 @@ class UpdateManager(private val context: Context) {
         }
 
         val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("下載更新")
-            .setDescription("正在下載最新版本的遙控器 App...")
+            .setTitle(context.getString(R.string.update_download_title))
+            .setDescription(context.getString(R.string.update_download_description))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "wakeonwanremotephone_update.apk")
             .setMimeType("application/vnd.android.package-archive")
@@ -109,7 +109,12 @@ class UpdateManager(private val context: Context) {
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
                         installApk()
                     } else {
-                        Toast.makeText(context, "下載失敗", Toast.LENGTH_SHORT).show()
+                        val localized = AppLocale.wrap(ctxt)
+                        Toast.makeText(
+                            localized,
+                            localized.getString(R.string.update_download_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                     try {
                         context.applicationContext.unregisterReceiver(this)
@@ -136,7 +141,7 @@ class UpdateManager(private val context: Context) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } else {
-            Toast.makeText(context, "找不到安裝檔", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.update_installer_not_found), Toast.LENGTH_SHORT).show()
         }
     }
 }

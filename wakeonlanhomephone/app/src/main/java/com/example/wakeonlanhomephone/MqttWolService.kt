@@ -31,6 +31,10 @@ class MqttWolService : Service() {
         )
     }
 
+    private fun localized(resId: Int, vararg args: Any): String {
+        return AppLocale.wrap(this).getString(resId, *args)
+    }
+
     companion object {
         const val TAG = "MqttWolService"
         const val NOTIFICATION_CHANNEL_ID = "MqttWolServiceChannel"
@@ -82,7 +86,7 @@ class MqttWolService : Service() {
         super.onCreate()
         Log.d(TAG, "Service Created")
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification("Initializing MQTT Service..."))
+        startForeground(NOTIFICATION_ID, createNotification(localized(R.string.service_mqtt_initializing)))
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -142,7 +146,7 @@ class MqttWolService : Service() {
         
         if (cleanHost.isEmpty()) {
             Log.e(TAG, "Host is empty, skipping connection")
-            AppGlobalState.updateState(MqttConnectionState.FAILED, error = "Host 未設定 (請於設定頁面輸入 Broker Host)")
+            AppGlobalState.updateState(MqttConnectionState.FAILED, error = localized(R.string.mqtt_error_host_missing))
             return
         }
 
@@ -206,12 +210,12 @@ class MqttWolService : Service() {
                 if (throwable != null) {
                     val errorMsg = formatErrorMessage(throwable)
                     Log.e(TAG, "Connection failed: $errorMsg", throwable)
-                    updateNotification("MQTT Connection Failed: $errorMsg")
+                    updateNotification(localized(R.string.service_mqtt_connection_failed, errorMsg))
                     AppLogger.log("MQTT: Connection Failed ($errorMsg)")
                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = errorMsg)
                 } else {
                     Log.d(TAG, "Connected to MQTT")
-                    updateNotification("Connected to MQTT. Listening on ${config.topic}")
+                    updateNotification(localized(R.string.service_mqtt_connected_listening, config.topic))
                     AppLogger.log("MQTT: Listening on topic '${config.topic}'")
                     AppGlobalState.updateState(MqttConnectionState.CONNECTED)
                     subscribeToTopic(config.topic)
@@ -233,22 +237,22 @@ class MqttWolService : Service() {
         val full = "$raw $causeMsg".trim()
         return when {
             full.contains("BAD_USER_NAME_OR_PASSWORD", ignoreCase = true) ->
-                "認證失敗：使用者名稱或密碼/AIO Key 錯誤 (BAD_USER_NAME_OR_PASSWORD)"
+                localized(R.string.mqtt_error_auth)
             full.contains("NOT_AUTHORIZED", ignoreCase = true) ->
-                "未授權連線：無存取權限 (NOT_AUTHORIZED)"
+                localized(R.string.mqtt_error_not_authorized)
             full.contains("IDENTIFIER_REJECTED", ignoreCase = true) ->
-                "Client ID 被伺服器拒絕 (IDENTIFIER_REJECTED)"
+                localized(R.string.mqtt_error_identifier_rejected)
             full.contains("SSL", ignoreCase = true) || full.contains("handshake", ignoreCase = true) || full.contains("Certificate", ignoreCase = true) ->
-                "SSL/TLS 握手失敗 (若為 Port 1883 請關閉 SSL；若開啟 SSL 請使用 Port 8883)"
+                localized(R.string.mqtt_error_ssl)
             full.contains("UnknownHost", ignoreCase = true) ->
-                "找不到主機位址 (DNS 解析失敗，請檢查 Host 輸入是否正確)"
+                localized(R.string.mqtt_error_unknown_host)
             full.contains("Connection refused", ignoreCase = true) ->
-                "連線被拒絕 (請確認 Port 埠號是否正確或 Broker 是否開啟)"
+                localized(R.string.mqtt_error_refused)
             full.contains("timeout", ignoreCase = true) || full.contains("timed out", ignoreCase = true) ->
-                "連線逾時 (請檢查網路連線或防火牆)"
+                localized(R.string.mqtt_error_timeout)
             raw.isNotEmpty() -> raw
             causeMsg.isNotEmpty() -> causeMsg
-            else -> "未知連線錯誤"
+            else -> localized(R.string.mqtt_error_unknown)
         }
     }
 
@@ -277,9 +281,9 @@ class MqttWolService : Service() {
                      val errorMsg = formatErrorMessage(throwable)
                      Log.e(TAG, "Subscription failed: $errorMsg", throwable)
                      AppLogger.log("MQTT: 訂閱失敗 ($errorMsg)")
-                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = "訂閱主題失敗: $errorMsg")
+                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = localized(R.string.mqtt_subscribe_failed, errorMsg))
                  } else if (subAck != null && subAck.returnCodes.any { it.isError }) {
-                     val reason = "Broker 拒絕訂閱主題 '$topic' (若使用 Adafruit IO，主題格式需為: 使用者名稱/feeds/主題名稱)"
+                     val reason = localized(R.string.mqtt_subscribe_rejected, topic)
                      Log.e(TAG, reason)
                      AppLogger.log("MQTT: $reason")
                      AppGlobalState.updateState(MqttConnectionState.FAILED, error = reason)
@@ -294,7 +298,7 @@ class MqttWolService : Service() {
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Mqtt WOL Service")
+            .setContentTitle(localized(R.string.service_mqtt_notification_title))
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
@@ -311,7 +315,7 @@ class MqttWolService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "MQTT WOL Service Channel",
+                localized(R.string.service_mqtt_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             )
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(serviceChannel)

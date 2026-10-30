@@ -3,4 +3,99 @@
     <string name="widget_remote_name">遠端開機</string>
     <string name="widget_remote_hint">點擊喚醒已選電腦</string>
     <string name="widget_remote_no_device">尚未設定電腦 MAC</string>
+
+    <!-- Main screen -->
+    <string name="app_title">遠端喚醒控制</string>
+    <string name="mode_status_lan">LAN BROADCAST (內網直連)</string>
+    <string name="mode_status_wan">WAN TCP 9876 (外網網關)</string>
+    <string name="about_title">關於與更新</string>
+    <string name="target_device_list">目標主機清單</string>
+    <string name="device_count">%1$d 台</string>
+    <string name="add_computer">新增電腦</string>
+    <string name="current_selected_target">當前選定目標主機</string>
+    <string name="edit_device_settings">編輯主機設定</string>
+    <string name="mac_copied">已複製 MAC 地址</string>
+    <string name="no_mac">無 MAC</string>
+    <string name="ip_copied">已複製 IP 地址</string>
+    <string name="not_specified">未指定</string>
+    <string name="switch_target_device">切換目標主機</string>
+    <string name="connection_settings">連線位址設定</string>
+    <string name="helper_ipv6_label">家用助手 IPv6 位址 (Port 9876)</string>
+    <string name="target_mac_label">目標電腦 MAC 地址 (WoL Magic Packet)</string>
+    <string name="target_ipv4_label">目標電腦區域 IPv4 (電源控制 Port 9877)</string>
+    <string name="command_sending">指令傳送中...</string>
+    <string name="power_shutdown">電腦關機</string>
+    <string name="power_reboot">重新開機</string>
+    <string name="default_target_name">目標主機</string>
+
+    <!-- About & update dialog -->
+    <string name="about_app_subtitle">遠端喚醒控制端 (Wake On WAN Remote)</string>
+    <string name="about_version">目前版本：v%1$s</string>
+    <string name="downloading_update_toast">正在下載更新...</string>
+    <string name="download_and_install">下載並安裝新版本</string>
+    <string name="checking_update">正在檢查更新...</string>
+    <string name="update_found">偵測到新版本：%1$s</string>
+    <string name="already_latest">已是最新版本</string>
+    <string name="check_latest_version">檢查最新版本</string>
+    <string name="view_on_github">在 GitHub 上查看發行版</string>
+    <string name="close">關閉</string>
+
+    <!-- Language selector -->
+    <string name="language_title">Language / 語言</string>
+    <string name="language_system">跟隨系統</string>
+    <string name="language_zh_tw">繁體中文</string>
+    <string name="language_en">English</string>
+
+    <!-- Add / edit device dialogs -->
+    <string name="add_device_title">新增目標電腦</string>
+    <string name="device_name_hint">電腦名稱 (例: 臥室主機)</string>
+    <string name="mac_hint">網卡 MAC (例: AA:BB:CC:DD:EE:FF)</string>
+    <string name="lan_ipv4_optional">區域網路 IPv4 (可選)</string>
+    <string name="cancel">取消</string>
+    <string name="new_device_default_name">新主機</string>
+    <string name="add">新增</string>
+    <string name="edit_device_title">編輯目標電腦</string>
+    <string name="device_name_label">電腦名稱</string>
+    <string name="mac_label">網卡 MAC</string>
+    <string name="delete">刪除</string>
+    <string name="device_fallback_name">主機</string>
+    <string name="save">儲存</string>
+
+    <!-- UI components -->
+    <string name="mode_lan_direct">區域網路直連</string>
+    <string name="mode_wan_helper">遠端助手 (WAN)</string>
+    <string name="mode_lan_description">內網模式：發送 UDP 255.255.255.255:9 WoL 廣播封包</string>
+    <string name="mode_wan_description">外網模式：透過 TCP Port 9876 轉發給常駐家用助手</string>
+    <string name="sending_wake_packet">正在傳送喚醒封包...</string>
+    <string name="wake_target">喚醒 %1$s</string>
+    <string name="wake_computer_one_tap">一鍵喚醒電腦 (WAKE)</string>
+    <string name="mac_prefix">MAC: %1$s</string>
+    <string name="mac_not_set">尚未設定 MAC</string>
+    <string name="power_sleep">電腦睡眠</string>
+    <string name="power_hibernate">電腦休眠</string>
+    <string name="status_log_copied">已複製狀態日誌至剪貼簿</string>
+    <string name="copy_status_log">複製狀態日誌</string>
+    <string name="sending_control_packet">正在傳送網路控制封包，請稍候...</string>
+    <string name="confirm_action_title">確認執行「%1$s」？</string>
+    <string name="confirm_action_message">即將向目標電腦「%1$s」(%2$s:9877) 發送 UDP 控制封包。請確保電腦已儲存未完成的工作。</string>
+    <string name="confirm_execute">確認執行</string>
+
+    <!-- Widget -->
+    <string name="widget_remote_device_title">%1$s 開機</string>
+    <string name="widget_remote_target_mac">目標: %1$s</string>
+    <string name="widget_no_target_toast">尚未設定目標電腦，請先開啟 App 設定</string>
+    <string name="widget_no_helper_ipv6">尚未設定 Helper IPv6 地址</string>
+    <string name="widget_sent_status">已發送 %1$s (%2$s)</string>
+    <string name="widget_wake_sent_toast">已發送喚醒至 %1$s: %2$s</string>
+    <string name="widget_send_failed">發送失敗: %1$s</string>
+
+    <!-- Update manager -->
+    <string name="update_download_title">下載更新</string>
+    <string name="update_download_description">正在下載最新版本的遙控器 App...</string>
+    <string name="update_download_failed">下載失敗</string>
+    <string name="update_installer_not_found">找不到安裝檔</string>
+
+    <!-- Default device names -->
+    <string name="default_device_primary">主要電腦</string>
+    <string name="default_device_new">新電腦</string>
 </resources>

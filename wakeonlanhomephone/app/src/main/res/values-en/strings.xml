@@ -1,0 +1,211 @@
+<resources>
+    <string name="app_name">wake on lan home phone</string>
+    <string name="shortcut_wake_pc_short">Wake PC</string>
+    <string name="shortcut_wake_pc_long">Wake this computer over the local network</string>
+    <string name="widget_name">Wake PC (widget)</string>
+    <string name="widget_default_hint">Tap to send a wake packet</string>
+    <string name="widget_wake_success">Wake packet sent</string>
+    <string name="widget_no_mac_hint">No target MAC configured</string>
+
+    <!-- Common actions -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_add">Add</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_save">Save</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_delete_confirm">Delete</string>
+    <string name="password_show">Show password</string>
+    <string name="password_hide">Hide password</string>
+
+    <!-- Language selector -->
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_description">Choose the app display language</string>
+    <string name="language_system">System default</string>
+    <string name="language_chinese_traditional">繁體中文</string>
+    <string name="language_english">English</string>
+
+    <!-- Navigation -->
+    <string name="tab_server">Server</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Main screen toasts -->
+    <string name="toast_wake_broadcast">Wake broadcast sent to %1$s (%2$s)</string>
+    <string name="toast_send_failed">Send failed: %1$s</string>
+    <string name="toast_power_command_sent">Sent %1$s command to %2$s (%3$s)</string>
+    <string name="toast_device_connecting">Connecting...</string>
+    <string name="toast_device_disconnecting">Disconnecting...</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_subtitle">MQTT broker connection and software updates</string>
+    <string name="settings_mqtt_panel_title">MQTT Broker Configuration</string>
+    <string name="mqtt_status_connected">Connected</string>
+    <string name="mqtt_status_connecting">Connecting</string>
+    <string name="mqtt_status_failed">Connection failed</string>
+    <string name="mqtt_status_disconnected">Disconnected</string>
+    <string name="settings_connection_error">Connection failure: %1$s</string>
+    <string name="settings_ssl_encryption">SSL/TLS encryption</string>
+    <string name="settings_username_label">Username (Adafruit account)</string>
+    <string name="settings_topic_label">Default subscription topic</string>
+    <string name="settings_auto_connect">Auto-connect on startup</string>
+    <string name="settings_save_reconnect">Save and reconnect</string>
+    <string name="toast_mqtt_saved">MQTT settings saved and reconnecting</string>
+
+    <!-- About and updates -->
+    <string name="about_title">About &amp; updates</string>
+    <string name="about_app_title">Wake On LAN Home Gateway</string>
+    <string name="toast_downloading">Downloading update...</string>
+    <string name="update_downloading_message">Downloading and installing the update. Please wait...</string>
+    <string name="update_install_button">Download and install update</string>
+    <string name="update_checking">Checking for updates...</string>
+    <string name="update_available">New version available: %1$s</string>
+    <string name="update_latest">You are on the latest version</string>
+    <string name="update_check_button">Check for updates</string>
+    <string name="about_view_releases">View releases on GitHub</string>
+
+    <!-- Server screen -->
+    <string name="server_title">Home Wake Assistant</string>
+    <string name="server_subtitle">LAN WoL broadcast · TCP 9876 control hub</string>
+    <string name="server_status_listening">Listening</string>
+    <string name="server_status_stopped">Stopped</string>
+    <string name="server_tcp_service">TCP listener service</string>
+    <string name="server_tcp_running">Running normally on port 9876</string>
+    <string name="server_tcp_stopped">Service not started</string>
+    <string name="server_stop_service">Stop service</string>
+    <string name="server_start_service">Start service</string>
+    <string name="server_ipv6_title">Local addresses (IPv6)</string>
+    <string name="server_tap_to_copy">Tap to copy</string>
+    <string name="server_no_ipv6">No global IPv6 address detected</string>
+    <string name="toast_ip_copied">Address copied: %1$s</string>
+    <string name="content_copy">Copy</string>
+    <string name="server_targets_title">Target computers</string>
+    <string name="server_device_count">%1$d devices</string>
+    <string name="content_add_target">Add target computer</string>
+    <string name="server_no_devices">No target computers yet. Tap + in the top right to add one.</string>
+    <string name="server_no_mac">No MAC</string>
+    <string name="power_sleep">Sleep</string>
+    <string name="power_reboot">Restart</string>
+    <string name="power_shutdown">Shut down</string>
+    <string name="power_action_sleep">Sleep computer</string>
+    <string name="power_action_reboot">Restart computer</string>
+    <string name="power_action_shutdown">Shut down computer</string>
+    <string name="server_logs_title">Live log TERMINAL</string>
+    <string name="server_logs_clear">Clear log</string>
+    <string name="server_logs_empty">No log entries yet</string>
+    <string name="log_source_system">System</string>
+    <string name="log_status_mqtt_connected">MQTT connected</string>
+    <string name="log_status_mqtt_disconnected">MQTT disconnected</string>
+    <string name="log_status_mqtt_connecting">MQTT connecting</string>
+    <string name="log_status_connection_error">Connection error</string>
+    <string name="log_status_service_ready">Service ready</string>
+    <string name="log_status_command_received">Command received</string>
+    <string name="log_status_command_executed">Command executed</string>
+    <string name="log_status_system_message">System message</string>
+
+    <!-- Target computer dialogs -->
+    <string name="dialog_add_target_title">Add target computer</string>
+    <string name="dialog_name_with_example">Computer name (e.g. Bedroom PC)</string>
+    <string name="dialog_mac_with_example">NIC MAC (e.g. AA:BB:CC:DD:EE:FF)</string>
+    <string name="dialog_ip_optional_power">LAN IPv4 (optional, for shutdown/restart)</string>
+    <string name="default_device_new_host">New PC</string>
+    <string name="dialog_edit_target_title">Edit target computer</string>
+    <string name="dialog_name">Computer name</string>
+    <string name="dialog_mac">NIC MAC</string>
+    <string name="dialog_ip_optional">LAN IPv4 (optional)</string>
+    <string name="default_device_host">PC</string>
+
+    <!-- MQTT devices screen -->
+    <string name="mqtt_delete_title">Delete device?</string>
+    <string name="mqtt_delete_message">Delete device “%1$s”? This cannot be undone.</string>
+    <string name="content_add_device">Add device</string>
+    <string name="mqtt_devices_title">MQTT devices</string>
+    <string name="broker_connected">Broker: Connected</string>
+    <string name="broker_connecting">Broker: Connecting...</string>
+    <string name="broker_failed">Broker: Connection failed (tap to configure)</string>
+    <string name="broker_disconnected">Broker: Disconnected</string>
+    <string name="content_settings">Settings</string>
+    <string name="stat_total_devices">Total devices</string>
+    <string name="stat_online">Online</string>
+    <string name="stat_offline">Offline</string>
+    <string name="mqtt_no_devices">No MQTT devices configured</string>
+    <string name="mqtt_empty_hint">Tap + at the bottom right to add a subscription topic</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_offline">Offline</string>
+    <string name="mqtt_topic_label">Topic</string>
+    <string name="mqtt_send_offline">Send offline signal</string>
+    <string name="mqtt_send_online">Send online signal</string>
+
+    <!-- Add/edit MQTT device screen -->
+    <string name="add_device_edit_title">Edit MQTT device</string>
+    <string name="add_device_add_title">Add MQTT device</string>
+    <string name="add_device_save_apply">Save and apply</string>
+    <string name="add_device_broker_section">Broker connection</string>
+    <string name="add_device_name_label">Device / broker name</string>
+    <string name="add_device_host_label">Broker host</string>
+    <string name="add_device_port_label">Port</string>
+    <string name="add_device_protocol_label">Protocol</string>
+    <string name="add_device_security_section">Security &amp; authentication</string>
+    <string name="add_device_ssl_title">SSL / TLS encrypted connection</string>
+    <string name="add_device_ssl_hint">Recommended (default port 8883)</string>
+    <string name="add_device_username_label">Username (Adafruit account)</string>
+    <string name="add_device_password_label">Password / key (Adafruit AIO key)</string>
+    <string name="add_device_topic_section">Target topic</string>
+    <string name="add_device_topic_label">Subscription topic</string>
+
+    <!-- Wake button and confirmation dialog -->
+    <string name="wake_button_named">Wake %1$s</string>
+    <string name="wake_button_default">Send WoL magic packet</string>
+    <string name="wake_mac_configured">MAC: %1$s (Port 9)</string>
+    <string name="wake_mac_missing">No MAC configured</string>
+    <string name="confirm_power_title">Run “%1$s”?</string>
+    <string name="confirm_power_body">A UDP control command will be sent to “%1$s” (%2$s:9877). Make sure the computer has saved any work in progress.</string>
+
+    <!-- Desktop widget -->
+    <string name="widget_wake_title">Wake %1$s</string>
+    <string name="widget_status_target">Target: %1$s</string>
+    <string name="widget_default_target_name">Target PC</string>
+    <string name="widget_no_mac_toast">No target MAC configured. Open the app settings first.</string>
+    <string name="widget_status_sent">Sent %1$s (%2$s)</string>
+    <string name="widget_toast_sent">Wake packet sent to %1$s (%2$s)</string>
+    <string name="widget_toast_failed">Send failed: %1$s</string>
+
+    <!-- Update manager -->
+    <string name="update_download_title">Download update</string>
+    <string name="update_download_description">Downloading the latest Wake On LAN Home Gateway</string>
+    <string name="update_download_failed">Download failed</string>
+    <string name="update_installer_missing">Installer file not found</string>
+
+    <!-- Voice wake -->
+    <string name="toast_wake_signal_sent">Wake signal sent to the computer</string>
+
+    <!-- Default names -->
+    <string name="default_profile_primary">Primary PC</string>
+    <string name="default_device_new">New PC</string>
+
+    <!-- MQTT service notifications and errors -->
+    <string name="service_mqtt_initializing">Initializing MQTT service...</string>
+    <string name="service_mqtt_connected_listening">Connected to MQTT. Listening on %1$s</string>
+    <string name="service_mqtt_connection_failed">MQTT connection failed: %1$s</string>
+    <string name="service_mqtt_notification_title">MQTT WOL Service</string>
+    <string name="service_mqtt_channel_name">MQTT WOL Service Channel</string>
+    <string name="mqtt_error_host_missing">Host is not set. Enter the broker host in Settings.</string>
+    <string name="mqtt_error_auth">Authentication failed: incorrect username or password/AIO key (BAD_USER_NAME_OR_PASSWORD)</string>
+    <string name="mqtt_error_not_authorized">Connection not authorized: access denied (NOT_AUTHORIZED)</string>
+    <string name="mqtt_error_identifier_rejected">Client ID rejected by the server (IDENTIFIER_REJECTED)</string>
+    <string name="mqtt_error_ssl">SSL/TLS handshake failed (disable SSL for port 1883; use port 8883 when SSL is enabled)</string>
+    <string name="mqtt_error_unknown_host">Host not found (DNS lookup failed; check the host value)</string>
+    <string name="mqtt_error_refused">Connection refused (check the port number and whether the broker is running)</string>
+    <string name="mqtt_error_timeout">Connection timed out (check the network connection or firewall)</string>
+    <string name="mqtt_error_unknown">Unknown connection error</string>
+    <string name="mqtt_subscribe_failed">Failed to subscribe to topic: %1$s</string>
+    <string name="mqtt_subscribe_rejected">Broker rejected subscription topic \'%1$s\' (for Adafruit IO the topic must be username/feeds/feed-name)</string>
+
+    <!-- WoL listener service notifications -->
+    <string name="service_wol_initializing">Listening for wake-up commands (TCP)...</string>
+    <string name="service_wol_notification_title">Remote Helper Service</string>
+    <string name="service_wol_last_command">Last: %1$s from %2$s</string>
+    <string name="service_wol_unknown_source">Unknown source</string>
+    <string name="service_wol_channel_name">WoL Listener Service Channel</string>
+    <string name="service_wol_channel_description">Persistent notification for the WoL helper service</string>
+</resources>

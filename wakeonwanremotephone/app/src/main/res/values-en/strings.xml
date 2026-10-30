@@ -1,0 +1,101 @@
+<resources>
+    <string name="app_name">wake on wan remote phone</string>
+    <string name="widget_remote_name">Remote Wake</string>
+    <string name="widget_remote_hint">Tap to wake the selected PC</string>
+    <string name="widget_remote_no_device">No computer MAC configured</string>
+
+    <!-- Main screen -->
+    <string name="app_title">Remote Wake Control</string>
+    <string name="mode_status_lan">LAN BROADCAST (Direct LAN)</string>
+    <string name="mode_status_wan">WAN TCP 9876 (Remote gateway)</string>
+    <string name="about_title">About &amp; Updates</string>
+    <string name="target_device_list">Target computers</string>
+    <string name="device_count">%1$d PCs</string>
+    <string name="add_computer">Add computer</string>
+    <string name="current_selected_target">Currently selected target</string>
+    <string name="edit_device_settings">Edit device settings</string>
+    <string name="mac_copied">MAC address copied</string>
+    <string name="no_mac">No MAC</string>
+    <string name="ip_copied">IP address copied</string>
+    <string name="not_specified">Not set</string>
+    <string name="switch_target_device">Switch target computer</string>
+    <string name="connection_settings">Connection settings</string>
+    <string name="helper_ipv6_label">Home helper IPv6 address (Port 9876)</string>
+    <string name="target_mac_label">Target PC MAC address (WoL Magic Packet)</string>
+    <string name="target_ipv4_label">Target PC LAN IPv4 (Power control Port 9877)</string>
+    <string name="command_sending">Sending command...</string>
+    <string name="power_shutdown">Shut down</string>
+    <string name="power_reboot">Restart</string>
+    <string name="default_target_name">Target PC</string>
+
+    <!-- About & update dialog -->
+    <string name="about_app_subtitle">Wake On WAN Remote</string>
+    <string name="about_version">Current version: v%1$s</string>
+    <string name="downloading_update_toast">Downloading update...</string>
+    <string name="download_and_install">Download and install</string>
+    <string name="checking_update">Checking for updates...</string>
+    <string name="update_found">New version found: %1$s</string>
+    <string name="already_latest">You\'re on the latest version</string>
+    <string name="check_latest_version">Check for updates</string>
+    <string name="view_on_github">View releases on GitHub</string>
+    <string name="close">Close</string>
+
+    <!-- Language selector -->
+    <string name="language_title">Language / 語言</string>
+    <string name="language_system">System default</string>
+    <string name="language_zh_tw">繁體中文</string>
+    <string name="language_en">English</string>
+
+    <!-- Add / edit device dialogs -->
+    <string name="add_device_title">Add target computer</string>
+    <string name="device_name_hint">Computer name (e.g. Bedroom PC)</string>
+    <string name="mac_hint">NIC MAC (e.g. AA:BB:CC:DD:EE:FF)</string>
+    <string name="lan_ipv4_optional">LAN IPv4 (optional)</string>
+    <string name="cancel">Cancel</string>
+    <string name="new_device_default_name">New PC</string>
+    <string name="add">Add</string>
+    <string name="edit_device_title">Edit target computer</string>
+    <string name="device_name_label">Computer name</string>
+    <string name="mac_label">NIC MAC</string>
+    <string name="delete">Delete</string>
+    <string name="device_fallback_name">PC</string>
+    <string name="save">Save</string>
+
+    <!-- UI components -->
+    <string name="mode_lan_direct">Direct LAN</string>
+    <string name="mode_wan_helper">Remote helper (WAN)</string>
+    <string name="mode_lan_description">LAN mode: send a UDP WoL broadcast to 255.255.255.255:9</string>
+    <string name="mode_wan_description">WAN mode: forward to the home helper over TCP port 9876</string>
+    <string name="sending_wake_packet">Sending wake packet...</string>
+    <string name="wake_target">Wake %1$s</string>
+    <string name="wake_computer_one_tap">Wake computer (WAKE)</string>
+    <string name="mac_prefix">MAC: %1$s</string>
+    <string name="mac_not_set">MAC not set</string>
+    <string name="power_sleep">Sleep</string>
+    <string name="power_hibernate">Hibernate</string>
+    <string name="status_log_copied">Status log copied to clipboard</string>
+    <string name="copy_status_log">Copy status log</string>
+    <string name="sending_control_packet">Sending network control packet, please wait...</string>
+    <string name="confirm_action_title">Run “%1$s”?</string>
+    <string name="confirm_action_message">A UDP control packet will be sent to “%1$s” (%2$s:9877). Make sure the PC has saved any unsaved work.</string>
+    <string name="confirm_execute">Confirm</string>
+
+    <!-- Widget -->
+    <string name="widget_remote_device_title">Wake %1$s</string>
+    <string name="widget_remote_target_mac">Target: %1$s</string>
+    <string name="widget_no_target_toast">No target computer configured. Open the app to set one up.</string>
+    <string name="widget_no_helper_ipv6">Helper IPv6 address is not set</string>
+    <string name="widget_sent_status">Sent %1$s (%2$s)</string>
+    <string name="widget_wake_sent_toast">Wake sent to %1$s: %2$s</string>
+    <string name="widget_send_failed">Send failed: %1$s</string>
+
+    <!-- Update manager -->
+    <string name="update_download_title">Downloading update</string>
+    <string name="update_download_description">Downloading the latest remote app version...</string>
+    <string name="update_download_failed">Download failed</string>
+    <string name="update_installer_not_found">Installer file not found</string>
+
+    <!-- Default device names -->
+    <string name="default_device_primary">Primary PC</string>
+    <string name="default_device_new">New PC</string>
+</resources>

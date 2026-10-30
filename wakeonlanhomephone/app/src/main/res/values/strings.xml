@@ -6,4 +6,206 @@
     <string name="widget_default_hint">點擊發送開機封包</string>
     <string name="widget_wake_success">已發送開機封包</string>
     <string name="widget_no_mac_hint">尚未設定目標 MAC</string>
+
+    <!-- 共用動作 -->
+    <string name="action_cancel">取消</string>
+    <string name="action_add">新增</string>
+    <string name="action_delete">刪除</string>
+    <string name="action_edit">編輯</string>
+    <string name="action_save">儲存</string>
+    <string name="action_confirm">確認執行</string>
+    <string name="action_delete_confirm">確定刪除</string>
+    <string name="password_show">顯示密碼</string>
+    <string name="password_hide">隱藏密碼</string>
+
+    <!-- 語言選擇 -->
+    <string name="settings_language_title">語言 / Language</string>
+    <string name="settings_language_description">選擇應用程式介面語言</string>
+    <string name="language_system">跟隨系統</string>
+    <string name="language_chinese_traditional">繁體中文</string>
+    <string name="language_english">English</string>
+
+    <!-- 導覽列 -->
+    <string name="tab_server">伺服器</string>
+    <string name="tab_settings">設定</string>
+
+    <!-- 主畫面提示 -->
+    <string name="toast_wake_broadcast">已廣播喚醒 %1$s (%2$s)</string>
+    <string name="toast_send_failed">發送失敗: %1$s</string>
+    <string name="toast_power_command_sent">已發送 %1$s 指令至 %2$s (%3$s)</string>
+    <string name="toast_device_connecting">正在連線...</string>
+    <string name="toast_device_disconnecting">正在中斷連線...</string>
+
+    <!-- 設定頁 -->
+    <string name="settings_title">系統設定</string>
+    <string name="settings_subtitle">MQTT Broker 連線與軟體更新維護</string>
+    <string name="settings_mqtt_panel_title">MQTT Broker 配置</string>
+    <string name="mqtt_status_connected">已連線</string>
+    <string name="mqtt_status_connecting">連線中</string>
+    <string name="mqtt_status_failed">連線失敗</string>
+    <string name="mqtt_status_disconnected">未連線</string>
+    <string name="settings_connection_error">連線失敗原因：%1$s</string>
+    <string name="settings_ssl_encryption">SSL/TLS 加密</string>
+    <string name="settings_username_label">Username (Adafruit 使用者名稱)</string>
+    <string name="settings_topic_label">預設監聽主題 (Topic)</string>
+    <string name="settings_auto_connect">開機自動連線 (Auto Connect)</string>
+    <string name="settings_save_reconnect">儲存設定並重新連線</string>
+    <string name="toast_mqtt_saved">MQTT 設定已儲存並重新連線</string>
+
+    <!-- 關於與更新 -->
+    <string name="about_title">關於與軟體更新</string>
+    <string name="about_app_title">家用喚醒助手 (Wake On LAN Home Gateway)</string>
+    <string name="toast_downloading">正在下載更新...</string>
+    <string name="update_downloading_message">正在下載並安裝更新，請稍候...</string>
+    <string name="update_install_button">下載並安裝新版本</string>
+    <string name="update_checking">正在檢查更新...</string>
+    <string name="update_available">偵測到新版本：%1$s</string>
+    <string name="update_latest">已是最新版本</string>
+    <string name="update_check_button">檢查最新版本</string>
+    <string name="about_view_releases">在 GitHub 查看發行版本</string>
+
+    <!-- 伺服器頁 -->
+    <string name="server_title">家用喚醒助手</string>
+    <string name="server_subtitle">區域網路 WoL 廣播 · TCP 9876 控制樞紐</string>
+    <string name="server_status_listening">監聽中</string>
+    <string name="server_status_stopped">已停止</string>
+    <string name="server_tcp_service">TCP 監聽服務</string>
+    <string name="server_tcp_running">Port 9876 正常運作中</string>
+    <string name="server_tcp_stopped">服務未啟動</string>
+    <string name="server_stop_service">停止服務</string>
+    <string name="server_start_service">啟動服務</string>
+    <string name="server_ipv6_title">本機連線位址 (IPv6)</string>
+    <string name="server_tap_to_copy">點擊可複製</string>
+    <string name="server_no_ipv6">目前未偵測到全域 IPv6 位址</string>
+    <string name="toast_ip_copied">已複製位址：%1$s</string>
+    <string name="content_copy">複製</string>
+    <string name="server_targets_title">目標電腦管理</string>
+    <string name="server_device_count">%1$d 台</string>
+    <string name="content_add_target">新增目標電腦</string>
+    <string name="server_no_devices">尚未新增目標電腦，請點擊右上角「+」新增</string>
+    <string name="server_no_mac">無 MAC</string>
+    <string name="power_sleep">睡眠</string>
+    <string name="power_reboot">重啟</string>
+    <string name="power_shutdown">關機</string>
+    <string name="power_action_sleep">電腦睡眠</string>
+    <string name="power_action_reboot">電腦重新開機</string>
+    <string name="power_action_shutdown">電腦關機</string>
+    <string name="server_logs_title">即時日誌 TERMINAL</string>
+    <string name="server_logs_clear">清除日誌</string>
+    <string name="server_logs_empty">暫無日誌記錄</string>
+    <string name="log_source_system">系統</string>
+    <string name="log_status_mqtt_connected">MQTT 已連線</string>
+    <string name="log_status_mqtt_disconnected">MQTT 已中斷</string>
+    <string name="log_status_mqtt_connecting">MQTT 連線中</string>
+    <string name="log_status_connection_error">連線錯誤</string>
+    <string name="log_status_service_ready">服務就緒</string>
+    <string name="log_status_command_received">收到指令</string>
+    <string name="log_status_command_executed">指令已執行</string>
+    <string name="log_status_system_message">系統訊息</string>
+
+    <!-- 目標電腦對話框 -->
+    <string name="dialog_add_target_title">新增目標電腦</string>
+    <string name="dialog_name_with_example">電腦名稱 (例: 臥室主機)</string>
+    <string name="dialog_mac_with_example">網卡 MAC (例: AA:BB:CC:DD:EE:FF)</string>
+    <string name="dialog_ip_optional_power">區域網路 IPv4 (可選，供關機/重啟)</string>
+    <string name="default_device_new_host">新主機</string>
+    <string name="dialog_edit_target_title">編輯目標電腦</string>
+    <string name="dialog_name">電腦名稱</string>
+    <string name="dialog_mac">網卡 MAC</string>
+    <string name="dialog_ip_optional">區域網路 IPv4 (可選)</string>
+    <string name="default_device_host">主機</string>
+
+    <!-- MQTT 設備頁 -->
+    <string name="mqtt_delete_title">確認刪除設備</string>
+    <string name="mqtt_delete_message">您確定要刪除設備「%1$s」嗎？此操作無法復原。</string>
+    <string name="content_add_device">新增設備</string>
+    <string name="mqtt_devices_title">MQTT 設備清單</string>
+    <string name="broker_connected">Broker: 已連線</string>
+    <string name="broker_connecting">Broker: 連線中...</string>
+    <string name="broker_failed">Broker: 連線失敗 (點擊設定)</string>
+    <string name="broker_disconnected">Broker: 未連線</string>
+    <string name="content_settings">設定</string>
+    <string name="stat_total_devices">設備總數</string>
+    <string name="stat_online">線上狀態</string>
+    <string name="stat_offline">離線狀態</string>
+    <string name="mqtt_no_devices">尚未設定任何 MQTT 設備</string>
+    <string name="mqtt_empty_hint">點擊右下角「+」新增監聽主題</string>
+    <string name="status_connected">已連線</string>
+    <string name="status_offline">已離線</string>
+    <string name="mqtt_topic_label">主題 (Topic)</string>
+    <string name="mqtt_send_offline">發送離線訊號</string>
+    <string name="mqtt_send_online">發送上線訊號</string>
+
+    <!-- 新增/編輯 MQTT 設備頁 -->
+    <string name="add_device_edit_title">編輯 MQTT 設備</string>
+    <string name="add_device_add_title">新增 MQTT 設備</string>
+    <string name="add_device_save_apply">儲存並套用設定</string>
+    <string name="add_device_broker_section">Broker 連線資訊</string>
+    <string name="add_device_name_label">設備 / Broker 名稱</string>
+    <string name="add_device_host_label">Broker 伺服器網址 (Host)</string>
+    <string name="add_device_port_label">通訊埠 (Port)</string>
+    <string name="add_device_protocol_label">連線協議</string>
+    <string name="add_device_security_section">安全與身份驗證</string>
+    <string name="add_device_ssl_title">SSL / TLS 加密連線</string>
+    <string name="add_device_ssl_hint">建議啟用 (預設 Port 8883)</string>
+    <string name="add_device_username_label">使用者名稱 (Adafruit Username)</string>
+    <string name="add_device_password_label">密碼 / 憑證 (Adafruit AIO Key)</string>
+    <string name="add_device_topic_section">目標主題配置</string>
+    <string name="add_device_topic_label">監聽主題 (Topic)</string>
+
+    <!-- 喚醒按鈕與確認對話框 -->
+    <string name="wake_button_named">喚醒 %1$s</string>
+    <string name="wake_button_default">發送 WoL 喚醒廣播</string>
+    <string name="wake_mac_configured">MAC: %1$s (Port 9)</string>
+    <string name="wake_mac_missing">尚未設定 MAC</string>
+    <string name="confirm_power_title">確認執行「%1$s」？</string>
+    <string name="confirm_power_body">即將向目標電腦「%1$s」(%2$s:9877) 發送 UDP 控制指令。請確認電腦已儲存運作中資料。</string>
+
+    <!-- 桌面小工具 -->
+    <string name="widget_wake_title">喚醒 %1$s</string>
+    <string name="widget_status_target">目標: %1$s</string>
+    <string name="widget_default_target_name">目標主機</string>
+    <string name="widget_no_mac_toast">未設定目標電腦 MAC，請先進入 App 設定</string>
+    <string name="widget_status_sent">已發送 %1$s (%2$s)</string>
+    <string name="widget_toast_sent">已發送開機封包至 %1$s (%2$s)</string>
+    <string name="widget_toast_failed">發送失敗: %1$s</string>
+
+    <!-- 更新管理員 -->
+    <string name="update_download_title">下載更新</string>
+    <string name="update_download_description">正在下載最新版本的家用喚醒助手</string>
+    <string name="update_download_failed">下載失敗</string>
+    <string name="update_installer_missing">找不到安裝檔</string>
+
+    <!-- 語音喚醒 -->
+    <string name="toast_wake_signal_sent">已發送開機訊號至電腦</string>
+
+    <!-- 預設名稱 -->
+    <string name="default_profile_primary">主要電腦</string>
+    <string name="default_device_new">新電腦</string>
+
+    <!-- MQTT 服務通知與錯誤 -->
+    <string name="service_mqtt_initializing">正在初始化 MQTT 服務...</string>
+    <string name="service_mqtt_connected_listening">已連線至 MQTT，正在監聽 %1$s</string>
+    <string name="service_mqtt_connection_failed">MQTT 連線失敗：%1$s</string>
+    <string name="service_mqtt_notification_title">MQTT WOL 服務</string>
+    <string name="service_mqtt_channel_name">MQTT WOL 服務通知</string>
+    <string name="mqtt_error_host_missing">Host 未設定 (請於設定頁面輸入 Broker Host)</string>
+    <string name="mqtt_error_auth">認證失敗：使用者名稱或密碼/AIO Key 錯誤 (BAD_USER_NAME_OR_PASSWORD)</string>
+    <string name="mqtt_error_not_authorized">未授權連線：無存取權限 (NOT_AUTHORIZED)</string>
+    <string name="mqtt_error_identifier_rejected">Client ID 被伺服器拒絕 (IDENTIFIER_REJECTED)</string>
+    <string name="mqtt_error_ssl">SSL/TLS 握手失敗 (若為 Port 1883 請關閉 SSL；若開啟 SSL 請使用 Port 8883)</string>
+    <string name="mqtt_error_unknown_host">找不到主機位址 (DNS 解析失敗，請檢查 Host 輸入是否正確)</string>
+    <string name="mqtt_error_refused">連線被拒絕 (請確認 Port 埠號是否正確或 Broker 是否開啟)</string>
+    <string name="mqtt_error_timeout">連線逾時 (請檢查網路連線或防火牆)</string>
+    <string name="mqtt_error_unknown">未知連線錯誤</string>
+    <string name="mqtt_subscribe_failed">訂閱主題失敗: %1$s</string>
+    <string name="mqtt_subscribe_rejected">Broker 拒絕訂閱主題 \'%1$s\' (若使用 Adafruit IO，主題格式需為: 使用者名稱/feeds/主題名稱)</string>
+
+    <!-- WoL 監聽服務通知 -->
+    <string name="service_wol_initializing">正在監聽喚醒指令 (TCP)...</string>
+    <string name="service_wol_notification_title">遠端喚醒助手服務</string>
+    <string name="service_wol_last_command">最近指令: %1$s (來源 %2$s)</string>
+    <string name="service_wol_unknown_source">未知來源</string>
+    <string name="service_wol_channel_name">WoL 監聽服務通知</string>
+    <string name="service_wol_channel_description">WoL 助手服務的常駐通知</string>
 </resources>

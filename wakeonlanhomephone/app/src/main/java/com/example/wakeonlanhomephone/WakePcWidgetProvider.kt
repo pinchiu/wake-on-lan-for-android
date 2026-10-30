@@ -40,6 +40,7 @@ class WakePcWidgetProvider : AppWidgetProvider() {
         fun updateWidgetViews(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_wake_pc)
             val pendingIntent = createUpdatePendingIntent(context)
+            val localized = AppLocale.wrap(context)
 
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
             views.setOnClickPendingIntent(R.id.widget_btn_action, pendingIntent)
@@ -48,16 +49,16 @@ class WakePcWidgetProvider : AppWidgetProvider() {
             val selectedDevice = deviceManager.getSelectedDevice()
 
             if (selectedDevice != null && selectedDevice.mac.isNotBlank()) {
-                views.setTextViewText(R.id.widget_title, "喚醒 ${selectedDevice.name}")
-                views.setTextViewText(R.id.widget_status, "目標: ${selectedDevice.mac}")
+                views.setTextViewText(R.id.widget_title, localized.getString(R.string.widget_wake_title, selectedDevice.name))
+                views.setTextViewText(R.id.widget_status, localized.getString(R.string.widget_status_target, selectedDevice.mac))
             } else {
                 val config = MqttConfigManager(context).getConfig()
                 if (config.targetMac.isNotBlank()) {
-                    views.setTextViewText(R.id.widget_title, context.getString(R.string.shortcut_wake_pc_short))
-                    views.setTextViewText(R.id.widget_status, "目標: ${config.targetMac}")
+                    views.setTextViewText(R.id.widget_title, localized.getString(R.string.shortcut_wake_pc_short))
+                    views.setTextViewText(R.id.widget_status, localized.getString(R.string.widget_status_target, config.targetMac))
                 } else {
-                    views.setTextViewText(R.id.widget_title, context.getString(R.string.shortcut_wake_pc_short))
-                    views.setTextViewText(R.id.widget_status, context.getString(R.string.widget_default_hint))
+                    views.setTextViewText(R.id.widget_title, localized.getString(R.string.shortcut_wake_pc_short))
+                    views.setTextViewText(R.id.widget_status, localized.getString(R.string.widget_default_hint))
                 }
             }
 
@@ -79,11 +80,12 @@ class WakePcWidgetProvider : AppWidgetProvider() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    val localized = AppLocale.wrap(context)
                     val deviceManager = DeviceProfileManager(context)
                     val selectedDevice = deviceManager.getSelectedDevice()
                     val targetMac = selectedDevice?.mac?.trim()
                         ?: MqttConfigManager(context).getConfig().targetMac.trim()
-                    val deviceName = selectedDevice?.name ?: "目標主機"
+                    val deviceName = selectedDevice?.name ?: localized.getString(R.string.widget_default_target_name)
 
                     val appWidgetManager = AppWidgetManager.getInstance(context)
                     val componentName = ComponentName(context, WakePcWidgetProvider::class.java)
@@ -94,10 +96,10 @@ class WakePcWidgetProvider : AppWidgetProvider() {
 
                     if (targetMac.isEmpty()) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "未設定目標電腦 MAC，請先進入 App 設定", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, localized.getString(R.string.widget_no_mac_toast), Toast.LENGTH_LONG).show()
                         }
-                        views.setTextViewText(R.id.widget_title, context.getString(R.string.shortcut_wake_pc_short))
-                        views.setTextViewText(R.id.widget_status, context.getString(R.string.widget_no_mac_hint))
+                        views.setTextViewText(R.id.widget_title, localized.getString(R.string.shortcut_wake_pc_short))
+                        views.setTextViewText(R.id.widget_status, localized.getString(R.string.widget_no_mac_hint))
                         appWidgetManager.updateAppWidget(componentName, views)
                         AppLogger.log("[WIDGET] 點擊開機小工具失敗：尚未設定目標 MAC 地址")
                         return@launch
@@ -110,18 +112,18 @@ class WakePcWidgetProvider : AppWidgetProvider() {
                     val result = dispatcher.dispatch("WAKE:$targetMac", "Widget")
 
                     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-                    views.setTextViewText(R.id.widget_title, "喚醒 $deviceName")
-                    views.setTextViewText(R.id.widget_status, "已發送 $timeFormat ($targetMac)")
+                    views.setTextViewText(R.id.widget_title, localized.getString(R.string.widget_wake_title, deviceName))
+                    views.setTextViewText(R.id.widget_status, localized.getString(R.string.widget_status_sent, timeFormat, targetMac))
                     appWidgetManager.updateAppWidget(componentName, views)
 
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "已發送開機封包至 $deviceName ($targetMac)", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, localized.getString(R.string.widget_toast_sent, deviceName, targetMac), Toast.LENGTH_SHORT).show()
                     }
                     AppLogger.log("[WIDGET] 已發送喚醒封包至 $deviceName ($targetMac) (${result.toProtocolString()})")
                 } catch (e: Exception) {
                     AppLogger.log("[WIDGET] 小工具發送異常: ${e.message}")
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "發送失敗: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, AppLocale.wrap(context).getString(R.string.widget_toast_failed, e.message), Toast.LENGTH_SHORT).show()
                     }
                 } finally {
                     pendingResult.finish()

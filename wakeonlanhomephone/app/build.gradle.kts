@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.wakeonlanhomephone"
         minSdk = 24
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.5.7"
+        versionCode = 17
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

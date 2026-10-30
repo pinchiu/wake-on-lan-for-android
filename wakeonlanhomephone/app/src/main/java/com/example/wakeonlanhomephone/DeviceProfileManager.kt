@@ -38,7 +38,7 @@ class DeviceProfileManager(private val context: Context) {
             val oldMac = configManager.getConfig().targetMac.trim()
             if (oldMac.isNotEmpty()) {
                 val initialDevice = DeviceProfile(
-                    name = "主要電腦",
+                    name = AppLocale.wrap(context).getString(R.string.default_profile_primary),
                     mac = oldMac,
                     ip = ""
                 )
@@ -66,7 +66,7 @@ class DeviceProfileManager(private val context: Context) {
 
     fun addDevice(name: String, mac: String, ip: String): DeviceProfile {
         val newDevice = DeviceProfile(
-            name = name.trim().ifEmpty { "新電腦" },
+            name = name.trim().ifEmpty { AppLocale.wrap(context).getString(R.string.default_device_new) },
             mac = mac.trim(),
             ip = ip.trim()
         )

@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,14 +48,14 @@ fun ConnectionsScreen(
             onDismissRequest = { deviceToDeleteId = null },
             title = {
                 Text(
-                    text = "確認刪除設備",
+                    text = stringResource(R.string.mqtt_delete_title),
                     color = Slate50,
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
-                    text = "您確定要刪除設備「$deviceName」嗎？此操作無法復原。",
+                    text = stringResource(R.string.mqtt_delete_message, deviceName),
                     color = Slate300
                 )
             },
@@ -67,14 +68,14 @@ fun ConnectionsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = SemanticDanger),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("確定刪除", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.action_delete_confirm), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = { deviceToDeleteId = null }
                 ) {
-                    Text("取消", color = Slate400)
+                    Text(stringResource(R.string.action_cancel), color = Slate400)
                 }
             },
             containerColor = DarkSurfaceElevated,
@@ -93,7 +94,7 @@ fun ConnectionsScreen(
                 shape = CircleShape,
                 modifier = Modifier.padding(bottom = 90.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "新增設備")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.content_add_device))
             }
         }
     ) { padding ->
@@ -113,7 +114,7 @@ fun ConnectionsScreen(
             ) {
                 Column {
                     Text(
-                        text = "MQTT 設備清單",
+                        text = stringResource(R.string.mqtt_devices_title),
                         color = Slate50,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
@@ -128,7 +129,7 @@ fun ConnectionsScreen(
                                 AnimatedPingDot(color = AccentEmerald, size = 6.dp)
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = "Broker: 已連線",
+                                    text = stringResource(R.string.broker_connected),
                                     color = AccentEmerald,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -138,7 +139,7 @@ fun ConnectionsScreen(
                                 AnimatedPingDot(color = SemanticWarning, size = 6.dp)
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = "Broker: 連線中...",
+                                    text = stringResource(R.string.broker_connecting),
                                     color = SemanticWarning,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -148,7 +149,7 @@ fun ConnectionsScreen(
                                 Box(modifier = Modifier.size(6.dp).background(SemanticDanger, CircleShape))
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = "Broker: 連線失敗 (點擊設定)",
+                                    text = stringResource(R.string.broker_failed),
                                     color = SemanticDanger,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -158,7 +159,7 @@ fun ConnectionsScreen(
                                 Box(modifier = Modifier.size(6.dp).background(Slate500, CircleShape))
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    text = "Broker: 未連線",
+                                    text = stringResource(R.string.broker_disconnected),
                                     color = Slate400,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Normal
@@ -168,7 +169,7 @@ fun ConnectionsScreen(
                     }
                 }
                 IconButton(onClick = onSettings) {
-                    Icon(Icons.Default.Settings, contentDescription = "設定", tint = Slate400)
+                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.content_settings), tint = Slate400)
                 }
             }
 
@@ -178,19 +179,19 @@ fun ConnectionsScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 StatCard(
-                    label = "設備總數",
+                    label = stringResource(R.string.stat_total_devices),
                     value = devices.size.toString(),
                     valueColor = Slate50,
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
-                    label = "線上狀態",
+                    label = stringResource(R.string.stat_online),
                     value = devices.count { deviceStatuses[it.id] == true }.toString(),
                     valueColor = AccentEmerald,
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
-                    label = "離線狀態",
+                    label = stringResource(R.string.stat_offline),
                     value = devices.count { deviceStatuses[it.id] != true }.toString(),
                     valueColor = Slate400,
                     modifier = Modifier.weight(1f)
@@ -209,13 +210,13 @@ fun ConnectionsScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "尚未設定任何 MQTT 設備",
+                            text = stringResource(R.string.mqtt_no_devices),
                             color = Slate400,
                             fontSize = 14.sp
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "點擊右下角「+」新增監聽主題",
+                            text = stringResource(R.string.mqtt_empty_hint),
                             color = Slate500,
                             fontSize = 12.sp
                         )
@@ -320,7 +321,7 @@ fun MqttDeviceCard(
                             )
                             Spacer(Modifier.width(5.dp))
                             Text(
-                                text = if (isOnline) "已連線" else "已離線",
+                                text = if (isOnline) stringResource(R.string.status_connected) else stringResource(R.string.status_offline),
                                 color = if (isOnline) AccentEmerald else Slate400,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -332,10 +333,10 @@ fun MqttDeviceCard(
                 // Action icons
                 Row {
                     IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "編輯", tint = Slate400, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.action_edit), tint = Slate400, modifier = Modifier.size(16.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "刪除", tint = SemanticDanger, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete), tint = SemanticDanger, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -362,7 +363,7 @@ fun MqttDeviceCard(
                     Spacer(Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = "主題 (Topic)",
+                            text = stringResource(R.string.mqtt_topic_label),
                             color = Slate500,
                             fontSize = 10.sp
                         )
@@ -392,7 +393,7 @@ fun MqttDeviceCard(
                 modifier = Modifier.fillMaxWidth().height(42.dp)
             ) {
                 Text(
-                    text = if (isOnline) "發送離線訊號" else "發送上線訊號",
+                    text = if (isOnline) stringResource(R.string.mqtt_send_offline) else stringResource(R.string.mqtt_send_online),
                     color = if (isOnline) Slate300 else AccentEmerald,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp

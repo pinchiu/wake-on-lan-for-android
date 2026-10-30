@@ -38,6 +38,7 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
         }
 
         fun updateWidgetViews(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
+            val localized = AppLocale.wrap(context)
             val views = RemoteViews(context.packageName, R.layout.widget_remote_wake)
             val pendingIntent = createPendingIntent(context)
 
@@ -48,11 +49,17 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
             val device = manager.getSelectedDevice()
 
             if (device != null && device.mac.isNotBlank()) {
-                views.setTextViewText(R.id.widget_remote_title, "${device.name} 開機")
-                views.setTextViewText(R.id.widget_remote_status, "目標: ${device.mac}")
+                views.setTextViewText(
+                    R.id.widget_remote_title,
+                    localized.getString(R.string.widget_remote_device_title, device.name)
+                )
+                views.setTextViewText(
+                    R.id.widget_remote_status,
+                    localized.getString(R.string.widget_remote_target_mac, device.mac)
+                )
             } else {
-                views.setTextViewText(R.id.widget_remote_title, context.getString(R.string.widget_remote_name))
-                views.setTextViewText(R.id.widget_remote_status, context.getString(R.string.widget_remote_hint))
+                views.setTextViewText(R.id.widget_remote_title, localized.getString(R.string.widget_remote_name))
+                views.setTextViewText(R.id.widget_remote_status, localized.getString(R.string.widget_remote_hint))
             }
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
@@ -73,6 +80,7 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    val localized = AppLocale.wrap(context)
                     val manager = DeviceProfileManager(context)
                     val device = manager.getSelectedDevice()
                     val appWidgetManager = AppWidgetManager.getInstance(context)
@@ -84,9 +92,9 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
 
                     if (device == null || device.mac.isBlank()) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "尚未設定目標電腦，請先開啟 App 設定", Toast.LENGTH_LONG).show()
+                            Toast.makeText(localized, localized.getString(R.string.widget_no_target_toast), Toast.LENGTH_LONG).show()
                         }
-                        views.setTextViewText(R.id.widget_remote_status, context.getString(R.string.widget_remote_no_device))
+                        views.setTextViewText(R.id.widget_remote_status, localized.getString(R.string.widget_remote_no_device))
                         appWidgetManager.updateAppWidget(componentName, views)
                         return@launch
                     }
@@ -100,7 +108,7 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
                     } else {
                         if (helperIpv6.isBlank()) {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "尚未設定 Helper IPv6 地址", Toast.LENGTH_LONG).show()
+                                Toast.makeText(localized, localized.getString(R.string.widget_no_helper_ipv6), Toast.LENGTH_LONG).show()
                             }
                             return@launch
                         }
@@ -108,16 +116,31 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
                     }
 
                     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-                    views.setTextViewText(R.id.widget_remote_title, "${device.name} 開機")
-                    views.setTextViewText(R.id.widget_remote_status, "已發送 $timeFormat (${device.mac})")
+                    views.setTextViewText(
+                        R.id.widget_remote_title,
+                        localized.getString(R.string.widget_remote_device_title, device.name)
+                    )
+                    views.setTextViewText(
+                        R.id.widget_remote_status,
+                        localized.getString(R.string.widget_sent_status, timeFormat, device.mac)
+                    )
                     appWidgetManager.updateAppWidget(componentName, views)
 
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "已發送喚醒至 ${device.name}: $resultMsg", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            localized,
+                            localized.getString(R.string.widget_wake_sent_toast, device.name, resultMsg),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "發送失敗: ${e.message}", Toast.LENGTH_SHORT).show()
+                        val localized = AppLocale.wrap(context)
+                        Toast.makeText(
+                            localized,
+                            localized.getString(R.string.widget_send_failed, e.message ?: ""),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 } finally {
                     pendingResult.finish()

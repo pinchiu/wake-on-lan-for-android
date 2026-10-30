@@ -1,5 +1,6 @@
 package com.example.wakeonlanhomephone
 
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -7,6 +8,10 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 class VoiceWakeActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,7 +30,7 @@ class VoiceWakeActivity : ComponentActivity() {
 
             when (result) {
                 is PcActionResult.Success -> {
-                    Toast.makeText(this@VoiceWakeActivity, "已發送開機訊號至電腦", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@VoiceWakeActivity, getString(R.string.toast_wake_signal_sent), Toast.LENGTH_SHORT).show()
                 }
                 is PcActionResult.Failure -> {
                     Toast.makeText(this@VoiceWakeActivity, result.error, Toast.LENGTH_LONG).show()

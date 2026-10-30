@@ -28,6 +28,10 @@ class WolListenerService : Service() {
         )
     }
 
+    private fun localized(resId: Int, vararg args: Any): String {
+        return AppLocale.wrap(this).getString(resId, *args)
+    }
+
 
 
     private lateinit var serverThread: Thread
@@ -53,7 +57,7 @@ class WolListenerService : Service() {
             Log.d(TAG, "Service started")
 
             createNotificationChannel()
-            startForeground(NOTIFICATION_ID, createNotification("Listening for wake-up commands (TCP)..."))
+            startForeground(NOTIFICATION_ID, createNotification(localized(R.string.service_wol_initializing)))
 
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WoLHelper::CpuWakeLock")
@@ -110,7 +114,7 @@ class WolListenerService : Service() {
     private fun handleClientConnection(clientSocket: Socket) {
         try {
             clientSocket.soTimeout = 5000
-            val senderAddress = clientSocket.inetAddress?.hostAddress ?: "Unknown source"
+            val senderAddress = clientSocket.inetAddress?.hostAddress ?: localized(R.string.service_wol_unknown_source)
             val reader = clientSocket.getInputStream().bufferedReader()
             val commandData = reader.readLine()?.trim() ?: ""
 
@@ -119,7 +123,7 @@ class WolListenerService : Service() {
                     dispatcher.dispatch(commandData, "TCP:$senderAddress")
                 }
                 val response = actionResult.toProtocolString()
-                updateNotification("Last: $response from $senderAddress")
+                updateNotification(localized(R.string.service_wol_last_command, response, senderAddress))
 
                 val writer = clientSocket.getOutputStream().bufferedWriter()
                 writer.write(response + "\n")
@@ -139,7 +143,7 @@ class WolListenerService : Service() {
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("Remote Helper Service")
+            .setContentTitle(localized(R.string.service_wol_notification_title))
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
@@ -210,10 +214,10 @@ class WolListenerService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "WoL Listener Service Channel",
+                localized(R.string.service_wol_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Persistent notification for the WoL Helper Service"
+                description = localized(R.string.service_wol_channel_description)
             }
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(serviceChannel)
         }

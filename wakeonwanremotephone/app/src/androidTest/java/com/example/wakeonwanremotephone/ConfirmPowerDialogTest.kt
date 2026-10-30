@@ -1,7 +1,7 @@
 package com.example.wakeonwanremotephone
 
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.example.wakeonwanremotephone.ui.components.ConfirmPowerDialog
 import org.junit.Assert.assertEquals
@@ -29,7 +29,7 @@ class ConfirmPowerDialogTest {
             )
         }
 
-        composeRule.onNodeWithText("確認執行").performClick()
+        composeRule.onNodeWithTag("confirm_power_action").performClick()
 
         assertEquals("確認執行應觸發 onConfirm", 1, confirmCalls)
         assertEquals("確認執行不應先清空父層狀態", 0, dismissCalls)

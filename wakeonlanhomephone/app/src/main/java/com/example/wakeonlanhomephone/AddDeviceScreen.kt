@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -54,7 +55,7 @@ fun AddDeviceScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Text(
-                        text = if (deviceToEdit != null) "編輯 MQTT 設備" else "新增 MQTT 設備",
+                        text = if (deviceToEdit != null) stringResource(R.string.add_device_edit_title) else stringResource(R.string.add_device_add_title),
                         color = Slate50,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp
@@ -62,7 +63,7 @@ fun AddDeviceScreen(
                 },
                 navigationIcon = {
                     TextButton(onClick = onCancel) {
-                        Text("取消", color = Slate400, fontSize = 14.sp)
+                        Text(stringResource(R.string.action_cancel), color = Slate400, fontSize = 14.sp)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -114,7 +115,7 @@ fun AddDeviceScreen(
                 ) {
                     Icon(Icons.Default.Done, null, tint = Color.Black, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("儲存並套用設定", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(stringResource(R.string.add_device_save_apply), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
             }
         },
@@ -129,9 +130,9 @@ fun AddDeviceScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // Broker Connection Section
-            ConfigSectionCard(title = "Broker 連線資訊") {
+            ConfigSectionCard(title = stringResource(R.string.add_device_broker_section)) {
                 PrecisionInputField(
-                    label = "設備 / Broker 名稱",
+                    label = stringResource(R.string.add_device_name_label),
                     value = name,
                     onValueChange = { name = it },
                     placeholder = "Adafruit IO"
@@ -140,7 +141,7 @@ fun AddDeviceScreen(
                 Spacer(Modifier.height(12.dp))
 
                 PrecisionInputField(
-                    label = "Broker 伺服器網址 (Host)",
+                    label = stringResource(R.string.add_device_host_label),
                     value = brokerUrl,
                     onValueChange = { brokerUrl = it },
                     placeholder = "io.adafruit.com"
@@ -151,7 +152,7 @@ fun AddDeviceScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(modifier = Modifier.weight(1f)) {
                         PrecisionInputField(
-                            label = "通訊埠 (Port)",
+                            label = stringResource(R.string.add_device_port_label),
                             value = port,
                             onValueChange = { port = it },
                             placeholder = if (useSsl) "8883" else "1883"
@@ -160,7 +161,7 @@ fun AddDeviceScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "連線協議",
+                            text = stringResource(R.string.add_device_protocol_label),
                             fontSize = 11.sp,
                             color = Slate400,
                             fontWeight = FontWeight.Medium,
@@ -221,7 +222,7 @@ fun AddDeviceScreen(
             }
 
             // Security & Auth Section
-            ConfigSectionCard(title = "安全與身份驗證") {
+            ConfigSectionCard(title = stringResource(R.string.add_device_security_section)) {
                 // SSL Switch
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -229,8 +230,8 @@ fun AddDeviceScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("SSL / TLS 加密連線", color = Slate50, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text("建議啟用 (預設 Port 8883)", color = Slate400, fontSize = 11.sp)
+                        Text(stringResource(R.string.add_device_ssl_title), color = Slate50, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.add_device_ssl_hint), color = Slate400, fontSize = 11.sp)
                     }
                     Switch(
                         checked = useSsl,
@@ -251,7 +252,7 @@ fun AddDeviceScreen(
                 Spacer(Modifier.height(14.dp))
 
                 PrecisionInputField(
-                    label = "使用者名稱 (Adafruit Username)",
+                    label = stringResource(R.string.add_device_username_label),
                     value = username,
                     onValueChange = { username = it },
                     placeholder = "username"
@@ -260,7 +261,7 @@ fun AddDeviceScreen(
                 Spacer(Modifier.height(12.dp))
 
                 PrecisionInputField(
-                    label = "密碼 / 憑證 (Adafruit AIO Key)",
+                    label = stringResource(R.string.add_device_password_label),
                     value = password,
                     onValueChange = { password = it },
                     placeholder = "aio_xxxxxxxxxxxxxxxxxxxxxxxx",
@@ -269,7 +270,7 @@ fun AddDeviceScreen(
                         IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                             Icon(
                                 imageVector = if (isPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                contentDescription = if (isPasswordVisible) "隱藏密碼" else "顯示密碼",
+                                contentDescription = if (isPasswordVisible) stringResource(R.string.password_hide) else stringResource(R.string.password_show),
                                 tint = if (isPasswordVisible) AccentEmerald else Slate400,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -279,9 +280,9 @@ fun AddDeviceScreen(
             }
 
             // Target Topic Section
-            ConfigSectionCard(title = "目標主題配置") {
+            ConfigSectionCard(title = stringResource(R.string.add_device_topic_section)) {
                 PrecisionInputField(
-                    label = "監聽主題 (Topic)",
+                    label = stringResource(R.string.add_device_topic_label),
                     value = topic,
                     onValueChange = { topic = it },
                     placeholder = "username/feeds/feed-name"

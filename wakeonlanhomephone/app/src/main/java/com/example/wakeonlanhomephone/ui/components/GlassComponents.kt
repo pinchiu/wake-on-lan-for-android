@@ -17,6 +17,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Bolt
+import com.example.wakeonlanhomephone.R
 import com.example.wakeonlanhomephone.ui.theme.*
 
 /**
@@ -413,13 +416,13 @@ fun MasterWakeButton(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = if (deviceName.isNotBlank()) "喚醒 $deviceName" else "發送 WoL 喚醒廣播",
+                            text = if (deviceName.isNotBlank()) stringResource(R.string.wake_button_named, deviceName) else stringResource(R.string.wake_button_default),
                             color = if (enabled) Color.Black else Slate500,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (deviceMac.isNotBlank()) "MAC: $deviceMac (Port 9)" else "尚未設定 MAC",
+                            text = if (deviceMac.isNotBlank()) stringResource(R.string.wake_mac_configured, deviceMac) else stringResource(R.string.wake_mac_missing),
                             color = if (enabled) Color.Black.copy(alpha = 0.75f) else Slate600,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace
@@ -483,7 +486,7 @@ fun ConfirmPowerDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "確認執行「$actionName」？",
+                        text = stringResource(R.string.confirm_power_title, actionName),
                         color = Slate50,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -493,7 +496,7 @@ fun ConfirmPowerDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "即將向目標電腦「$targetName」($targetIp:9877) 發送 UDP 控制指令。請確認電腦已儲存運作中資料。",
+                    text = stringResource(R.string.confirm_power_body, targetName, targetIp),
                     color = Slate300,
                     fontSize = 13.sp,
                     lineHeight = 19.sp
@@ -506,20 +509,21 @@ fun ConfirmPowerDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("取消", color = Slate400, fontSize = 13.sp)
+                        Text(stringResource(R.string.action_cancel), color = Slate400, fontSize = 13.sp)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         // onConfirm 負責清除待執行動作並關閉對話框。
                         // 不可先呼叫 onDismiss，否則父層會在 onConfirm 讀取動作前就將其清空。
                         onClick = onConfirm,
+                        modifier = Modifier.testTag("confirm_power_action"),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isDestructive) SemanticDanger else SemanticInfo
                         ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
-                            text = "確認執行",
+                            text = stringResource(R.string.action_confirm),
                             color = Color.White,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
