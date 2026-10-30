@@ -133,6 +133,14 @@ jobs:
       - name: Verify Python Script Syntax
         run: python -m py_compile computer/pc_onoff.py
 
+      - name: Check Rust Formatting
+        run: cargo fmt --all -- --check
+        working-directory: computer
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: computer
+
       - name: Run Rust Unit Tests
         run: cargo test --verbose
         working-directory: computer

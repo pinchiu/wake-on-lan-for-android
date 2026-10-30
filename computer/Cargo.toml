@@ -2,6 +2,8 @@
 name = "pc_onoff"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.88"
+description = "Wake-on-LAN PC power control daemon (UDP 9877)"
 
 [profile.release]
 opt-level = 3

@@ -79,6 +79,27 @@
 | `SLEEP:<IP>` 或 `SLEEP,<IP>` | `SLEEP:192.168.1.100` | 發送 UDP 電源指令 `sleep` 至 `192.168.1.100:9877` |
 | `HIBERNATE:<IP>` 或 `HIBERNATE,<IP>` | `HIBERNATE:192.168.1.100` | 發送 UDP 電源指令 `hibernate` 至 `192.168.1.100:9877` |
 
+### 2.3 電腦端守護程式的對稱深模組 (Rust `Dispatcher`)
+
+[`computer/src/dispatch.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/dispatch.rs) 以相同的深模組思路實作 PC 端指令收斂：
+
+```rust
+pub trait PowerController {
+    fn execute(&self, action: PowerAction) -> Result<(), PowerError>;
+}
+
+pub struct Dispatcher<P: PowerController> { /* ... */ }
+
+impl<P: PowerController> Dispatcher<P> {
+    pub fn dispatch(&self, raw: &str) -> Result<PowerAction, DispatchError>;
+}
+```
+
+* **小介面**：呼叫端只需知道 `dispatch(raw)`；回傳 `Result<PowerAction, DispatchError>`。
+* **深實作**：`action.rs` 處理大小寫、空白、`:`／`,` 與別名；`power.rs` 處理 Windows Win32／Linux systemctl 差異；`server.rs` 只負責 UDP 傳輸與日誌呈現。
+* **可測試性**：`PowerController` 是唯一的系統電源 seam，單元測試注入假實作，不需真的關機。
+* **單一方向依賴**：`power → action`、`dispatch → {action, power}`、`server → dispatch`、`cli → 全部`。
+
 ---
 
 ## 3. 外出端多電腦 Profile 管理與桌面小工具
@@ -114,7 +135,12 @@
 | **外出端多主機管理** | [`wakeonwanremotephone/.../DeviceProfileManager.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/DeviceProfileManager.kt) | 外出端多電腦設定管理（支援多台電腦名稱、MAC、IP 儲存、新增、編輯與切換）。 |
 | **外出端桌面小工具** | [`wakeonwanremotephone/.../RemoteWakeWidgetProvider.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteWakeWidgetProvider.kt) | 外出端桌面小工具，單鍵遠端喚醒當前選定電腦。 |
 | **外出端網路工具庫** | [`wakeonwanremotephone/.../RemoteNetworkUtil.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt) | 外出端網路指令封裝（TCP 9876、LAN WoL 廣播、UDP 9877 直連）。 |
-| **電腦端守護程式** | [`computer/pc_onoff.py`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/pc_onoff.py) | 於 PC 監聽 UDP 9877，接收電源控制指令執行 Windows 系統操作。 |
+| **電腦端守護程式（Rust 深模組）** | [`computer/src/dispatch.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/dispatch.rs) | `Dispatcher<P: PowerController>::dispatch(raw)`：解析 → 執行 → 結構化 `DispatchError`；不寫日誌、不碰 socket，可用假電源控制器完整測試。 |
+| **電腦端指令語法** | [`computer/src/action.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/action.rs) | `PowerAction` 與容錯解析（大小寫、空白、`:`／`,`、`poweroff` 等別名）。 |
+| **電腦端電源 seam** | [`computer/src/power.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/power.rs) | `PowerController` 介面；Windows Win32 API／Linux systemctl 實作。 |
+| **電腦端 UDP 適配器** | [`computer/src/server.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/server.rs) | 監聽 UDP 9877、呼叫 dispatcher、日誌呈現與本機 IP 查詢。 |
+| **電腦端輔助模組** | [`computer/src/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/) | `config`（原子寫入）、`logging`（5 MB 輪替）、`autostart`、`instance`（單實例／停止）、`paths`、`cli`。 |
+| **電腦端舊版 Python 參考實作** | [`computer/pc_onoff.py`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/pc_onoff.py) | 保留供對照；CI 僅做語法檢查，實際部署以 Rust 版本為準。 |
 
 ---
 
@@ -223,6 +249,16 @@
   python -m py_compile computer\pc_onoff.py
   ```
 
+#### E. 電腦端 Rust 守護程式測試與靜態檢查（必須 100% 通過）
+* **Linux / macOS**：
+  ```bash
+  cd computer && cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo test
+  ```
+* **Windows (PowerShell)**：
+  ```powershell
+  cd computer; cargo fmt --all -- --check; cargo clippy --all-targets -- -D warnings; cargo test
+  ```
+
 ---
 
 ## 7. GitHub Actions CI/CD 流水線與自動化驗證守則
@@ -233,7 +269,7 @@
   1. `detect-changes`：使用 `dorny/paths-filter` 檢測變更子系統，未變更之子模組自動略過，避免冗餘編譯。
   2. `build-home-phone`：以 JDK 21 執行 `./gradlew testDebugUnitTest` 與 `assembleRelease`，驗證單元測試與 APK 建置（僅在助手端變更時執行）。
   3. `build-remote-phone`：以 JDK 21 建置 `wakeonwanremotephone` Release APK（僅在遠端控制端變更時執行）。
-  4. `build-computer`：以 Rust 執行 `cargo test` 與 `cargo build --release` 打包 Linux 二進位產物，並以 Python 3.11 檢驗 `computer/pc_onoff.py` 語法（僅在電腦端變更時執行）。
+  4. `build-computer`：以 Rust 執行 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test` 與 `cargo build --release` 打包 Linux 二進位產物，並以 Python 3.11 檢驗 `computer/pc_onoff.py` 語法（僅在電腦端變更時執行）。
 
 ### 7.1 強制性 CI/CD 監控與修復循環規範 (Post-Push Verification Loop)
 
@@ -241,7 +277,7 @@
 > **推播後必檢規範 (Mandatory CI/CD Verification)**：
 > 任何 AI Agent 或開發者在完成 `git push origin <branch>` 推播程式碼後，**絕對不得直接結束任務**。必須依循以下程序：
 > 1. **監控 CI/CD 狀態**：使用 GitHub CLI 執行 `gh run list -L 1` 取得剛觸發的 Run ID，並使用 `gh run watch <RunID>`（或在背景追蹤）等待流水線執行完畢。
-> 2. **檢驗執行結果**：確認所有 Jobs（`build-home-phone`、`build-remote-phone`、`verify-computer-script`）皆為綠燈通過（Success）。
+> 2. **檢驗執行結果**：確認所有 Jobs（`build-home-phone`、`build-remote-phone`、`build-computer`）皆為綠燈通過（Success）。
 > 3. **錯誤即時修復與重推 (Fix & Push Again)**：
 >    - 若任何 Job 失敗（Failure / Error），必須立即調閱失敗工作之錯誤日誌（如 `gh run view <RunID> --log-failed`）。
 >    - 深入分析失敗根因（例如單元測試斷言失敗、Kotlin 編譯錯誤、依賴套件衝突等）並進行程式碼修復。
@@ -256,11 +292,14 @@
 1. **修改 [`PcActionDispatcher.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/PcActionDispatcher.kt)**：
    * 在指令前綴匹配中加入 `rawUpper.startsWith("LOCK:") || rawUpper.startsWith("LOCK,")`。
    * 呼叫 `sendUdpCommand(ip, 9877, "lock")`。
-2. **修改 [`computer/pc_onoff.py`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/pc_onoff.py)**：
-   * 在指令判斷區塊加入 `elif cmd == 'lock': ctypes.windll.user32.LockWorkStation()`。
-3. **編寫單元測試**：
+2. **修改電腦端 [`action.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/action.rs)**：
+   * 在 `PowerAction` enum 加入新變體、`keyword()`／`label()` 與 `parse()` 的 match 分支。
+3. **修改電腦端 [`power.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/power.rs)**：
+   * 在 Windows／Linux 實作中補上對應的系統呼叫；傳輸層與 `dispatch.rs` 無需修改。
+4. **編寫單元測試**：
    * 在 [`PcActionDispatcherTest.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/test/java/com/example/wakeonlanhomephone/PcActionDispatcherTest.kt) 中加入 `dispatch_lockCommand_sendsUdpPacket` 測試。
-4. **所有傳輸管道自動生效**：TCP、MQTT、語音與 Widget 皆無需修改任何通訊程式碼即可直接支援該新指令。
+   * 在 `computer/src/action.rs` 與 `computer/src/dispatch.rs` 的測試模組加入解析與分派案例。
+5. **所有傳輸管道自動生效**：TCP、MQTT、語音與 Widget 皆無需修改任何通訊程式碼即可直接支援該新指令。
 
 ### 8.2 若需要支援多台電腦開機或定向子網廣播
 * 在 `PcActionDispatcher` 初始化或呼叫時，`dispatch("WAKE:11:22:33:44:55:66")` 或 `dispatch("WAKE", ...)` 已支援動態傳入 MAC。
