@@ -2,30 +2,102 @@
 
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream, UdpSocket};
+use std::io::Write;
+use std::net::{SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
 const LISTEN_IP: &str = "0.0.0.0";
 const DEFAULT_UDP_PORT: u16 = 9877;
-const DEFAULT_WEB_PORT: u16 = 9878;
 const BUFFER_SIZE: usize = 1024;
 const APP_NAME: &str = "pc_onoff";
 const CONFIG_FILE_NAME: &str = "config.ini";
 
-// Windows 註冊表常數
+// Windows 登錄檔常數
 const REG_RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 const REG_RUN_NAME: &str = "WakeOnLanPcOnOff";
 
-// 全域共享狀態
-static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
-static ACTIVE_PORT: AtomicU16 = AtomicU16::new(DEFAULT_UDP_PORT);
-static RECENT_LOGS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+// Win32 訊息常數
+const WM_DESTROY: u32 = 0x0002;
+const WM_CLOSE: u32 = 0x0010;
+const WM_COMMAND: u32 = 0x0111;
+const WM_USER: u32 = 0x0400;
+const WM_TRAYICON: u32 = WM_USER + 1;
+const WM_UPDATE_LOG: u32 = WM_USER + 2;
+
+const WM_LBUTTONDBLCLK: usize = 0x0203;
+const WM_RBUTTONUP: usize = 0x0205;
+
+// Win32 視窗樣式
+const WS_OVERLAPPED: u32 = 0x00000000;
+const WS_CAPTION: u32 = 0x00C00000;
+const WS_SYSMENU: u32 = 0x00080000;
+const WS_MINIMIZEBOX: u32 = 0x00020000;
+const WS_VISIBLE: u32 = 0x10000000;
+const WS_CHILD: u32 = 0x40000000;
+const WS_BORDER: u32 = 0x00800000;
+const WS_VSCROLL: u32 = 0x00200000;
+
+// 控制項樣式
+const BS_GROUPBOX: u32 = 0x00000007;
+const BS_AUTOCHECKBOX: u32 = 0x00000003;
+const BS_PUSHBUTTON: u32 = 0x00000000;
+
+const ES_MULTILINE: u32 = 0x0004;
+const ES_AUTOVSCROLL: u32 = 0x0040;
+const ES_READONLY: u32 = 0x0800;
+
+const BM_GETCHECK: u32 = 0x00F0;
+const BM_SETCHECK: u32 = 0x00F1;
+const BST_CHECKED: usize = 1;
+const BST_UNCHECKED: usize = 0;
+
+const SW_HIDE: i32 = 0;
+const SW_SHOWNORMAL: i32 = 1;
+const SW_RESTORE: i32 = 9;
+
+const IDI_APPLICATION: usize = 32512;
+const IDC_ARROW: usize = 32512;
+const COLOR_BTNFACE: usize = 15;
+const DEFAULT_GUI_FONT: usize = 17;
+const WM_SETFONT: u32 = 0x0030;
+const WM_VSCROLL_MSG: u32 = 0x0115;
+const SB_BOTTOM: usize = 7;
+
+const NIM_ADD: u32 = 0x00000000;
+const NIM_DELETE: u32 = 0x00000002;
+const NIF_MESSAGE: u32 = 0x00000001;
+const NIF_ICON: u32 = 0x00000002;
+const NIF_TIP: u32 = 0x00000004;
+const NIF_INFO: u32 = 0x00000010;
+
+const TPM_RIGHTBUTTON: u32 = 0x0002;
+const MF_STRING: u32 = 0x00000000;
+const MF_CHECKED: u32 = 0x00000008;
+const MF_UNCHECKED: u32 = 0x00000000;
+
+// 控制項 ID
+const ID_EDIT_PORT: usize = 101;
+const ID_CHK_AUTOSTART: usize = 102;
+const ID_CHK_MINIMIZED: usize = 103;
+const ID_BTN_SAVE: usize = 104;
+const ID_BTN_FIREWALL: usize = 105;
+const ID_BTN_LOCK: usize = 106;
+const ID_BTN_LOG: usize = 107;
+const ID_BTN_TRAY: usize = 108;
+const ID_STATIC_STATUS: usize = 109;
+const ID_STATIC_IP: usize = 110;
+const ID_EDIT_LOGS: usize = 111;
+
+// 系統匣選單 ID
+const ID_TRAY_OPEN: usize = 201;
+const ID_TRAY_AUTOSTART: usize = 202;
+const ID_TRAY_LOG: usize = 203;
+const ID_TRAY_EXIT: usize = 204;
 
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy)]
@@ -40,52 +112,184 @@ struct SystemTimeWin {
     w_milliseconds: u16,
 }
 
+#[repr(C)]
+struct NotifyIconDataW {
+    cb_size: u32,
+    h_wnd: *mut std::ffi::c_void,
+    u_id: u32,
+    u_flags: u32,
+    u_callback_message: u32,
+    h_icon: *mut std::ffi::c_void,
+    sz_tip: [u16; 128],
+    dw_state: u32,
+    dw_state_mask: u32,
+    sz_info: [u16; 256],
+    u_timeout_or_version: u32,
+    sz_info_title: [u16; 64],
+    dw_info_flags: u32,
+    guid_item: [u8; 16],
+    h_balloon_icon: *mut std::ffi::c_void,
+}
+
+#[repr(C)]
+struct PointWin {
+    x: i32,
+    y: i32,
+}
+
+#[repr(C)]
+struct MsgWin {
+    hwnd: *mut std::ffi::c_void,
+    message: u32,
+    w_param: usize,
+    l_param: isize,
+    time: u32,
+    pt: PointWin,
+    l_private: u32,
+}
+
+#[repr(C)]
+struct WndClassExW {
+    cb_size: u32,
+    style: u32,
+    lpfn_wnd_proc: Option<
+        unsafe extern "system" fn(
+            *mut std::ffi::c_void,
+            u32,
+            usize,
+            isize,
+        ) -> isize,
+    >,
+    cb_cls_extra: i32,
+    cb_wnd_extra: i32,
+    h_instance: *mut std::ffi::c_void,
+    h_icon: *mut std::ffi::c_void,
+    h_cursor: *mut std::ffi::c_void,
+    h_br_background: *mut std::ffi::c_void,
+    lpsz_menu_name: *const u16,
+    lpsz_class_name: *const u16,
+    h_icon_sm: *mut std::ffi::c_void,
+}
+
 #[cfg(windows)]
 mod win_api {
-    use super::SystemTimeWin;
+    use super::*;
 
     #[link(name = "user32")]
     #[link(name = "kernel32")]
+    #[link(name = "gdi32")]
     #[link(name = "shell32")]
     unsafe extern "system" {
-        pub fn GetConsoleWindow() -> *mut std::ffi::c_void;
+        pub fn GetModuleHandleW(lpModuleName: *const u16) -> *mut std::ffi::c_void;
+        pub fn RegisterClassExW(lpwcx: *const WndClassExW) -> u16;
+        pub fn CreateWindowExW(
+            dwExStyle: u32,
+            lpClassName: *const u16,
+            lpWindowName: *const u16,
+            dwStyle: u32,
+            X: i32,
+            Y: i32,
+            nWidth: i32,
+            nHeight: i32,
+            hWndParent: *mut std::ffi::c_void,
+            hMenu: *mut std::ffi::c_void,
+            hInstance: *mut std::ffi::c_void,
+            lpParam: *mut std::ffi::c_void,
+        ) -> *mut std::ffi::c_void;
+        pub fn DefWindowProcW(
+            hWnd: *mut std::ffi::c_void,
+            Msg: u32,
+            wParam: usize,
+            lParam: isize,
+        ) -> isize;
         pub fn ShowWindow(hWnd: *mut std::ffi::c_void, nCmdShow: i32) -> i32;
+        pub fn UpdateWindow(hWnd: *mut std::ffi::c_void) -> i32;
+        pub fn GetMessageW(
+            lpMsg: *mut MsgWin,
+            hWnd: *mut std::ffi::c_void,
+            wMsgFilterMin: u32,
+            wMsgFilterMax: u32,
+        ) -> i32;
+        pub fn TranslateMessage(lpMsg: *const MsgWin) -> i32;
+        pub fn DispatchMessageW(lpMsg: *const MsgWin) -> isize;
+        pub fn PostQuitMessage(nExitCode: i32);
+        pub fn SendMessageW(
+            hWnd: *mut std::ffi::c_void,
+            Msg: u32,
+            wParam: usize,
+            lParam: isize,
+        ) -> isize;
+        pub fn PostMessageW(
+            hWnd: *mut std::ffi::c_void,
+            Msg: u32,
+            wParam: usize,
+            lParam: isize,
+        ) -> i32;
+        pub fn SetWindowTextW(hWnd: *mut std::ffi::c_void, lpString: *const u16) -> i32;
+        pub fn GetWindowTextW(
+            hWnd: *mut std::ffi::c_void,
+            lpString: *mut u16,
+            nMaxCount: i32,
+        ) -> i32;
+        pub fn GetStockObject(i: usize) -> *mut std::ffi::c_void;
+        pub fn LoadIconW(
+            hInstance: *mut std::ffi::c_void,
+            lpIconName: *const u16,
+        ) -> *mut std::ffi::c_void;
+        pub fn LoadCursorW(
+            hInstance: *mut std::ffi::c_void,
+            lpCursorName: *const u16,
+        ) -> *mut std::ffi::c_void;
+        pub fn Shell_NotifyIconW(
+            dwMessage: u32,
+            lpData: *mut NotifyIconDataW,
+        ) -> i32;
+        pub fn CreatePopupMenu() -> *mut std::ffi::c_void;
+        pub fn AppendMenuW(
+            hMenu: *mut std::ffi::c_void,
+            uFlags: u32,
+            uIDNewItem: usize,
+            lpNewItem: *const u16,
+        ) -> i32;
+        pub fn TrackPopupMenu(
+            hMenu: *mut std::ffi::c_void,
+            uFlags: u32,
+            x: i32,
+            y: i32,
+            nReserved: i32,
+            hWnd: *mut std::ffi::c_void,
+            prcRect: *const std::ffi::c_void,
+        ) -> i32;
+        pub fn DestroyMenu(hMenu: *mut std::ffi::c_void) -> i32;
+        pub fn GetCursorPos(lpPoint: *mut PointWin) -> i32;
+        pub fn SetForegroundWindow(hWnd: *mut std::ffi::c_void) -> i32;
         pub fn GetLocalTime(lpSystemTime: *mut SystemTimeWin);
+        pub fn MessageBoxW(
+            hWnd: *mut std::ffi::c_void,
+            lpText: *const u16,
+            lpCaption: *const u16,
+            uType: u32,
+        ) -> i32;
     }
 
-    pub fn hide_console() {
-        unsafe {
-            let hwnd = GetConsoleWindow();
-            if !hwnd.is_null() {
-                ShowWindow(hwnd, 0); // SW_HIDE = 0
-            }
-        }
-    }
-
-    pub fn get_local_time() -> SystemTimeWin {
-        let mut st = SystemTimeWin::default();
-        unsafe {
-            GetLocalTime(&mut st);
-        }
-        st
+    pub fn to_wide_chars(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain(std::iter::once(0)).collect()
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub udp_port: u16,
-    pub web_port: u16,
     pub autostart: bool,
-    pub enable_web_ui: bool,
+    pub start_minimized: bool,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             udp_port: DEFAULT_UDP_PORT,
-            web_port: DEFAULT_WEB_PORT,
-            autostart: true, // 預設直接啟用開機自動啟動，無需使用者在終端機手動選擇
-            enable_web_ui: true,
+            autostart: true, // 預設即啟用開機自動啟動，無需手動選擇 [1]
+            start_minimized: false,
         }
     }
 }
@@ -107,16 +311,11 @@ impl AppConfig {
                                 cfg.udp_port = p;
                             }
                         }
-                        "web_port" => {
-                            if let Ok(p) = v.parse::<u16>() {
-                                cfg.web_port = p;
-                            }
-                        }
                         "autostart" => {
                             cfg.autostart = v.eq_ignore_ascii_case("true") || v == "1";
                         }
-                        "enable_web_ui" => {
-                            cfg.enable_web_ui = v.eq_ignore_ascii_case("true") || v == "1";
+                        "start_minimized" => {
+                            cfg.start_minimized = v.eq_ignore_ascii_case("true") || v == "1";
                         }
                         _ => {}
                     }
@@ -135,12 +334,18 @@ impl AppConfig {
             let _ = fs::create_dir_all(parent);
         }
         let content = format!(
-            "# Wake-on-LAN 電腦端電源控制設定\nudp_port={}\nweb_port={}\nautostart={}\nenable_web_ui={}\n",
-            self.udp_port, self.web_port, self.autostart, self.enable_web_ui
+            "# Wake-on-LAN 電腦端電源控制設定\nudp_port={}\nautostart={}\nstart_minimized={}\n",
+            self.udp_port, self.autostart, self.start_minimized
         );
-        fs::write(&path, content).map_err(|e| format!("無法儲存設定檔案: {}", e))
+        fs::write(&path, content).map_err(|e| format!("無法儲存設定檔: {}", e))
     }
 }
+
+// 全域共享狀態
+static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
+static RECENT_LOGS: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
+static ACTIVE_PORT: AtomicU16 = AtomicU16::new(DEFAULT_UDP_PORT);
 
 fn get_app_dir() -> PathBuf {
     #[cfg(windows)]
@@ -211,7 +416,10 @@ fn get_installed_exe_path() -> PathBuf {
 fn get_local_timestamp() -> String {
     #[cfg(windows)]
     {
-        let st = win_api::get_local_time();
+        let mut st = SystemTimeWin::default();
+        unsafe {
+            win_api::GetLocalTime(&mut st);
+        }
         format!(
             "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
             st.w_year, st.w_month, st.w_day, st.w_hour, st.w_minute, st.w_second
@@ -252,16 +460,26 @@ fn log_record(category: &str, message: &str) {
         let _ = writeln!(file, "{}", log_line);
     }
 
-    // 保留最近 100 筆於記憶體中供 Web UI 即時查詢
+    // 保留最近 100 筆於記憶體中供 GUI 即時顯示
     if let Ok(mut logs) = RECENT_LOGS.lock() {
         logs.push(log_line);
         if logs.len() > 100 {
             logs.remove(0);
         }
     }
+
+    // 通知 Windows GUI 視窗即時重繪日誌框
+    #[cfg(windows)]
+    {
+        let hwnd_val = MAIN_HWND.load(Ordering::SeqCst);
+        if hwnd_val != 0 {
+            unsafe {
+                win_api::PostMessageW(hwnd_val as *mut std::ffi::c_void, WM_UPDATE_LOG, 0, 0);
+            }
+        }
+    }
 }
 
-// 跨平台開機自動啟動註冊與解除
 fn is_autostart_registered() -> bool {
     #[cfg(windows)]
     {
@@ -274,7 +492,6 @@ fn is_autostart_registered() -> bool {
     }
     #[cfg(not(windows))]
     {
-        // 檢查 systemd 或 autostart .desktop
         if let Ok(home) = env::var("HOME") {
             let desktop_path = Path::new(&home).join(".config/autostart/pc_onoff.desktop");
             let service_path = Path::new(&home).join(".config/systemd/user/pc_onoff.service");
@@ -299,21 +516,21 @@ fn sync_autostart(enable: bool) -> Result<(), String> {
                 let _ = fs::copy(&current_exe, &target_exe);
             }
 
-            let reg_value = format!("\"{}\" --background", target_exe.to_string_lossy());
+            let reg_value = format!("\"{}\" --tray", target_exe.to_string_lossy());
             let status = Command::new("reg")
                 .args(["add", REG_RUN_KEY, "/v", REG_RUN_NAME, "/t", "REG_SZ", "/d", &reg_value, "/f"])
                 .status()
                 .map_err(|e| format!("執行 reg 指令失敗: {}", e))?;
 
             if !status.success() {
-                return Err("寫入 Windows 登錄檔失敗".to_string());
+                return Err("寫入 Windows 開機啟動登錄項失敗".to_string());
             }
-            log_record("系統設定", "開機自動啟動已啟用 (Windows HKCU Run)");
+            log_record("設定", "開機自動啟動已啟用 (已註冊至 HKCU Run)");
         } else {
             let _ = Command::new("reg")
                 .args(["delete", REG_RUN_KEY, "/v", REG_RUN_NAME, "/f"])
                 .status();
-            log_record("系統設定", "開機自動啟動已停用 (自 Windows 登錄項移除)");
+            log_record("設定", "開機自動啟動已停用 (已自 HKCU Run 移除)");
         }
         Ok(())
     }
@@ -330,7 +547,6 @@ fn sync_autostart(enable: bool) -> Result<(), String> {
                 let current_exe = env::current_exe().map_err(|e| format!("無法取得執行檔路徑: {}", e))?;
                 let exe_str = current_exe.to_string_lossy();
 
-                // 1. 建立 XDG Autostart 檔案 (相容各大 Linux 桌面環境 GNOME/KDE/XFCE 等)
                 let _ = fs::create_dir_all(&autostart_dir);
                 let desktop_entry = format!(
                     "[Desktop Entry]\nType=Application\nName=Wake-on-LAN PC Control\nExec={}\nTerminal=false\nX-GNOME-Autostart-enabled=true\n",
@@ -338,7 +554,6 @@ fn sync_autostart(enable: bool) -> Result<(), String> {
                 );
                 let _ = fs::write(&desktop_file, desktop_entry);
 
-                // 2. 建立 systemd user service (相容無桌面或伺服器環境)
                 let _ = fs::create_dir_all(&systemd_dir);
                 let service_entry = format!(
                     "[Unit]\nDescription=Wake-on-LAN PC Control Service\nAfter=network.target\n\n[Service]\nType=simple\nExecStart={}\nRestart=always\n\n[Install]\nWantedBy=default.target\n",
@@ -348,7 +563,7 @@ fn sync_autostart(enable: bool) -> Result<(), String> {
                 let _ = Command::new("systemctl").args(["--user", "daemon-reload"]).status();
                 let _ = Command::new("systemctl").args(["--user", "enable", "pc_onoff.service"]).status();
 
-                log_record("系統設定", "已在 Linux 建立開機啟動設定 (systemd user service & XDG autostart)");
+                log_record("設定", "已在 Linux 建立開機啟動設定 (systemd user service & XDG autostart)");
             } else {
                 if desktop_file.exists() {
                     let _ = fs::remove_file(&desktop_file);
@@ -358,12 +573,41 @@ fn sync_autostart(enable: bool) -> Result<(), String> {
                     let _ = fs::remove_file(&service_file);
                     let _ = Command::new("systemctl").args(["--user", "daemon-reload"]).status();
                 }
-                log_record("系統設定", "已解除 Linux 開機啟動設定");
+                log_record("設定", "已解除 Linux 開機啟動設定");
             }
             Ok(())
         } else {
             Err("找不到 HOME 環境變數".to_string())
         }
+    }
+}
+
+fn add_firewall_rule(port: u16) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let status = Command::new("netsh")
+            .args([
+                "advfirewall", "firewall", "add", "rule",
+                &format!("name=WakeOnLan PC Control ({})", port),
+                "dir=in",
+                "action=allow",
+                "protocol=UDP",
+                &format!("localport={}", port),
+            ])
+            .status()
+            .map_err(|e| format!("執行 netsh 指令失敗: {}", e))?;
+
+        if status.success() {
+            log_record("防火牆", &format!("已成功新增 Windows 防火牆規則 (UDP {})", port));
+            Ok(())
+        } else {
+            Err("請以「系統管理員身分執行」以自動套用防火牆規則。".to_string())
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = port;
+        Err("非 Windows 平台無需配置 netsh 防火牆規則。".to_string())
     }
 }
 
@@ -376,19 +620,18 @@ pub fn parse_action(cmd: &str) -> &str {
     }
 }
 
-// 跨平台系統電源指令執行
 fn execute_command(src: Option<SocketAddr>, raw_cmd: &str) {
     let action = parse_action(raw_cmd);
     let src_str = match src {
         Some(addr) => addr.to_string(),
-        None => "Web UI / 本機手動測試".to_string(),
+        None => "GUI/手動測試".to_string(),
     };
 
     match action {
         "shutdown" => {
             log_record(
                 "執行指令",
-                &format!("來源: {} | 指令: 關機 (shutdown)", src_str),
+                &format!("來源: {} | 指令: 關機 (shutdown) | 呼叫: shutdown /s /t 0", src_str),
             );
             #[cfg(windows)]
             {
@@ -403,7 +646,7 @@ fn execute_command(src: Option<SocketAddr>, raw_cmd: &str) {
         "reboot" => {
             log_record(
                 "執行指令",
-                &format!("來源: {} | 指令: 重啟 (reboot)", src_str),
+                &format!("來源: {} | 指令: 重啟 (reboot) | 呼叫: shutdown /r /t 0", src_str),
             );
             #[cfg(windows)]
             {
@@ -418,7 +661,10 @@ fn execute_command(src: Option<SocketAddr>, raw_cmd: &str) {
         "sleep" => {
             log_record(
                 "執行指令",
-                &format!("來源: {} | 指令: 睡眠 (sleep)", src_str),
+                &format!(
+                    "來源: {} | 指令: 睡眠 (sleep / S3) | 呼叫: LockWorkStation & SetSuspendState 0,1,0",
+                    src_str
+                ),
             );
             #[cfg(windows)]
             {
@@ -436,7 +682,10 @@ fn execute_command(src: Option<SocketAddr>, raw_cmd: &str) {
         "hibernate" => {
             log_record(
                 "執行指令",
-                &format!("來源: {} | 指令: 休眠 (hibernate)", src_str),
+                &format!(
+                    "來源: {} | 指令: 休眠 (hibernate / S4) | 呼叫: LockWorkStation & SetSuspendState 1,1,0",
+                    src_str
+                ),
             );
             #[cfg(windows)]
             {
@@ -452,7 +701,7 @@ fn execute_command(src: Option<SocketAddr>, raw_cmd: &str) {
         "lock" => {
             log_record(
                 "執行指令",
-                &format!("來源: {} | 指令: 鎖定螢幕 (lock)", src_str),
+                &format!("來源: {} | 指令: 鎖定螢幕 (lock) | 呼叫: LockWorkStation", src_str),
             );
             #[cfg(windows)]
             {
@@ -473,7 +722,6 @@ fn execute_command(src: Option<SocketAddr>, raw_cmd: &str) {
     }
 }
 
-// 背景 UDP 監聽服務
 fn start_udp_listener(port: u16) {
     ACTIVE_PORT.store(port, Ordering::SeqCst);
     SERVER_RUNNING.store(true, Ordering::SeqCst);
@@ -510,7 +758,7 @@ fn start_udp_listener(port: u16) {
                     execute_command(Some(src), &command);
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut || e.kind() == std::io::ErrorKind::WouldBlock => {
-                    // 超時循環，繼續檢查 SERVER_RUNNING
+                    // 超時繼續循環檢查狀態
                 }
                 Err(e) => {
                     log_record("網路錯誤", &format!("接收 UDP 資料發生異常: {}", e));
@@ -521,386 +769,424 @@ fn start_udp_listener(port: u16) {
     });
 }
 
-// 跨平台內建 Web UI 控制台
-const HTML_DASHBOARD: &str = r#"<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wake-on-LAN 電腦端電源控制設定</title>
-    <style>
-        :root {
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text-main: #0f172a;
-            --text-sub: #475569;
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --success: #16a34a;
-            --border: #e2e8f0;
-            --log-bg: #0f172a;
-            --log-text: #38bdf8;
-        }
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #090d16;
-                --card-bg: #131c2e;
-                --text-main: #f8fafc;
-                --text-sub: #94a3b8;
-                --primary: #3b82f6;
-                --primary-hover: #2563eb;
-                --border: #1e293b;
-            }
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; }
-        body { background-color: var(--bg); color: var(--text-main); padding: 24px 16px; display: flex; justify-content: center; }
-        .container { max-width: 680px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
-        .title { font-size: 20px; font-weight: 700; }
-        .badge { background: #dcfce7; color: #15803d; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 9999px; }
-        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .card-title { font-size: 16px; font-weight: 600; margin-bottom: 14px; color: var(--text-main); }
-        .form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-        .label { font-size: 14px; color: var(--text-sub); }
-        .input-text { width: 120px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: transparent; color: var(--text-main); }
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--primary); }
-        input:checked + .slider:before { transform: translateX(20px); }
-        .btn { padding: 9px 18px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background .2s; }
-        .btn:hover { background: var(--primary-hover); }
-        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
-        .btn-outline:hover { background: rgba(125,125,125,0.08); }
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-        .log-box { background: var(--log-bg); color: var(--log-text); border-radius: 8px; padding: 12px; height: 180px; overflow-y: auto; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
-        .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-top: 10px; display: none; }
-        .alert-success { background: #dcfce7; color: #166534; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <div class="title">Wake-on-LAN 電腦端設定</div>
-                <div style="font-size: 13px; color: var(--text-sub); margin-top: 4px;">本機區域網路 IP: <strong id="local-ip">載入中...</strong></div>
-            </div>
-            <div class="badge" id="service-status">監聽中</div>
-        </div>
+#[cfg(windows)]
+struct GuiControls {
+    edit_port: usize,
+    chk_autostart: usize,
+    chk_minimized: usize,
+    static_status: usize,
+    edit_logs: usize,
+}
 
-        <div class="card">
-            <div class="card-title">服務與開機設定</div>
-            <div class="form-row">
-                <div class="label">UDP 監聽連接埠 (預設 9877):</div>
-                <input type="number" id="input-port" class="input-text" value="9877">
-            </div>
-            <div class="form-row">
-                <div class="label">開機自動於背景常駐啟動:</div>
-                <label class="switch">
-                    <input type="checkbox" id="chk-autostart" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
-                <button class="btn" onclick="saveSettings()">儲存並立即套用</button>
-            </div>
-            <div id="save-alert" class="alert alert-success">設定已成功儲存並同步至系統！</div>
-        </div>
+#[cfg(windows)]
+static GUI_CONTROLS: Mutex<Option<GuiControls>> = Mutex::new(None);
 
-        <div class="card">
-            <div class="card-title">本機控制測試</div>
-            <div style="font-size: 13px; color: var(--text-sub); margin-bottom: 12px;">可由瀏覽器測試電源呼叫是否正常運作：</div>
-            <div class="btn-group">
-                <button class="btn btn-outline" onclick="triggerAction('lock')">測試鎖定螢幕</button>
-                <button class="btn btn-outline" onclick="triggerAction('sleep')">測試進入睡眠</button>
-                <button class="btn btn-outline" onclick="triggerAction('reboot')">測試重新開機</button>
-                <button class="btn btn-outline" onclick="triggerAction('shutdown')">測試關機</button>
-            </div>
-        </div>
+#[cfg(windows)]
+unsafe extern "system" fn wnd_proc(
+    hwnd: *mut std::ffi::c_void,
+    msg: u32,
+    w_param: usize,
+    l_param: isize,
+) -> isize {
+    unsafe {
+        match msg {
+            WM_TRAYICON => {
+                match l_param as usize {
+                    WM_LBUTTONDBLCLK => {
+                        win_api::ShowWindow(hwnd, SW_RESTORE);
+                        win_api::SetForegroundWindow(hwnd);
+                    }
+                    WM_RBUTTONUP => {
+                        let hmenu = win_api::CreatePopupMenu();
+                        let title_open = win_api::to_wide_chars("開啟控制視窗");
+                        let title_auto = win_api::to_wide_chars("開機自動啟動");
+                        let title_log = win_api::to_wide_chars("檢視完整日誌");
+                        let title_exit = win_api::to_wide_chars("結束程式");
 
-        <div class="card">
-            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>即時日誌紀錄</span>
-                <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="loadLogs()">手動重新載入</button>
-            </div>
-            <div class="log-box" id="log-content">正在連線取得日誌...</div>
-        </div>
-    </div>
+                        win_api::AppendMenuW(hmenu, MF_STRING, ID_TRAY_OPEN, title_open.as_ptr());
 
-    <script>
-        async function loadStatus() {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
-                document.getElementById('local-ip').innerText = data.ip;
-                document.getElementById('input-port').value = data.port;
-                document.getElementById('chk-autostart').checked = data.autostart;
-                document.getElementById('service-status').innerText = data.running ? '監聽中: UDP ' + data.port : '已停止';
-            } catch(e) {
-                console.error(e);
-            }
-        }
+                        let autostart_flag = if is_autostart_registered() {
+                            MF_CHECKED
+                        } else {
+                            MF_UNCHECKED
+                        };
+                        win_api::AppendMenuW(hmenu, MF_STRING | autostart_flag, ID_TRAY_AUTOSTART, title_auto.as_ptr());
+                        win_api::AppendMenuW(hmenu, MF_STRING, ID_TRAY_LOG, title_log.as_ptr());
+                        win_api::AppendMenuW(hmenu, MF_STRING, ID_TRAY_EXIT, title_exit.as_ptr());
 
-        async function loadLogs() {
-            try {
-                const res = await fetch('/api/logs');
-                const data = await res.json();
-                const logBox = document.getElementById('log-content');
-                if (data.logs && data.logs.length > 0) {
-                    logBox.innerText = data.logs.join('\n');
-                    logBox.scrollTop = logBox.scrollHeight;
-                } else {
-                    logBox.innerText = '(尚無日誌紀錄)';
+                        let mut pt = PointWin { x: 0, y: 0 };
+                        win_api::GetCursorPos(&mut pt);
+                        win_api::SetForegroundWindow(hwnd);
+                        win_api::TrackPopupMenu(hmenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, std::ptr::null());
+                        win_api::DestroyMenu(hmenu);
+                    }
+                    _ => {}
                 }
-            } catch(e) {
-                console.error(e);
+                0
             }
-        }
-
-        async function saveSettings() {
-            const port = parseInt(document.getElementById('input-port').value) || 9877;
-            const autostart = document.getElementById('chk-autostart').checked;
-            try {
-                const res = await fetch('/api/save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ port, autostart })
-                });
-                if (res.ok) {
-                    const alert = document.getElementById('save-alert');
-                    alert.style.display = 'block';
-                    setTimeout(() => { alert.style.display = 'none'; }, 3000);
-                    loadStatus();
-                    loadLogs();
+            WM_UPDATE_LOG => {
+                if let Ok(controls) = GUI_CONTROLS.lock() {
+                    if let Some(ref c) = *controls {
+                        if let Ok(logs) = RECENT_LOGS.lock() {
+                            let full_text = logs.join("\r\n");
+                            let wide_text = win_api::to_wide_chars(&full_text);
+                            win_api::SetWindowTextW(c.edit_logs as *mut std::ffi::c_void, wide_text.as_ptr());
+                            win_api::SendMessageW(c.edit_logs as *mut std::ffi::c_void, WM_VSCROLL_MSG, SB_BOTTOM, 0);
+                        }
+                    }
                 }
-            } catch(e) {
-                alert('儲存失敗: ' + e);
+                0
             }
+            WM_COMMAND => {
+                let ctrl_id = w_param & 0xFFFF;
+                match ctrl_id {
+                    ID_TRAY_OPEN => {
+                        win_api::ShowWindow(hwnd, SW_RESTORE);
+                        win_api::SetForegroundWindow(hwnd);
+                    }
+                    ID_TRAY_AUTOSTART => {
+                        let current = is_autostart_registered();
+                        let new_state = !current;
+                        let _ = sync_autostart(new_state);
+                        let mut cfg = AppConfig::load();
+                        cfg.autostart = new_state;
+                        let _ = cfg.save();
+
+                        if let Ok(controls) = GUI_CONTROLS.lock() {
+                            if let Some(ref c) = *controls {
+                                let check = if new_state { BST_CHECKED } else { BST_UNCHECKED };
+                                win_api::SendMessageW(c.chk_autostart as *mut std::ffi::c_void, BM_SETCHECK, check, 0);
+                            }
+                        }
+                    }
+                    ID_TRAY_LOG | ID_BTN_LOG => {
+                        let log_path = get_log_file_path();
+                        let _ = Command::new("notepad.exe").arg(&log_path).spawn();
+                    }
+                    ID_TRAY_EXIT => {
+                        remove_tray_icon(hwnd);
+                        SERVER_RUNNING.store(false, Ordering::SeqCst);
+                        win_api::PostQuitMessage(0);
+                    }
+                    ID_BTN_SAVE => {
+                        if let Ok(controls) = GUI_CONTROLS.lock() {
+                            if let Some(ref c) = *controls {
+                                let mut buf = [0u16; 16];
+                                win_api::GetWindowTextW(c.edit_port as *mut std::ffi::c_void, buf.as_mut_ptr(), 16);
+                                let port_str = String::from_utf16_lossy(&buf)
+                                    .trim_matches(char::from(0))
+                                    .trim()
+                                    .to_string();
+                                let port = port_str.parse::<u16>().unwrap_or(DEFAULT_UDP_PORT);
+
+                                let autostart = win_api::SendMessageW(c.chk_autostart as *mut std::ffi::c_void, BM_GETCHECK, 0, 0) as usize == BST_CHECKED;
+                                let start_minimized = win_api::SendMessageW(c.chk_minimized as *mut std::ffi::c_void, BM_GETCHECK, 0, 0) as usize == BST_CHECKED;
+
+                                let new_cfg = AppConfig {
+                                    udp_port: port,
+                                    autostart,
+                                    start_minimized,
+                                };
+                                let _ = new_cfg.save();
+                                let _ = sync_autostart(autostart);
+
+                                let current_active_port = ACTIVE_PORT.load(Ordering::SeqCst);
+                                if current_active_port != port {
+                                    SERVER_RUNNING.store(false, Ordering::SeqCst);
+                                    thread::sleep(Duration::from_millis(600));
+                                    start_udp_listener(port);
+                                }
+
+                                let status_text = format!("服務狀態: 🟢 監聽中 (0.0.0.0:{})", port);
+                                let wide_status = win_api::to_wide_chars(&status_text);
+                                win_api::SetWindowTextW(c.static_status as *mut std::ffi::c_void, wide_status.as_ptr());
+
+                                let msg = win_api::to_wide_chars("設定已成功儲存並生效！");
+                                let caption = win_api::to_wide_chars("儲存成功");
+                                win_api::MessageBoxW(hwnd, msg.as_ptr(), caption.as_ptr(), 0x40);
+                                log_record("設定", &format!("已更新設定: Port={}, 開機啟動={}, 最小化啟動={}", port, autostart, start_minimized));
+                            }
+                        }
+                    }
+                    ID_BTN_FIREWALL => {
+                        let port = ACTIVE_PORT.load(Ordering::SeqCst);
+                        match add_firewall_rule(port) {
+                            Ok(_) => {
+                                let msg = win_api::to_wide_chars(&format!("已成功新增 Windows 防火牆規則 (UDP {})！", port));
+                                let caption = win_api::to_wide_chars("防火牆設定");
+                                win_api::MessageBoxW(hwnd, msg.as_ptr(), caption.as_ptr(), 0x40);
+                            }
+                            Err(e) => {
+                                let msg = win_api::to_wide_chars(&format!("新增防火牆規則失敗:\n{}\n\n請以「系統管理員身分執行」此程式後重試。", e));
+                                let caption = win_api::to_wide_chars("權限不足");
+                                win_api::MessageBoxW(hwnd, msg.as_ptr(), caption.as_ptr(), 0x30);
+                            }
+                        }
+                    }
+                    ID_BTN_LOCK => {
+                        log_record("手動測試", "GUI 觸發測試鎖定螢幕");
+                        execute_command(None, "lock");
+                    }
+                    ID_BTN_TRAY => {
+                        win_api::ShowWindow(hwnd, SW_HIDE);
+                    }
+                    _ => {}
+                }
+                0
+            }
+            WM_CLOSE => {
+                // 點擊關閉視窗 (X) 時，縮小至系統匣背景常駐，不中斷監聽服務
+                win_api::ShowWindow(hwnd, SW_HIDE);
+                0
+            }
+            WM_DESTROY => {
+                remove_tray_icon(hwnd);
+                SERVER_RUNNING.store(false, Ordering::SeqCst);
+                win_api::PostQuitMessage(0);
+                0
+            }
+            _ => win_api::DefWindowProcW(hwnd, msg, w_param, l_param),
         }
+    }
+}
 
-        async function triggerAction(action) {
-            if (action === 'shutdown' || action === 'reboot') {
-                if (!confirm('確定要在本機執行 ' + action + ' 指令嗎？')) return;
-            }
-            try {
-                await fetch('/api/action', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action })
-                });
-                loadLogs();
-            } catch(e) {
-                alert('執行異常: ' + e);
-            }
-        }
+#[cfg(windows)]
+fn add_tray_icon(hwnd: *mut std::ffi::c_void) {
+    let mut nid = unsafe { std::mem::zeroed::<NotifyIconDataW>() };
+    nid.cb_size = std::mem::size_of::<NotifyIconDataW>() as u32;
+    nid.h_wnd = hwnd;
+    nid.u_id = 1;
+    nid.u_flags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_INFO;
+    nid.u_callback_message = WM_TRAYICON;
+    nid.h_icon = unsafe { win_api::LoadIconW(std::ptr::null_mut(), IDI_APPLICATION as _) };
 
-        loadStatus();
-        loadLogs();
-        setInterval(loadLogs, 3000);
-    </script>
-</body>
-</html>
-"#;
+    let tip = "Wake-on-LAN 電腦遠端控制服務 (監聽中)";
+    for (i, c) in tip.encode_utf16().enumerate().take(127) {
+        nid.sz_tip[i] = c;
+    }
 
-fn handle_http_client(mut stream: TcpStream) {
-    let mut buf = [0u8; 4096];
-    let bytes_read = match stream.read(&mut buf) {
-        Ok(n) if n > 0 => n,
-        _ => return,
+    let title = "Wake-on-LAN 服務啟動";
+    for (i, c) in title.encode_utf16().enumerate().take(63) {
+        nid.sz_info_title[i] = c;
+    }
+
+    let info = "服務已在背景常駐監聽。點擊系統匣圖示可隨時打開設定視窗。";
+    for (i, c) in info.encode_utf16().enumerate().take(255) {
+        nid.sz_info[i] = c;
+    }
+
+    unsafe {
+        win_api::Shell_NotifyIconW(NIM_ADD, &mut nid);
+    }
+}
+
+#[cfg(windows)]
+fn remove_tray_icon(hwnd: *mut std::ffi::c_void) {
+    let mut nid = unsafe { std::mem::zeroed::<NotifyIconDataW>() };
+    nid.cb_size = std::mem::size_of::<NotifyIconDataW>() as u32;
+    nid.h_wnd = hwnd;
+    nid.u_id = 1;
+    unsafe {
+        win_api::Shell_NotifyIconW(NIM_DELETE, &mut nid);
+    }
+}
+
+#[cfg(windows)]
+fn run_windows_gui(start_in_tray: bool) {
+    let h_instance = unsafe { win_api::GetModuleHandleW(std::ptr::null()) };
+    let class_name = win_api::to_wide_chars("WakeOnLanControlClass");
+    let window_title = win_api::to_wide_chars("Wake-on-LAN 電腦端電源控制設定");
+
+    let wnd_class = WndClassExW {
+        cb_size: std::mem::size_of::<WndClassExW>() as u32,
+        style: 0,
+        lpfn_wnd_proc: Some(wnd_proc),
+        cb_cls_extra: 0,
+        cb_wnd_extra: 0,
+        h_instance,
+        h_icon: unsafe { win_api::LoadIconW(std::ptr::null_mut(), IDI_APPLICATION as _) },
+        h_cursor: unsafe { win_api::LoadCursorW(std::ptr::null_mut(), IDC_ARROW as _) },
+        h_br_background: (COLOR_BTNFACE + 1) as *mut std::ffi::c_void,
+        lpsz_menu_name: std::ptr::null(),
+        lpsz_class_name: class_name.as_ptr(),
+        h_icon_sm: std::ptr::null_mut(),
     };
 
-    let req_str = String::from_utf8_lossy(&buf[..bytes_read]);
-    let first_line = req_str.lines().next().unwrap_or("");
-    let parts: Vec<&str> = first_line.split_whitespace().collect();
-    if parts.len() < 2 {
+    unsafe {
+        win_api::RegisterClassExW(&wnd_class);
+    }
+
+    // 建立主視窗 (寬 540，高 510)
+    let hwnd = unsafe {
+        win_api::CreateWindowExW(
+            0,
+            class_name.as_ptr(),
+            window_title.as_ptr(),
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+            180,
+            140,
+            540,
+            510,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            h_instance,
+            std::ptr::null_mut(),
+        )
+    };
+
+    if hwnd.is_null() {
         return;
     }
 
-    let method = parts[0];
-    let path = parts[1];
+    MAIN_HWND.store(hwnd as usize, Ordering::SeqCst);
 
-    if method == "GET" && (path == "/" || path == "/index.html") {
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            HTML_DASHBOARD.len(),
-            HTML_DASHBOARD
-        );
-        let _ = stream.write_all(response.as_bytes());
-        return;
+    let h_font = unsafe { win_api::GetStockObject(DEFAULT_GUI_FONT) };
+    let str_button = win_api::to_wide_chars("BUTTON");
+    let str_static = win_api::to_wide_chars("STATIC");
+    let str_edit = win_api::to_wide_chars("EDIT");
+
+    // 載入設定
+    let cfg = AppConfig::load();
+    let current_port = cfg.udp_port;
+    let autostart = cfg.autostart;
+    let minimized = cfg.start_minimized;
+
+    // 預設若啟用開機自啟，初次執行自動幫使用者完成註冊
+    if autostart && !is_autostart_registered() {
+        let _ = sync_autostart(true);
     }
 
-    if method == "GET" && path == "/api/status" {
-        let port = ACTIVE_PORT.load(Ordering::SeqCst);
-        let running = SERVER_RUNNING.load(Ordering::SeqCst);
-        let ip = get_local_ip();
-        let autostart = is_autostart_registered();
-        let os = if cfg!(windows) { "windows" } else { "linux" };
+    // 啟動背景 UDP 監聽
+    start_udp_listener(current_port);
 
-        let json = format!(
-            "{{\"running\":{},\"port\":{},\"autostart\":{},\"ip\":\"{}\",\"os\":\"{}\"}}",
-            running, port, autostart, ip, os
+    unsafe {
+        // === 群組一：基本設定 ===
+        let g1_title = win_api::to_wide_chars("基本設定 (Settings)");
+        let g1 = win_api::CreateWindowExW(0, str_button.as_ptr(), g1_title.as_ptr(), WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 15, 10, 495, 115, hwnd, std::ptr::null_mut(), h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(g1, WM_SETFONT, h_font as _, 1);
+
+        let lbl_port_t = win_api::to_wide_chars("監聽 UDP 連接埠 (Port):");
+        let lbl_p = win_api::CreateWindowExW(0, str_static.as_ptr(), lbl_port_t.as_ptr(), WS_CHILD | WS_VISIBLE, 30, 36, 170, 20, hwnd, std::ptr::null_mut(), h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(lbl_p, WM_SETFONT, h_font as _, 1);
+
+        let edit_p_val = win_api::to_wide_chars(&current_port.to_string());
+        let edit_p = win_api::CreateWindowExW(0, str_edit.as_ptr(), edit_p_val.as_ptr(), WS_CHILD | WS_VISIBLE | WS_BORDER, 205, 33, 75, 23, hwnd, ID_EDIT_PORT as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(edit_p, WM_SETFONT, h_font as _, 1);
+
+        let chk_auto_t = win_api::to_wide_chars("開機自動啟動 (Autostart)");
+        let chk_auto = win_api::CreateWindowExW(0, str_button.as_ptr(), chk_auto_t.as_ptr(), WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 300, 34, 195, 22, hwnd, ID_CHK_AUTOSTART as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(chk_auto, WM_SETFONT, h_font as _, 1);
+        let check_val = if autostart { BST_CHECKED } else { BST_UNCHECKED };
+        win_api::SendMessageW(chk_auto, BM_SETCHECK, check_val, 0);
+
+        let chk_min_t = win_api::to_wide_chars("啟動時最小化至系統匣 (Start Minimized)");
+        let chk_min = win_api::CreateWindowExW(0, str_button.as_ptr(), chk_min_t.as_ptr(), WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 30, 75, 260, 22, hwnd, ID_CHK_MINIMIZED as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(chk_min, WM_SETFONT, h_font as _, 1);
+        let min_val = if minimized { BST_CHECKED } else { BST_UNCHECKED };
+        win_api::SendMessageW(chk_min, BM_SETCHECK, min_val, 0);
+
+        let btn_save_t = win_api::to_wide_chars("儲存並套用設定");
+        let btn_save = win_api::CreateWindowExW(0, str_button.as_ptr(), btn_save_t.as_ptr(), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 320, 72, 170, 32, hwnd, ID_BTN_SAVE as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(btn_save, WM_SETFONT, h_font as _, 1);
+
+        // === 群組二：服務狀態與操作 ===
+        let g2_title = win_api::to_wide_chars("連線與服務狀態 (Status)");
+        let g2 = win_api::CreateWindowExW(0, str_button.as_ptr(), g2_title.as_ptr(), WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 15, 135, 495, 110, hwnd, std::ptr::null_mut(), h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(g2, WM_SETFONT, h_font as _, 1);
+
+        let status_t = win_api::to_wide_chars(&format!("服務狀態: 🟢 監聽中 (0.0.0.0:{})", current_port));
+        let lbl_st = win_api::CreateWindowExW(0, str_static.as_ptr(), status_t.as_ptr(), WS_CHILD | WS_VISIBLE, 30, 160, 260, 20, hwnd, ID_STATIC_STATUS as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(lbl_st, WM_SETFONT, h_font as _, 1);
+
+        let local_ip = get_local_ip();
+        let ip_t = win_api::to_wide_chars(&format!("本機區域網路 IP: {}", local_ip));
+        let lbl_ip = win_api::CreateWindowExW(0, str_static.as_ptr(), ip_t.as_ptr(), WS_CHILD | WS_VISIBLE, 30, 185, 260, 20, hwnd, ID_STATIC_IP as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(lbl_ip, WM_SETFONT, h_font as _, 1);
+
+        let btn_fw_t = win_api::to_wide_chars("設定防火牆規則");
+        let btn_fw = win_api::CreateWindowExW(0, str_button.as_ptr(), btn_fw_t.as_ptr(), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 300, 156, 95, 28, hwnd, ID_BTN_FIREWALL as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(btn_fw, WM_SETFONT, h_font as _, 1);
+
+        let btn_lock_t = win_api::to_wide_chars("測試鎖定螢幕");
+        let btn_lk = win_api::CreateWindowExW(0, str_button.as_ptr(), btn_lock_t.as_ptr(), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 400, 156, 95, 28, hwnd, ID_BTN_LOCK as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(btn_lk, WM_SETFONT, h_font as _, 1);
+
+        let btn_tray_t = win_api::to_wide_chars("縮小至系統匣");
+        let btn_tr = win_api::CreateWindowExW(0, str_button.as_ptr(), btn_tray_t.as_ptr(), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 300, 192, 95, 28, hwnd, ID_BTN_TRAY as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(btn_tr, WM_SETFONT, h_font as _, 1);
+
+        let btn_log_t = win_api::to_wide_chars("開啟完整日誌");
+        let btn_lg = win_api::CreateWindowExW(0, str_button.as_ptr(), btn_log_t.as_ptr(), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 400, 192, 95, 28, hwnd, ID_BTN_LOG as _, h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(btn_lg, WM_SETFONT, h_font as _, 1);
+
+        // === 群組三：即時通訊日誌 ===
+        let g3_title = win_api::to_wide_chars("即時日誌紀錄 (Real-time Log)");
+        let g3 = win_api::CreateWindowExW(0, str_button.as_ptr(), g3_title.as_ptr(), WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 15, 255, 495, 205, hwnd, std::ptr::null_mut(), h_instance, std::ptr::null_mut());
+        win_api::SendMessageW(g3, WM_SETFONT, h_font as _, 1);
+
+        let edit_log = win_api::CreateWindowExW(
+            0,
+            str_edit.as_ptr(),
+            std::ptr::null(),
+            WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
+            25,
+            280,
+            475,
+            165,
+            hwnd,
+            ID_EDIT_LOGS as _,
+            h_instance,
+            std::ptr::null_mut(),
         );
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            json.len(),
-            json
-        );
-        let _ = stream.write_all(response.as_bytes());
-        return;
-    }
+        win_api::SendMessageW(edit_log, WM_SETFONT, h_font as _, 1);
 
-    if method == "GET" && path == "/api/logs" {
-        let logs_json = if let Ok(logs) = RECENT_LOGS.lock() {
-            let escaped: Vec<String> = logs
-                .iter()
-                .map(|l| format!("\"{}\"", l.replace('\\', "\\\\").replace('"', "\\\"")))
-                .collect();
-            format!("[{}]", escaped.join(","))
-        } else {
-            "[]".to_string()
-        };
-
-        let json = format!("{{\"logs\":{}}}", logs_json);
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            json.len(),
-            json
-        );
-        let _ = stream.write_all(response.as_bytes());
-        return;
-    }
-
-    if method == "POST" && path == "/api/save" {
-        // 解析 body
-        if let Some(body_start) = req_str.find("\r\n\r\n") {
-            let body = &req_str[body_start + 4..];
-            let mut new_port = ACTIVE_PORT.load(Ordering::SeqCst);
-            let mut new_autostart = is_autostart_registered();
-
-            if let Some(p_idx) = body.find("\"port\":") {
-                let after = &body[p_idx + 7..];
-                let num_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
-                if let Ok(p) = num_str.parse::<u16>() {
-                    new_port = p;
-                }
-            }
-            if let Some(a_idx) = body.find("\"autostart\":") {
-                let after = &body[a_idx + 12..].trim_start();
-                if after.starts_with("true") {
-                    new_autostart = true;
-                } else if after.starts_with("false") {
-                    new_autostart = false;
-                }
-            }
-
-            let mut cfg = AppConfig::load();
-            let port_changed = cfg.udp_port != new_port;
-            cfg.udp_port = new_port;
-            cfg.autostart = new_autostart;
-            let _ = cfg.save();
-            let _ = sync_autostart(new_autostart);
-
-            if port_changed {
-                SERVER_RUNNING.store(false, Ordering::SeqCst);
-                thread::sleep(Duration::from_millis(600));
-                start_udp_listener(new_port);
-            }
-
-            log_record(
-                "設定更新",
-                &format!("Web UI 儲存設定: UDP連接埠={}, 開機自動啟動={}", new_port, new_autostart),
-            );
-
-            let res_body = "{\"success\":true}";
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                res_body.len(),
-                res_body
-            );
-            let _ = stream.write_all(response.as_bytes());
-            return;
+        if let Ok(mut guard) = GUI_CONTROLS.lock() {
+            *guard = Some(GuiControls {
+                edit_port: edit_p as usize,
+                chk_autostart: chk_auto as usize,
+                chk_minimized: chk_min as usize,
+                static_status: lbl_st as usize,
+                edit_logs: edit_log as usize,
+            });
         }
     }
 
-    if method == "POST" && path == "/api/action" {
-        if let Some(body_start) = req_str.find("\r\n\r\n") {
-            let body = &req_str[body_start + 4..];
-            if let Some(act_idx) = body.find("\"action\":\"") {
-                let after = &body[act_idx + 10..];
-                if let Some(end_idx) = after.find('"') {
-                    let action = &after[..end_idx];
-                    log_record("手動控制", &format!("透過 Web UI 觸發指令: '{}'", action));
-                    execute_command(None, action);
-                }
-            }
+    // 加入 Windows 系統匣 (托盤圖示)
+    add_tray_icon(hwnd);
+
+    // 視參數決定直接顯示 GUI 視窗，或是最小化至系統匣背景常駐
+    if !start_in_tray && !minimized {
+        unsafe {
+            win_api::ShowWindow(hwnd, SW_SHOWNORMAL);
+            win_api::UpdateWindow(hwnd);
         }
-        let res_body = "{\"success\":true}";
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            res_body.len(),
-            res_body
-        );
-        let _ = stream.write_all(response.as_bytes());
-        return;
-    }
-
-    // 404
-    let not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    let _ = stream.write_all(not_found.as_bytes());
-}
-
-fn start_web_ui_server(port: u16) {
-    thread::spawn(move || {
-        let bind_addr = format!("127.0.0.1:{}", port);
-        let listener = match TcpListener::bind(&bind_addr) {
-            Ok(l) => {
-                log_record("控制台", &format!("本地 Web UI 設定介面已啟動: http://{}", bind_addr));
-                l
-            }
-            Err(e) => {
-                log_record("控制台錯誤", &format!("綁定 Web UI 連接埠 {} 失敗: {}", bind_addr, e));
-                return;
-            }
-        };
-
-        for stream in listener.incoming() {
-            if let Ok(s) = stream {
-                thread::spawn(|| {
-                    handle_http_client(s);
-                });
-            }
+        log_record("GUI", "主控制視窗已開啟。");
+    } else {
+        unsafe {
+            win_api::ShowWindow(hwnd, SW_HIDE);
         }
-    });
-}
+        log_record("系統匣", "程式已最小化至系統匣背景常駐運作中。");
+    }
 
-fn open_browser(url: &str) {
-    #[cfg(windows)]
-    {
-        let _ = Command::new("cmd").args(["/c", "start", url]).spawn();
+    // 填入初始日誌紀錄
+    unsafe {
+        win_api::PostMessageW(hwnd, WM_UPDATE_LOG, 0, 0);
     }
-    #[cfg(target_os = "macos")]
-    {
-        let _ = Command::new("open").arg(url).spawn();
-    }
-    #[cfg(target_os = "linux")]
-    {
-        let _ = Command::new("xdg-open").arg(url).spawn();
+
+    // Windows 訊息幫浦
+    let mut msg = unsafe { std::mem::zeroed::<MsgWin>() };
+    unsafe {
+        while win_api::GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {
+            win_api::TranslateMessage(&msg);
+            win_api::DispatchMessageW(&msg);
+        }
     }
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    // 1. 若為 Windows 平台且處於背景/托盤模式，隱藏主終端視窗
-    #[cfg(windows)]
-    {
-        if args.iter().any(|a| a == "--background" || a == "-b") {
-            win_api::hide_console();
-        }
-    }
-
-    // 2. 命令列常規參數
+    // 1. 命令列常用參數處理
     if args.iter().any(|a| a == "--install" || a == "-i") {
         let _ = sync_autostart(true);
         println!("開機自動啟動設定成功。");
@@ -913,45 +1199,42 @@ fn main() {
         return;
     }
 
-    if args.iter().any(|a| a == "--help" || a == "-h") {
-        println!("Wake-on-LAN 電腦端電源控制公用程式 (支援 Windows 與 Linux 跨平台)");
-        println!();
-        println!("用法:");
-        println!("  pc_onoff                 預設啟動：自動在背景常駐並啟用開機自動啟動");
-        println!("  pc_onoff --ui            啟動並直接開啟瀏覽器設定控制台 (http://127.0.0.1:9878)");
-        println!("  pc_onoff --background    於背景靜默模式常駐");
-        println!("  pc_onoff --install       註冊開機自動啟動");
-        println!("  pc_onoff --uninstall     解除開機自動啟動");
+    if args.iter().any(|a| a == "--firewall") {
+        let cfg = AppConfig::load();
+        let _ = add_firewall_rule(cfg.udp_port);
         return;
     }
 
-    // 3. 載入設定（若無設定檔自動建立，autostart 預設即為 true）
-    let cfg = AppConfig::load();
-
-    // 4. 關鍵要求：預設直接掛在後台，自動啟用開機啟動，無需任何手動選單按鍵 [1]
-    if cfg.autostart && !is_autostart_registered() {
-        let _ = sync_autostart(true);
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Wake-on-LAN 電腦端電源控制公用程式 (具備原生 GUI 視窗與系統匣支援)");
+        println!();
+        println!("用法:");
+        println!("  pc_onoff.exe              雙擊直接開啟原生 GUI 設定視窗");
+        println!("  pc_onoff.exe --tray       於背景靜默啟動並常駐於系統匣");
+        println!("  pc_onoff.exe --install    註冊開機自動啟動");
+        println!("  pc_onoff.exe --uninstall  解除開機自動啟動");
+        return;
     }
 
-    // 5. 啟動背景 UDP 監聽服務
-    start_udp_listener(cfg.udp_port);
-
-    // 6. 啟動跨平台 Web 控制台 (預設 127.0.0.1:9878)
-    if cfg.enable_web_ui {
-        start_web_ui_server(cfg.web_port);
+    // 2. Windows 平台：預設直接開啟原生 GUI 控制視窗！
+    #[cfg(windows)]
+    {
+        let start_in_tray = args.iter().any(|a| a == "--tray" || a == "--background" || a == "-b");
+        run_windows_gui(start_in_tray);
     }
 
-    // 7. 若帶有 --ui 或首次執行，自動為使用者開啟瀏覽器設定頁面
-    if args.iter().any(|a| a == "--ui" || a == "-s") {
-        let ui_url = format!("http://127.0.0.1:{}", cfg.web_port);
-        open_browser(&ui_url);
-    }
-
-    log_record("常駐執行", "守護行程已在背景持續常駐監聽中。隨時可至瀏覽器訪問 http://127.0.0.1:9878 進行設定與查看日誌。");
-
-    // 8. 主行程保持常駐
-    loop {
-        thread::sleep(Duration::from_secs(3600));
+    // 3. Linux 平台：若在 Linux 執行，無 Win32 時以背景 Daemon 運作
+    #[cfg(not(windows))]
+    {
+        let cfg = AppConfig::load();
+        if cfg.autostart && !is_autostart_registered() {
+            let _ = sync_autostart(true);
+        }
+        start_udp_listener(cfg.udp_port);
+        log_record("常駐執行", &format!("Linux 背景守護行程已啟動，監聽 UDP {}", cfg.udp_port));
+        loop {
+            thread::sleep(Duration::from_secs(3600));
+        }
     }
 }
 
@@ -988,8 +1271,7 @@ mod tests {
     fn test_default_config() {
         let cfg = AppConfig::default();
         assert_eq!(cfg.udp_port, 9877);
-        assert_eq!(cfg.web_port, 9878);
         assert!(cfg.autostart); // 預設即為開機自動啟動
-        assert!(cfg.enable_web_ui);
+        assert!(!cfg.start_minimized);
     }
 }

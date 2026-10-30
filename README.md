@@ -47,16 +47,12 @@ Download `pc_onoff.exe` from `computer/` (or compile `pc_onoff` on Linux).
 #### Running
 - **Windows**:
   Simply double-click `pc_onoff.exe`!
-  - It **defaults to running silently in the background** listening on UDP 9877 without popping up any command prompt window.
-  - **Automatic Autostart**: On first launch, it automatically registers itself to Windows startup (HKCU Run, no admin rights required).
+  - Immediately opens the native desktop GUI window (no command prompt black window).
+  - Customize UDP port, toggle autostart, inspect local IP, test power commands, and view live logs.
+  - When closed or minimized, it automatically stays in the system tray (notification area) running in the background.
+  - **Automatic Autostart**: Checked by default; on system boot, it starts minimized in the system tray.
 - **Linux**:
   Run `./pc_onoff` in terminal, which automatically registers a `systemd --user` service and XDG Autostart.
-
-#### Visual Settings Dashboard (Web UI)
-You can open the built-in management interface at any time:
-- In terminal: `pc_onoff --ui` (automatically opens `http://127.0.0.1:9878` in your default browser).
-- Or open your browser and navigate to `http://localhost:9878`.
-- Customize the UDP port, toggle autostart, inspect local IP, test power commands, and view recent logs in real time.
 
 ### 2. Install the Android Apps
 Download the pre-built APKs from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-android/releases):
