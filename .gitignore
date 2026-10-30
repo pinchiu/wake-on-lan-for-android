@@ -22,3 +22,7 @@ __pycache__/
 .agents/
 skills-lock.json
 
+
+# Rust & Config
+computer/target/
+config.ini

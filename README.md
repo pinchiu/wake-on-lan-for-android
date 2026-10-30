@@ -47,10 +47,10 @@ Download `pc_onoff.exe` from `computer/` (or compile `pc_onoff` on Linux).
 #### Running
 - **Windows**:
   Simply double-click `pc_onoff.exe`!
-  - Immediately opens the native desktop GUI window (no command prompt black window).
-  - Customize UDP port, toggle autostart, inspect local IP, test power commands, and view live logs.
-  - When closed or minimized, it automatically stays in the system tray (notification area) running in the background.
-  - **Automatic Autostart**: Checked by default; on system boot, it starts minimized in the system tray.
+  - Runs in the background immediately listening on UDP 9877 (no console window, no unnecessary GUI popups).
+  - Automatically configures Windows autostart (registered in HKCU Run, no admin privileges required).
+  - Automatically logs local IP, connection source, and all power commands in `pc_onoff.log`.
+  - Runs quietly in the background upon system reboot without manual intervention.
 - **Linux**:
   Run `./pc_onoff` in terminal, which automatically registers a `systemd --user` service and XDG Autostart.
 
