@@ -9,14 +9,15 @@ A remote control system that uses an Android phone as a helper to perform Wake-o
 - **Reliable Phone-to-Phone Direct Connection (TCP)**: Connect directly from Remote Phone to Home Phone over IPv6/IPv4 using TCP (port 9876) with instant two-way confirmation and status feedback.
 - **Local LAN Mode**: When connected to the same Wi-Fi network, the Remote Phone can directly broadcast Magic Packets via UDP (port 9) without going through the helper phone.
 - **MQTT Support**: Connects to any MQTT broker (e.g., Adafruit IO, HiveMQ, EMQX) for true remote control across firewalls without port forwarding.
-- **Cross-Platform PC Script**: Python listener script supporting Windows, Linux, and macOS.
+- **Cross-Platform PC Daemon**: High-performance, zero-dependency standalone daemon written in Rust, supporting Windows and Linux without any runtime installation.
 
 ## Downloads
 
-You can download the latest pre-built APKs from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-android/releases).
+You can download the latest pre-built files from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-android/releases):
 
 - `wakeonlan-home-phone.apk`: Install this on the phone connected to the same home Wi-Fi network as your computer. This phone acts as the "helper / server".
 - `wakeonwan-remote-phone.apk`: Install this on the phone you carry with you to send commands from anywhere. This is your "remote controller".
+- `pc_onoff.exe`: Target computer power control daemon (standalone executable for Windows, no installation needed).
 
 ## Architecture and Protocols
 
@@ -31,40 +32,31 @@ You can download the latest pre-built APKs from the [GitHub Releases page](https
    - Direct PC Control: Sends command via **UDP (Port 9877)** to the computer's local IP.
 4. **Home Phone -> Computer (LAN WoL & Control)**:
    - WoL: Broadcasts Magic Packet via **UDP (Port 9)**.
-   - PC Power Commands: Sends command via **UDP (Port 9877)** to the computer running `pc_onoff.py`.
+   - PC Power Commands: Sends command via **UDP (Port 9877)** to the computer running `pc_onoff`.
 
 ## Prerequisites
 - **Android Phones**: One phone acting as a helper (on the same LAN as the computer) and another for remote control (using mobile data or external Wi-Fi).
-- **Computer**: Python 3 installed, and Wake-on-LAN enabled in BIOS / Network Card settings.
+- **Computer**: Wake-on-LAN enabled in BIOS / Network Card settings.
 - **Network**: Helper phone and computer must be on the same Wi-Fi subnet.
 
 ## Installation and Setup
 
-### 1. Install the Python Listener on the Computer
-Download `computer/pc_onoff.py` to your computer. You can test it manually first:
+### 1. Computer Power Control Daemon (pc_onoff)
+Download `pc_onoff.exe` from `computer/` (or compile `pc_onoff` on Linux).
 
-```bash
-cd computer
-python pc_onoff.py
-```
-
-#### Automatic Startup (on Boot / Login)
-
+#### Running
 - **Windows**:
-  Use Windows Task Scheduler to create a startup task. Open Command Prompt as Administrator:
-  ```cmd
-  schtasks /create /tn "RemoteControlListener" /tr "pythonw \"C:\path\to\pc_onoff.py\"" /sc onlogon /rl highest /f
-  ```
-  *(Note: `pythonw.exe` runs the script in the background without a visible console window.)*
+  Simply double-click `pc_onoff.exe`!
+  - It **defaults to running silently in the background** listening on UDP 9877 without popping up any command prompt window.
+  - **Automatic Autostart**: On first launch, it automatically registers itself to Windows startup (HKCU Run, no admin rights required).
+- **Linux**:
+  Run `./pc_onoff` in terminal, which automatically registers a `systemd --user` service and XDG Autostart.
 
-- **Linux (Untested)**:
-  Add an entry to `crontab -e`:
-  ```bash
-  @reboot /usr/bin/python3 /path/to/pc_onoff.py
-  ```
-
-- **macOS (Untested)**:
-  Create `~/Library/LaunchAgents/com.remotecontrol.listener.plist` and load it via `launchctl`.
+#### Visual Settings Dashboard (Web UI)
+You can open the built-in management interface at any time:
+- In terminal: `pc_onoff --ui` (automatically opens `http://127.0.0.1:9878` in your default browser).
+- Or open your browser and navigate to `http://localhost:9878`.
+- Customize the UDP port, toggle autostart, inspect local IP, test power commands, and view recent logs in real time.
 
 ### 2. Install the Android Apps
 Download the pre-built APKs from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-android/releases):
@@ -98,8 +90,4 @@ Download the pre-built APKs from the [GitHub Releases page](https://github.com/p
 
 ## Troubleshooting
 - **WoL Does Not Wake PC**: Ensure Wake-on-LAN is enabled in BIOS / UEFI and in Windows Network Adapter Properties (enable "Magic Packet").
-- **TCP Connection Timed Out / Refused**: Check if your home Wi-Fi router firewall permits inbound traffic on TCP port 9876, or ensure both devices have routable IPv6 connectivity.
-- **PC Commands Not Working**: Verify that `pc_onoff.py` is running on the target PC and that Windows Firewall allows UDP port 9877.
-
-## License
-This project is licensed under the MIT License.
+- **Power Commands Unresponsive**: Ensure Windows Defender Firewall allows UDP 9877. You can test through the Web UI or run `pc_onoff --firewall` as Administrator to add the rule.
