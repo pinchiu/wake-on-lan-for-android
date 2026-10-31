@@ -69,8 +69,10 @@ mod windows {
 
     pub(super) fn execute(action: PowerAction) -> Result<(), PowerError> {
         match action {
-            PowerAction::Shutdown => run("shutdown", &["/s", "/t", "0"]),
-            PowerAction::Reboot => run("shutdown", &["/r", "/t", "0"]),
+            // /f is required when the session is locked; otherwise Windows returns
+            // error 1271 ("The machine is locked and cannot be shut down without the force option").
+            PowerAction::Shutdown => run("shutdown", &["/s", "/f", "/t", "0"]),
+            PowerAction::Reboot => run("shutdown", &["/r", "/f", "/t", "0"]),
             PowerAction::Lock => lock_workstation(),
             PowerAction::Sleep => {
                 // 先鎖定工作站，避免喚醒後畫面停留在桌面。
