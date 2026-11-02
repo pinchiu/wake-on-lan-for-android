@@ -40,10 +40,8 @@ jobs:
           filters: |
             home-phone:
               - 'wakeonlanhomephone/**'
-              - '.github/workflows/**'
             remote-phone:
               - 'wakeonwanremotephone/**'
-              - '.github/workflows/**'
             computer:
               - 'computer/**'
               - 'pc_onoff.exe'

@@ -10,6 +10,10 @@ on:
         description: 'Release tag (leave blank to use current git tag/timestamp)'
         required: false
         default: ''
+      build_apk:
+        description: 'Force build Android APKs even if app unchanged'
+        type: boolean
+        default: false
       draft:
         description: 'Publish as draft'
         type: boolean
@@ -23,6 +27,24 @@ permissions:
   contents: write
 
 jobs:
+  detect-changes:
+    name: Detect App Changes
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Filter Changed Paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            android:
+              - 'wakeonlanhomephone/**'
+              - 'wakeonwanremotephone/**'
+
   build-windows:
     name: Build Windows (exe & zip)
     runs-on: windows-latest
@@ -166,6 +188,8 @@ jobs:
 
   build-android:
     name: Build Android APKs (Home & Remote)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.android == 'true' || github.event.inputs.build_apk == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -205,7 +229,8 @@ jobs:
 
   publish-release:
     name: Create & Publish GitHub Release
-    needs: [build-windows, build-linux, build-macos, build-android]
+    needs: [detect-changes, build-windows, build-linux, build-macos, build-android]
+    if: always() && !cancelled() && !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -232,6 +257,7 @@ jobs:
           path: release-assets
 
       - name: Download Android Artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: android-assets
