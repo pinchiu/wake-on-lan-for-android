@@ -1,7 +1,8 @@
 //! 開機自動啟動的註冊與查詢。
 //!
-//! Windows 使用 `HKCU\...\Run`（免管理員權限）；Unix 使用
-//! `~/.config/autostart` 與 `systemd --user`。所有平台差異都藏在
+//! Windows 使用 `HKCU\...\Run`（免管理員權限）；Linux 使用
+//! `~/.config/autostart` 與 `systemd --user`；macOS 使用
+//! `~/Library/LaunchAgents` (launchd)。所有平台差異都藏在
 //! [`is_enabled`]／[`set_enabled`] 之後，呼叫端只看到布林值與錯誤。
 
 use std::fmt;
@@ -34,9 +35,13 @@ pub fn is_enabled() -> bool {
     {
         windows::is_enabled()
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
-        unix::is_enabled()
+        macos::is_enabled()
+    }
+    #[cfg(all(not(windows), not(target_os = "macos")))]
+    {
+        linux::is_enabled()
     }
 }
 
@@ -46,9 +51,13 @@ pub fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
     {
         windows::set_enabled(enabled)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
-        unix::set_enabled(enabled)
+        macos::set_enabled(enabled)
+    }
+    #[cfg(all(not(windows), not(target_os = "macos")))]
+    {
+        linux::set_enabled(enabled)
     }
 }
 
@@ -154,8 +163,8 @@ mod windows {
     }
 }
 
-#[cfg(not(windows))]
-mod unix {
+#[cfg(any(all(not(windows), not(target_os = "macos")), test))]
+pub(crate) mod linux {
     use std::env;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -166,6 +175,7 @@ mod unix {
     const SERVICE_NAME: &str = "pc_onoff.service";
     const DESKTOP_NAME: &str = "pc_onoff.desktop";
 
+    #[cfg_attr(target_os = "macos", allow(dead_code))]
     pub(super) fn is_enabled() -> bool {
         let Some(home) = home_dir() else {
             return false;
@@ -182,6 +192,7 @@ mod unix {
             .unwrap_or(false)
     }
 
+    #[cfg_attr(target_os = "macos", allow(dead_code))]
     pub(super) fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
         let home = home_dir().ok_or_else(|| AutostartError::new("找不到 HOME 環境變數"))?;
         let executable = env::current_exe()
@@ -352,6 +363,144 @@ mod unix {
             assert_eq!(
                 service_path(home),
                 Path::new("/home/tester/.config/systemd/user/pc_onoff.service")
+            );
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+pub(crate) mod macos {
+    use std::env;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    use super::AutostartError;
+    use crate::platform;
+
+    pub const LABEL: &str = "com.wakeonlan.pc_onoff";
+    pub const PLIST_NAME: &str = "com.wakeonlan.pc_onoff.plist";
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(super) fn is_enabled() -> bool {
+        let Some(home) = home_dir() else {
+            return false;
+        };
+
+        plist_path(&home).exists()
+    }
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub(super) fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
+        let home = home_dir().ok_or_else(|| AutostartError::new("找不到 HOME 環境變數"))?;
+        let executable = env::current_exe()
+            .map_err(|error| AutostartError::new(format!("無法取得執行檔路徑: {error}")))?;
+
+        let plist = plist_path(&home);
+
+        if enabled {
+            write_file(&plist, &launch_agent_plist(&executable))?;
+            let _ = platform::command("launchctl")
+                .args(["load", &plist.to_string_lossy()])
+                .output();
+        } else if plist.exists() {
+            let _ = platform::command("launchctl")
+                .args(["unload", &plist.to_string_lossy()])
+                .output();
+            remove_file(&plist)?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    fn home_dir() -> Option<PathBuf> {
+        env::var_os("HOME").map(PathBuf::from)
+    }
+
+    pub fn plist_path(home: &Path) -> PathBuf {
+        home.join("Library/LaunchAgents").join(PLIST_NAME)
+    }
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    fn write_file(path: &Path, content: &str) -> Result<(), AutostartError> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|error| {
+                AutostartError::new(format!("無法建立目錄 {}: {error}", parent.display()))
+            })?;
+        }
+        fs::write(path, content)
+            .map_err(|error| AutostartError::new(format!("無法寫入 {}: {error}", path.display())))
+    }
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    fn remove_file(path: &Path) -> Result<(), AutostartError> {
+        fs::remove_file(path)
+            .map_err(|error| AutostartError::new(format!("無法刪除 {}: {error}", path.display())))
+    }
+
+    fn xml_escape(input: &str) -> String {
+        let mut escaped = String::with_capacity(input.len());
+        for character in input.chars() {
+            match character {
+                '&' => escaped.push_str("&amp;"),
+                '<' => escaped.push_str("&lt;"),
+                '>' => escaped.push_str("&gt;"),
+                '"' => escaped.push_str("&quot;"),
+                '\'' => escaped.push_str("&apos;"),
+                _ => escaped.push(character),
+            }
+        }
+        escaped
+    }
+
+    pub fn launch_agent_plist(executable: &Path) -> String {
+        let escaped = xml_escape(&executable.to_string_lossy());
+        format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+             <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+             <plist version=\"1.0\">\n\
+             <dict>\n\
+             \t<key>Label</key>\n\
+             \t<string>{LABEL}</string>\n\
+             \t<key>ProgramArguments</key>\n\
+             \t<array>\n\
+             \t\t<string>{escaped}</string>\n\
+             \t</array>\n\
+             \t<key>RunAtLoad</key>\n\
+             \t<true/>\n\
+             \t<key>ProcessType</key>\n\
+             \t<string>Interactive</string>\n\
+             </dict>\n\
+             </plist>\n"
+        )
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn launch_agent_plist_contains_label_and_executable() {
+            let plist = launch_agent_plist(Path::new("/Applications/pc_onoff"));
+            assert!(plist.contains("<string>com.wakeonlan.pc_onoff</string>"));
+            assert!(plist.contains("<string>/Applications/pc_onoff</string>"));
+            assert!(plist.contains("<key>RunAtLoad</key>"));
+            assert!(plist.contains("<true/>"));
+        }
+
+        #[test]
+        fn launch_agent_plist_escapes_xml_special_characters() {
+            let plist = launch_agent_plist(Path::new("/Applications/Test & App <1>/\"pc_onoff\""));
+            assert!(plist.contains("/Applications/Test &amp; App &lt;1&gt;/&quot;pc_onoff&quot;"));
+            assert!(!plist.contains("Test & App"));
+        }
+
+        #[test]
+        fn chooses_standard_macos_launch_agents_path() {
+            let home = Path::new("/Users/tester");
+            assert_eq!(
+                plist_path(home),
+                Path::new("/Users/tester/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist")
             );
         }
     }

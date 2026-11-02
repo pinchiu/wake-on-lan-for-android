@@ -35,7 +35,7 @@ pub trait PowerController {
     fn execute(&self, action: PowerAction) -> Result<(), PowerError>;
 }
 
-/// 真實系統實作：Windows 使用 Win32 API 與系統命令，其餘平台使用 systemctl 等命令。
+/// 真實系統實作：Windows 使用 Win32 API 與系統命令，macOS 使用 osascript/pmset/CGSession，其餘平台使用 systemctl 等命令。
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemPower;
 
@@ -141,7 +141,28 @@ mod unix {
     use crate::platform;
 
     pub(super) fn execute(action: PowerAction) -> Result<(), PowerError> {
-        let candidates: &[(&str, &[&str])] = match action {
+        let candidates = candidates_for(action);
+        run_first(candidates)
+    }
+
+    pub fn candidates_for(
+        action: PowerAction,
+    ) -> &'static [(&'static str, &'static [&'static str])] {
+        #[cfg(target_os = "macos")]
+        {
+            macos_candidates(action)
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            linux_candidates(action)
+        }
+    }
+
+    #[cfg_attr(target_os = "macos", allow(dead_code))]
+    pub fn linux_candidates(
+        action: PowerAction,
+    ) -> &'static [(&'static str, &'static [&'static str])] {
+        match action {
             PowerAction::Shutdown => &[("systemctl", &["poweroff"]), ("shutdown", &["-h", "now"])],
             PowerAction::Reboot => &[("systemctl", &["reboot"]), ("reboot", &[])],
             PowerAction::Sleep => &[("systemctl", &["suspend"]), ("pm-suspend", &[])],
@@ -150,9 +171,52 @@ mod unix {
                 ("loginctl", &["lock-session"]),
                 ("xdg-screensaver", &["lock"]),
             ],
-        };
+        }
+    }
 
-        run_first(candidates)
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn macos_candidates(
+        action: PowerAction,
+    ) -> &'static [(&'static str, &'static [&'static str])] {
+        match action {
+            PowerAction::Shutdown => &[
+                (
+                    "osascript",
+                    &["-e", "tell app \"System Events\" to shut down"],
+                ),
+                ("shutdown", &["-h", "now"]),
+            ],
+            PowerAction::Reboot => &[
+                (
+                    "osascript",
+                    &["-e", "tell app \"System Events\" to restart"],
+                ),
+                ("shutdown", &["-r", "now"]),
+                ("reboot", &[]),
+            ],
+            PowerAction::Sleep => &[
+                ("pmset", &["sleepnow"]),
+                ("osascript", &["-e", "tell app \"System Events\" to sleep"]),
+            ],
+            PowerAction::Hibernate => &[
+                ("pmset", &["sleepnow"]),
+                ("osascript", &["-e", "tell app \"System Events\" to sleep"]),
+            ],
+            PowerAction::Lock => &[
+                (
+                    "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession",
+                    &["-suspend"],
+                ),
+                ("pmset", &["displaysleepnow"]),
+                (
+                    "osascript",
+                    &[
+                        "-e",
+                        "tell application \"System Events\" to keystroke \"q\" using {control down, command down}",
+                    ],
+                ),
+            ],
+        }
     }
 
     /// 依序嘗試候選命令，第一個成功者即回傳；全部失敗才回報錯誤。
@@ -179,5 +243,38 @@ mod unix {
             "所有電源指令皆失敗 ({})",
             failures.join("; ")
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(not(windows))]
+    #[test]
+    fn candidates_are_non_empty_for_all_actions_on_linux_and_macos() {
+        let actions = [
+            PowerAction::Shutdown,
+            PowerAction::Reboot,
+            PowerAction::Sleep,
+            PowerAction::Hibernate,
+            PowerAction::Lock,
+        ];
+
+        for action in actions {
+            let linux = unix::linux_candidates(action);
+            assert!(!linux.is_empty(), "Linux 候選指令不可為空: {action:?}");
+            for (prog, args) in linux {
+                assert!(!prog.is_empty());
+                let _ = args;
+            }
+
+            let macos = unix::macos_candidates(action);
+            assert!(!macos.is_empty(), "macOS 候選指令不可為空: {action:?}");
+            for (prog, args) in macos {
+                assert!(!prog.is_empty());
+                let _ = args;
+            }
+        }
     }
 }

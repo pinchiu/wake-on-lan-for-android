@@ -11,14 +11,18 @@ BUFFER_SIZE = 1024
 def shutdown_pc():
     if sys.platform == "win32":
         subprocess.call(["shutdown", "/s", "/t", "0"])
-    else:  # Linux/Mac (requires permissions)
-        subprocess.call(["sudo", "shutdown", "now"])
+    elif sys.platform == "darwin":  # macOS
+        subprocess.call(["osascript", "-e", 'tell app "System Events" to shut down'])
+    else:  # Linux (requires permissions)
+        subprocess.call(["systemctl", "poweroff"])
 
 def reboot_pc():
     if sys.platform == "win32":
         subprocess.call(["shutdown", "/r", "/t", "0"])
-    else:  # Linux/Mac (requires permissions)
-        subprocess.call(["sudo", "reboot"])
+    elif sys.platform == "darwin":  # macOS
+        subprocess.call(["osascript", "-e", 'tell app "System Events" to restart'])
+    else:  # Linux (requires permissions)
+        subprocess.call(["systemctl", "reboot"])
 
 def sleep_pc():
     if sys.platform == "win32":
@@ -26,15 +30,19 @@ def sleep_pc():
         subprocess.call("powercfg.exe /hibernate off", shell=True)
         subprocess.call("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", shell=True)
         subprocess.call("powercfg.exe /hibernate on", shell=True)
-    else: # Linux/Mac (needs configuration)
-        subprocess.call(["sudo", "pm-suspend"])
+    elif sys.platform == "darwin":  # macOS
+        subprocess.call(["pmset", "sleepnow"])
+    else:  # Linux (needs configuration)
+        subprocess.call(["systemctl", "suspend"])
 
 def hibernate_pc():
     if sys.platform == "win32":
         subprocess.call("rundll32.exe user32.dll,LockWorkStation", shell=True)
         subprocess.call("rundll32.exe powrprof.dll,SetSuspendState 1,1,0", shell=True)
-    else: # Linux/Mac (needs configuration)
-        subprocess.call(["sudo", "pm-hibernate"])
+    elif sys.platform == "darwin":  # macOS
+        subprocess.call(["pmset", "sleepnow"])
+    else:  # Linux (needs configuration)
+        subprocess.call(["systemctl", "hibernate"])
 
 def main():
     print(f"Listening on {LISTEN_IP}:{LISTEN_PORT}, waiting for remote commands...")

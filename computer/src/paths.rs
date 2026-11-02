@@ -29,14 +29,21 @@ pub fn log_path() -> PathBuf {
     choose_file(LOG_FILE_NAME, executable_dir().as_deref(), &app_data_dir())
 }
 
-/// 使用者資料目錄（Windows：`%LOCALAPPDATA%\pc_onoff`；Unix：`~/.config/pc_onoff`）。
+/// 使用者資料目錄（Windows：`%LOCALAPPDATA%\pc_onoff`；macOS：`~/Library/Application Support/pc_onoff`；Linux/Unix：`~/.config/pc_onoff`）。
 pub fn app_data_dir() -> PathBuf {
     #[cfg(windows)]
     if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
         return PathBuf::from(local_app_data).join(APP_NAME);
     }
 
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    if let Some(home) = env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join("Library/Application Support")
+            .join(APP_NAME);
+    }
+
+    #[cfg(all(not(windows), not(target_os = "macos")))]
     if let Some(home) = env::var_os("HOME") {
         return PathBuf::from(home).join(".config").join(APP_NAME);
     }
@@ -152,7 +159,12 @@ mod tests {
             assert!(path.starts_with(PathBuf::from(root)));
         }
 
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        if let Some(home) = env::var_os("HOME") {
+            assert!(path.starts_with(PathBuf::from(home).join("Library/Application Support")));
+        }
+
+        #[cfg(all(not(windows), not(target_os = "macos")))]
         if let Some(home) = env::var_os("HOME") {
             assert!(path.starts_with(PathBuf::from(home).join(".config")));
         }

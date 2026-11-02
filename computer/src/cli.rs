@@ -237,16 +237,22 @@ fn run_daemon() -> i32 {
 }
 
 fn print_help() {
+    let exe = if cfg!(windows) {
+        "pc_onoff.exe"
+    } else {
+        "pc_onoff"
+    };
+
     println!("Wake-on-LAN 電腦端遠端控制常駐程式");
     println!();
     println!("用法:");
-    println!("  pc_onoff.exe              背景常駐執行，並依設定註冊開機自啟 (預設)");
-    println!("  pc_onoff.exe --status     檢視目前運作與開機自啟狀態");
-    println!("  pc_onoff.exe --log        檢視最新日誌記錄");
-    println!("  pc_onoff.exe --stop       停止正在背景執行的服務");
-    println!("  pc_onoff.exe --install    啟用開機自動啟動");
-    println!("  pc_onoff.exe --uninstall  解除開機自動啟動");
-    println!("  pc_onoff.exe --help       顯示本說明");
+    println!("  {exe}              背景常駐執行，並依設定註冊開機自啟 (預設)");
+    println!("  {exe} --status     檢視目前運作與開機自啟狀態");
+    println!("  {exe} --log        檢視最新日誌記錄");
+    println!("  {exe} --stop       停止正在背景執行的服務");
+    println!("  {exe} --install    啟用開機自動啟動");
+    println!("  {exe} --uninstall  解除開機自動啟動");
+    println!("  {exe} --help       顯示本說明");
     println!();
     println!("遠端指令 (UDP, 大小寫不拘):");
     println!("  shutdown | reboot | sleep | hibernate | lock");

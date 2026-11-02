@@ -1,19 +1,23 @@
 # Wake-on-LAN 電腦端電源控制守護程式 (pc_onoff)
 
-本程式為配合 Android 手機端 Wake-on-LAN / Wake-on-WAN 應用之電腦端常駐守護程式。以 Rust 語言撰寫，無任何外部依賴，編譯為單一極輕量可執行檔（約 420 KB）。完整支援 **Windows** 與 **Linux** 跨平台環境。
+本程式為配合 Android 手機端 Wake-on-LAN / Wake-on-WAN 應用之電腦端常駐守護程式。以 Rust 語言撰寫，無任何外部依賴，編譯為單一極輕量可執行檔（約 420 KB）。完整支援 **Windows**、**macOS (Apple)** 與 **Linux** 跨平台環境。
 
 ---
 
 ## 核心特色
 
 1. **零干擾背景常駐（無黑視窗、無多餘 GUI）**：
-   * 雙擊 `pc_onoff.exe` 直接於背景安靜運行，不會彈出任何黑色命令提示字元視窗或多餘的 GUI 介面。
+   * Windows 雙擊 `pc_onoff.exe` 直接於背景安靜運行，不會彈出任何黑色命令提示字元視窗或多餘的 GUI 介面。
+   * macOS / Linux 執行 `./pc_onoff` 於背景安靜監聽。
 2. **預設自動啟用開機啟動**：
-   * 預設在啟動時確保開機自啟設定（Windows 註冊至 `HKCU Run`，完全免管理員權限）。
+   * 預設在啟動時確保開機自啟設定：
+     - Windows 註冊至使用者登錄檔 `HKCU Run`（完全免管理員權限）。
+     - macOS 自動建立 `launchd` LaunchAgent (`~/Library/LaunchAgents`)。
+     - Linux 自動註冊 `systemd --user` 與 XDG Autostart。
    * 開機登入系統後自動於背景常駐運行，無需使用者手動介入。
    * 可由 `config.ini` 的 `autostart=false` 或 `--uninstall` 停用。
 3. **單實例守護**：
-   * Windows 使用具名互斥鎖、Linux 使用 PID 鎖定檔，多次啟動不會導致連接埠衝突或重複執行。
+   * Windows 使用具名互斥鎖、macOS / Linux 使用 PID 鎖定檔，多次啟動不會導致連接埠衝突或重複執行。
 4. **本地即時日誌紀錄**：
    * 每次連線來源 IP、執行時間戳記與系統電源操作均自動記錄於 `pc_onoff.log`。
    * 日誌超過 5 MB 會自動輪替為 `pc_onoff.log.1`，不會無限制成長。
@@ -26,19 +30,20 @@
 | 作業系統 | 實作機制 | 權限需求 | 特點 |
 | :--- | :--- | :--- | :--- |
 | **Windows** | 使用者登錄檔 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | 免管理員權限 | 雙擊自動完成註冊，重啟電腦後自動背景執行 |
+| **macOS (Apple)** | `launchd` LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`) | 免 root 權限 | 登入 macOS 時自動由 launchd 背景喚起，支援 `launchctl` 管理 |
 | **Linux** | `systemd --user` 服務檔 + XDG Autostart (`~/.config/autostart/`) | 免 sudo 權限 | 同時支援主流桌面環境 (GNOME/KDE) 與純伺服器模式 |
 
 ---
 
 ## 支援的遠端控制指令 (UDP 9877)
 
-| 指令 | 說明 | Windows 呼叫方式 | Linux 呼叫方式 |
-| :--- | :--- | :--- | :--- |
-| `shutdown` | 關機 | `shutdown /s /t 0` (靜默無黑視窗) | `systemctl poweroff` |
-| `reboot` | 重新開機 | `shutdown /r /t 0` (靜默無黑視窗) | `systemctl reboot` |
-| `sleep` | 進入睡眠 | 鎖定工作站並調用原生 `SetSuspendState(0, 0, 0)`（保留 WoL 喚醒能力） | `systemctl suspend` |
-| `hibernate` | 進入休眠 | 鎖定工作站並執行休眠 | `systemctl hibernate` |
-| `lock` | 鎖定螢幕 | 原生調用 `LockWorkStation` | `loginctl lock-session` |
+| 指令 | 說明 | Windows 呼叫方式 | macOS (Apple) 呼叫方式 | Linux 呼叫方式 |
+| :--- | :--- | :--- | :--- | :--- |
+| `shutdown` | 關機 | `shutdown /s /f /t 0` (靜默無黑視窗) | `osascript` (System Events) / `shutdown -h now` | `systemctl poweroff` |
+| `reboot` | 重新開機 | `shutdown /r /f /t 0` (靜默無黑視窗) | `osascript` (System Events) / `shutdown -r now` | `systemctl reboot` |
+| `sleep` | 進入睡眠 | 鎖定工作站並調用原生 `SetSuspendState(0, 0, 0)`（保留 WoL 喚醒能力） | `pmset sleepnow` / `osascript` (System Events) | `systemctl suspend` |
+| `hibernate` | 進入休眠 | 鎖定工作站並執行休眠 | `pmset sleepnow` (依系統安全休眠設定) | `systemctl hibernate` |
+| `lock` | 鎖定螢幕 | 原生調用 `LockWorkStation` | `CGSession -suspend` / `pmset displaysleepnow` | `loginctl lock-session` |
 
 * 大小寫不拘（`SHUTDOWN`、`Shutdown` 皆可）。
 * 相容 Android 端送出的 `SHUTDOWN:<IP>`、`SLEEP,<IP>` 形式；`:<IP>` 部分會被忽略。
@@ -52,7 +57,8 @@
 
 1. 執行檔所在目錄（若已有檔案或目錄可寫入）。
 2. Windows：`%LOCALAPPDATA%\pc_onoff\config.ini`
-3. Linux：`~/.config/pc_onoff/config.ini`
+3. macOS：`~/Library/Application Support/pc_onoff/config.ini`
+4. Linux：`~/.config/pc_onoff/config.ini`
 
 ```ini
 # Wake-on-LAN 電腦端電源控制設定
@@ -76,17 +82,20 @@ autostart=true
 2. 程式將自動於背景開始監聽 UDP 9877，並依設定註冊開機自動啟動。
 3. 可隨時開啟同目錄下的 `pc_onoff.log` 檢視本機 IP、運作狀態與遠端控制紀錄。
 
+### macOS (Apple) 使用方式
+* 於終端機執行 `./pc_onoff`，自動註冊 `launchd` LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`) 並於背景監聽 UDP 9877。
+
 ### Linux 使用方式
 * 於終端機執行 `./pc_onoff`，自動註冊 `systemd --user` 服務與 XDG Autostart 並於背景監聽。
 
 ### 命令列常用管理參數
-* `pc_onoff.exe`：預設在背景執行並依設定註冊開機啟動
-* `pc_onoff.exe --status`：檢視背景服務、本機 IP、連接埠與開機啟動設定
-* `pc_onoff.exe --log`：檢視最新 25 行日誌
-* `pc_onoff.exe --stop`：停止正在背景運行的服務
-* `pc_onoff.exe --install`：啟用開機自動啟動（並同步寫入 `config.ini`）
-* `pc_onoff.exe --uninstall`：解除開機自動啟動（並同步寫入 `config.ini`）
-* `pc_onoff.exe --help`：檢視參數說明
+* `pc_onoff`（Windows 為 `pc_onoff.exe`）：預設在背景執行並依設定註冊開機啟動
+* `pc_onoff --status`：檢視背景服務、本機 IP、連接埠與開機啟動設定
+* `pc_onoff --log`：檢視最新 25 行日誌
+* `pc_onoff --stop`：停止正在背景運行的服務
+* `pc_onoff --install`：啟用開機自動啟動（並同步寫入 `config.ini`）
+* `pc_onoff --uninstall`：解除開機自動啟動（並同步寫入 `config.ini`）
+* `pc_onoff --help`：檢視參數說明
 
 ---
 
@@ -98,11 +107,11 @@ autostart=true
 | :--- | :--- |
 | `src/action.rs` | 指令語法解析（大小寫、空白、`:`／`,`、別名）與 `PowerAction`。 |
 | `src/dispatch.rs` | **深模組**：解析 → 執行 → 結構化 `DispatchError`，不寫日誌、不碰 socket。 |
-| `src/power.rs` | `PowerController` seam 與 Windows／Linux 系統實作。 |
+| `src/power.rs` | `PowerController` seam 與 Windows／macOS／Linux 系統實作。 |
 | `src/server.rs` | UDP 9877 傳輸適配器；將封包交給 dispatcher 並記錄結果。 |
 | `src/config.rs` | `config.ini` 純函式解析與原子寫入。 |
 | `src/logging.rs` | 主控台＋檔案日誌、5 MB 輪替、控制字元清理。 |
-| `src/autostart.rs` | Windows 登錄檔／Linux systemd 與 XDG 開機自啟。 |
+| `src/autostart.rs` | Windows 登錄檔／macOS launchd／Linux systemd 與 XDG 開機自啟。 |
 | `src/instance.rs` | 單一實例守護與 `--stop` 實作。 |
 | `src/paths.rs` | 設定檔／日誌路徑選擇（不產生探測副作用）。 |
 | `src/cli.rs` | 命令列解析與行程生命週期。 |
@@ -120,6 +129,14 @@ autostart=true
   cargo test
   cargo build --release
   ```
+* **macOS (Apple) 本地編譯**：
+  ```bash
+  cd computer
+  cargo fmt --all -- --check
+  cargo clippy --all-targets -- -D warnings
+  cargo test
+  cargo build --release
+  ```
 * **Linux 本地/遠端編譯**：
   ```bash
   cd computer
@@ -131,4 +148,4 @@ autostart=true
 
 > [!NOTE]
 > 本專案不引入任何第三方 crate；Win32 API 以 `extern "system"` 直接宣告，
-> 其餘平台差異以 `#[cfg(windows)]`／`#[cfg(not(windows))]` 收斂於各模組內。
+> 其餘平台差異以 `#[cfg(windows)]`、`#[cfg(target_os = "macos")]` 與 `#[cfg(all(unix, not(target_os = "macos")))]` 收斂於各模組內。
