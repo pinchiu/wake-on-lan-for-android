@@ -161,53 +161,7 @@ impl<P: PowerController> Dispatcher<P> {
 
 ## 6. Cross-Platform Build, Test, and Verification SOP
 
-### 6.1 Automated Delegation & Local Fallback Scripts (Recommended)
-
-The project includes cross-platform build scripts supporting **priority SSH delegation to a LAN build server (Homeserver)**, with **automatic graceful fallback to local compilation**:
-
-* **Linux / macOS (Bash / Zsh)**:
-  ```bash
-  # Run unit tests
-  ./scripts/remote-build.sh -a test
-
-  # Build Release APK and download to project root
-  ./scripts/remote-build.sh -a build
-
-  # Full workflow (test + build APK)
-  ./scripts/remote-build.sh -a all
-
-  # Build both Home Phone and Remote Phone
-  ./scripts/remote-build.sh -a all -t both
-  ```
-
-* **Windows (PowerShell)**:
-  ```powershell
-  # Run unit tests
-  .\scripts\remote-build.ps1 -Action test
-
-  # Build Release APK and sync to project root
-  .\scripts\remote-build.ps1 -Action build
-
-  # Full workflow (test + build APK)
-  .\scripts\remote-build.ps1 -Action all
-
-  # Build both Home Phone and Remote Phone
-  .\scripts\remote-build.ps1 -Action all -Target both
-  ```
-
-> [!TIP]
-> **Remote Build Server Configuration**: To offload builds to a remote host via SSH, configure an alias in `~/.ssh/config`:
-> ```sshconfig
-> Host homeserver
->     HostName <Host IP or Domain>
->     User <Username>
->     IdentityFile <Path to Private Key>
-> ```
-> You can also specify the host using `BUILD_HOST=<alias or IP>`.
-
----
-
-### 6.2 Native Command Reference Table
+### 6.1 Native Command Reference Table
 
 #### A. Run Deep Module Unit Tests (Must Pass 100%)
 * **Linux / macOS**:
@@ -223,20 +177,24 @@ The project includes cross-platform build scripts supporting **priority SSH dele
 * **Linux / macOS**:
   ```bash
   cd wakeonlanhomephone && ./gradlew compileDebugKotlin
+  cd ../wakeonwanremotephone && ./gradlew compileDebugKotlin
   ```
 * **Windows (PowerShell)**:
   ```powershell
   cd wakeonlanhomephone; .\gradlew.bat compileDebugKotlin
+  cd ..\wakeonwanremotephone; .\gradlew.bat compileDebugKotlin
   ```
 
 #### C. Local Release APK Build & Sync to Root
 * **Linux / macOS**:
   ```bash
   cd wakeonlanhomephone && ./gradlew assembleRelease && cp app/build/outputs/apk/release/app-release.apk ../wakeonlan-home-phone.apk
+  cd ../wakeonwanremotephone && ./gradlew assembleRelease && cp app/build/outputs/apk/release/app-release.apk ../wakeonwan-remote-phone.apk
   ```
 * **Windows (PowerShell)**:
   ```powershell
   cd wakeonlanhomephone; .\gradlew.bat assembleRelease; Copy-Item -Path app\build\outputs\apk\release\app-release.apk -Destination ..\wakeonlan-home-phone.apk -Force
+  cd ..\wakeonwanremotephone; .\gradlew.bat assembleRelease; Copy-Item -Path app\build\outputs\apk\release\app-release.apk -Destination ..\wakeonwan-remote-phone.apk -Force
   ```
 
 #### D. PC Python Daemon Syntax Validation
