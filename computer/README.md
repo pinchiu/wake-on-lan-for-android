@@ -146,6 +146,19 @@ autostart=true
   cargo build --release
   ```
 
+---
+
+## 自動化打包與 GitHub Release 發行
+
+專案配置有 GitHub Actions 自動化發行工作流程（`.github/workflows/release.yml`）。每當推播版本標籤（如 `git tag v1.6.1 && git push origin v1.6.1`）或手動於 GitHub Actions 觸發 `Release` 時，系統將自動於原生虛擬機平行建置並上傳全平台產物至 GitHub Releases：
+
+| 作業系統 / 平台 | Release 發行產物格式 | 說明 |
+| :--- | :--- | :--- |
+| **Windows** | `pc_onoff-windows-x86_64.exe`<br>`pc_onoff-windows-x86_64.zip` | 獨立無依賴執行檔與完整說明文件壓縮包 |
+| **Linux** | `pc_onoff-linux-x86_64.AppImage`<br>`pc_onoff-linux-x86_64`<br>`pc_onoff-linux-x86_64.tar.gz` | 單一檔案免安裝點擊即跑 AppImage，以及伺服器/無桌面獨立二進位檔 |
+| **Apple (macOS)** | `pc_onoff-macos-universal`<br>`pc_onoff-macos-universal.zip`<br>`pc_onoff-macos-universal.tar.gz` | 透過 lipo 合併的 Universal Binary，同時原生支援 Apple Silicon (M1~M4) 與 Intel Mac |
+| **Android** | `wakeonlan-home-phone.apk`<br>`wakeonwan-remote-phone.apk` | 家用助手端與外出遙控端 Release APK |
+
 > [!NOTE]
 > 本專案不引入任何第三方 crate；Win32 API 以 `extern "system"` 直接宣告，
 > 其餘平台差異以 `#[cfg(windows)]`、`#[cfg(target_os = "macos")]` 與 `#[cfg(all(unix, not(target_os = "macos")))]` 收斂於各模組內。

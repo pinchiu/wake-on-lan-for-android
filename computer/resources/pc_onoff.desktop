@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Wake-on-LAN PC Control
+Comment=Remote shutdown, reboot, sleep, hibernate and lock helper
+Exec=pc_onoff
+Icon=pc_onoff
+Categories=Utility;System;
+Terminal=false

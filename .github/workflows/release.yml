@@ -1,0 +1,265 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (leave blank to use current git tag/timestamp)'
+        required: false
+        default: ''
+      draft:
+        description: 'Publish as draft'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Publish as pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows (exe & zip)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: computer
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build Windows Release Binary
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Package Windows Artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/x86_64-pc-windows-msvc/release/pc_onoff.exe dist/pc_onoff-windows-x86_64.exe
+          cp target/x86_64-pc-windows-msvc/release/pc_onoff.exe dist/pc_onoff.exe
+          cp README.md dist/README.md
+          cd dist
+          7z a pc_onoff-windows-x86_64.zip pc_onoff.exe README.md
+          rm pc_onoff.exe README.md
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-assets
+          path: computer/dist/*
+          retention-days: 7
+
+  build-linux:
+    name: Build Linux (AppImage & tar.gz)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: computer
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Build Linux Release Binary
+        run: |
+          cargo build --release --target x86_64-unknown-linux-gnu
+          strip target/x86_64-unknown-linux-gnu/release/pc_onoff
+
+      - name: Prepare AppImage Directory Structure
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+          cp target/x86_64-unknown-linux-gnu/release/pc_onoff AppDir/usr/bin/pc_onoff
+          cp resources/pc_onoff.desktop AppDir/pc_onoff.desktop
+          cp resources/pc_onoff.svg AppDir/pc_onoff.svg
+          cp resources/pc_onoff.svg AppDir/usr/share/icons/hicolor/scalable/apps/pc_onoff.svg
+
+          # Create AppRun entrypoint
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "$HERE/usr/bin/pc_onoff" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Build AppImage with appimagetool
+        run: |
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          mkdir -p dist
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir dist/pc_onoff-linux-x86_64.AppImage
+
+      - name: Package Linux Standalone Binary & Tarball
+        run: |
+          cp target/x86_64-unknown-linux-gnu/release/pc_onoff dist/pc_onoff-linux-x86_64
+          mkdir -p tarball
+          cp target/x86_64-unknown-linux-gnu/release/pc_onoff tarball/
+          cp README.md tarball/
+          tar -czf dist/pc_onoff-linux-x86_64.tar.gz -C tarball pc_onoff README.md
+          rm -rf tarball
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-assets
+          path: computer/dist/*
+          retention-days: 7
+
+  build-macos:
+    name: Build Apple macOS Universal Binary (zip & tar.gz)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: computer
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Build macOS Release (Apple Silicon & Intel)
+        run: |
+          cargo build --release --target aarch64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+
+      - name: Create Universal Binary & Packages
+        run: |
+          mkdir -p dist/bin
+          lipo -create -output dist/bin/pc_onoff \
+            target/aarch64-apple-darwin/release/pc_onoff \
+            target/x86_64-apple-darwin/release/pc_onoff
+          strip dist/bin/pc_onoff
+
+          # Standalone Universal binary (directly executable)
+          cp dist/bin/pc_onoff dist/pc_onoff-macos-universal
+
+          # Archive with README
+          cp README.md dist/bin/
+          cd dist
+          tar -czf pc_onoff-macos-universal.tar.gz -C bin pc_onoff README.md
+          zip -j pc_onoff-macos-universal.zip bin/pc_onoff bin/README.md
+          rm -rf bin
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-assets
+          path: computer/dist/*
+          retention-days: 7
+
+  build-android:
+    name: Build Android APKs (Home & Remote)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build Home Phone Release APK
+        working-directory: wakeonlanhomephone
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Build Remote Phone Release APK
+        working-directory: wakeonwanremotephone
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Collect Android APKs
+        run: |
+          mkdir -p dist
+          cp wakeonlanhomephone/app/build/outputs/apk/release/*.apk dist/wakeonlan-home-phone.apk
+          cp wakeonwanremotephone/app/build/outputs/apk/release/*.apk dist/wakeonwan-remote-phone.apk
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-assets
+          path: dist/*.apk
+          retention-days: 7
+
+  publish-release:
+    name: Create & Publish GitHub Release
+    needs: [build-windows, build-linux, build-macos, build-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-assets
+          path: release-assets
+
+      - name: Download Linux Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-assets
+          path: release-assets
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-assets
+          path: release-assets
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-assets
+          path: release-assets
+
+      - name: Display Release Asset List
+        run: |
+          echo "=== 準備上傳至 Release 的產物清單 ==="
+          ls -lh release-assets/
+
+      - name: Determine Release Tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "name=${{ github.event.inputs.tag_name }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            echo "name=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=v$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          files: release-assets/*
+          generate_release_notes: true
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
