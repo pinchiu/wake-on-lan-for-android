@@ -238,30 +238,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Download Windows Artifacts
+      - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: windows-assets
           path: release-assets
-
-      - name: Download Linux Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-assets
-          path: release-assets
-
-      - name: Download macOS Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-assets
-          path: release-assets
-
-      - name: Download Android Artifacts
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: android-assets
-          path: release-assets
+          pattern: '*-assets'
+          merge-multiple: true
 
       - name: Display Release Asset List
         run: |
