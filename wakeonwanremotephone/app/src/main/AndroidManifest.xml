@@ -38,7 +38,7 @@
                 android:resource="@xml/provider_paths" />
         </provider>
 
-        <!-- 外出遙控端桌面小工具 -->
+        <!-- Remote Wake Screen Widget (App Widget) -->
         <receiver
             android:name=".RemoteWakeWidgetProvider"
             android:exported="true">

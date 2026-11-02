@@ -68,7 +68,7 @@ class MqttWolService : Service() {
                 wakeLock?.acquire(timeout)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Acquire WakeLock 失敗", e)
+            Log.e(TAG, "Failed to acquire WakeLock", e)
         }
     }
 
@@ -78,7 +78,7 @@ class MqttWolService : Service() {
                 wakeLock?.release()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Release WakeLock 失敗", e)
+            Log.e(TAG, "Failed to release WakeLock", e)
         }
     }
 
@@ -280,7 +280,7 @@ class MqttWolService : Service() {
                  if (throwable != null) {
                      val errorMsg = formatErrorMessage(throwable)
                      Log.e(TAG, "Subscription failed: $errorMsg", throwable)
-                     AppLogger.log("MQTT: 訂閱失敗 ($errorMsg)")
+                     AppLogger.log("MQTT: Subscription failed ($errorMsg)")
                      AppGlobalState.updateState(MqttConnectionState.FAILED, error = localized(R.string.mqtt_subscribe_failed, errorMsg))
                  } else if (subAck != null && subAck.returnCodes.any { it.isError }) {
                      val reason = localized(R.string.mqtt_subscribe_rejected, topic)

@@ -8,12 +8,12 @@ import android.os.LocaleList
 import java.util.Locale
 
 /**
- * 應用程式語言偏好管理。
+ * Application locale preference management.
  *
- * 偏好設定為唯一真實來源（不依賴 AppCompat 或 LocaleManager）：
- * - ""      跟隨系統
- * - "zh-TW" 繁體中文
- * - "en"    英文
+ * SharedPreferences serves as the single source of truth:
+ * - ""      Follow system
+ * - "zh-TW" Traditional Chinese
+ * - "en"    English
  */
 object AppLocale {
 
@@ -31,7 +31,7 @@ object AppLocale {
     }
 
     /**
-     * 依使用者偏好包裝 Context；跟隨系統時直接回傳原始 Context。
+     * Wrap Context based on user locale preference; returns original Context when following system.
      */
     fun wrap(base: Context): Context {
         val tag = currentTag(base)
@@ -46,7 +46,7 @@ object AppLocale {
     }
 
     /**
-     * 儲存語言偏好並重建目前 Activity，讓所有畫面立即套用新語言。
+     * Persist language preference and recreate current Activity so all UI elements update immediately.
      */
     fun set(context: Context, tag: String) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -54,7 +54,7 @@ object AppLocale {
             .putString(KEY_APP_LANGUAGE, tag)
             .apply()
 
-        // Compose 的 LocalContext 可能是 ContextThemeWrapper，先往上找出 Activity。
+        // Compose LocalContext may be ContextThemeWrapper; traverse up to find Activity.
         var candidate: Context? = context
         while (candidate !is Activity && candidate is ContextWrapper) {
             candidate = candidate.baseContext

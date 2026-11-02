@@ -723,8 +723,8 @@ fun ConfirmPowerDialog(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        // onConfirm 負責清除待執行動作並關閉對話框。
-                        // 不可先呼叫 onDismiss，否則父層會在 onConfirm 讀取動作前就將其清空。
+                        // onConfirm is responsible for executing the pending action and dismissing the dialog.
+                        // Must not call onDismiss first, or the parent state will clear the action before execution.
                         onClick = onConfirm,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (isDestructive) SemanticDanger else SemanticInfo

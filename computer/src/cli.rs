@@ -1,7 +1,7 @@
-//! 命令列入口與行程生命週期。
+//! Command-line entry point and process lifecycle.
 //!
-//! `main` 只負責附加主控台與呼叫 [`run`]；參數解析、狀態查詢、日誌檢視、
-//! 開機自啟管理與常駐啟動都在這裡組合底層模組。
+//! `main` attaches the console and delegates to [`run`]; argument parsing, status queries,
+//! log inspection, autostart management, and daemon startup are composed here.
 
 use std::fmt;
 use std::fs;
@@ -17,7 +17,7 @@ use crate::server;
 
 const LOG_TAIL_LINES: usize = 25;
 
-/// 使用者要求的操作。
+/// User requested operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CliCommand {
     Run,
@@ -29,7 +29,7 @@ pub enum CliCommand {
     Help,
 }
 
-/// 命令列參數錯誤。
+/// Command line argument error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CliError {
     UnknownArgument(String),
@@ -39,8 +39,8 @@ pub enum CliError {
 impl fmt::Display for CliError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnknownArgument(argument) => write!(f, "未知的參數 '{argument}'"),
-            Self::TooManyArguments => f.write_str("一次只能指定一個參數"),
+            Self::UnknownArgument(argument) => write!(f, "unknown argument '{argument}'"),
+            Self::TooManyArguments => f.write_str("only one argument may be specified at a time"),
         }
     }
 }
@@ -48,7 +48,7 @@ impl fmt::Display for CliError {
 impl std::error::Error for CliError {}
 
 impl CliCommand {
-    /// 解析命令列參數（不含執行檔路徑）。無參數代表常駐啟動。
+    /// Parse command line arguments (excluding binary path). No arguments means run daemon.
     pub fn parse(args: &[String]) -> Result<Self, CliError> {
         let Some(argument) = args.first() else {
             return Ok(Self::Run);
@@ -70,7 +70,7 @@ impl CliCommand {
     }
 }
 
-/// 執行命令列並回傳行程結束碼。
+/// Execute command line and return process exit code.
 pub fn run(args: Vec<String>) -> i32 {
     match CliCommand::parse(&args) {
         Ok(CliCommand::Help) => {
@@ -84,7 +84,7 @@ pub fn run(args: Vec<String>) -> i32 {
         Ok(CliCommand::Uninstall) => set_autostart(false),
         Ok(CliCommand::Run) => run_daemon(),
         Err(error) => {
-            eprintln!("參數錯誤: {error}");
+            eprintln!("Argument error: {error}");
             eprintln!();
             print_help();
             2
@@ -98,27 +98,27 @@ fn show_status() -> i32 {
     let config = AppConfig::load(&config_path);
     let autostart_enabled = autostart::is_enabled();
 
-    println!("Wake-on-LAN 電腦端服務狀態:");
-    println!("  本機 IP:       {}", server::local_ipv4());
-    println!("  監聽連接埠:    {} (UDP)", config.udp_port);
+    println!("Wake-on-LAN Computer Power Control Status:");
+    println!("  Local IP:           {}", server::local_ipv4());
+    println!("  Listening Port:     {} (UDP)", config.udp_port);
     println!(
-        "  背景服務:      {}",
+        "  Background Service: {}",
         if instance::is_running() {
-            "執行中"
+            "running"
         } else {
-            "未執行"
+            "stopped"
         }
     );
     println!(
-        "  開機自動啟動:  {}",
+        "  Autostart on Boot:  {}",
         if autostart_enabled {
-            "已啟用"
+            "enabled"
         } else {
-            "未啟用"
+            "disabled"
         }
     );
-    println!("  設定檔案:      {}", config_path.display());
-    println!("  日誌檔案:      {}", log_path.display());
+    println!("  Config File:        {}", config_path.display());
+    println!("  Log File:           {}", log_path.display());
     0
 }
 
@@ -126,7 +126,7 @@ fn show_logs() -> i32 {
     let path = paths::log_path();
 
     let Ok(content) = fs::read_to_string(&path) else {
-        println!("尚未產生日誌檔案: {}", path.display());
+        println!("Log file does not exist yet: {}", path.display());
         return 0;
     };
 
@@ -141,15 +141,15 @@ fn show_logs() -> i32 {
 fn stop_service() -> i32 {
     match instance::request_stop() {
         Ok(StopOutcome::Signaled) => {
-            println!("已送出停止指令，背景服務將結束。");
+            println!("Stop signal sent; background service will terminate.");
             0
         }
         Ok(StopOutcome::NotRunning) => {
-            println!("目前沒有正在執行的背景服務。");
+            println!("No background service is currently running.");
             0
         }
         Err(error) => {
-            eprintln!("停止服務失敗: {error}");
+            eprintln!("Failed to stop service: {error}");
             1
         }
     }
@@ -161,18 +161,21 @@ fn set_autostart(enabled: bool) -> i32 {
         return 1;
     }
 
-    // 只有作業系統端設定成功後才同步 config.ini，避免兩邊狀態不一致。
+    // Only update config.ini if OS-level configuration succeeded.
     let config_path = paths::config_path();
     let mut config = AppConfig::load(&config_path);
     config.autostart = enabled;
     if let Err(error) = config.save(&config_path) {
-        eprintln!("警告: 無法更新設定檔 {}: {error}", config_path.display());
+        eprintln!(
+            "Warning: failed to update config file {}: {error}",
+            config_path.display()
+        );
     }
 
     if enabled {
-        println!("開機自動啟動設定成功。");
+        println!("Autostart on boot configured successfully.");
     } else {
-        println!("開機自動啟動已解除。");
+        println!("Autostart on boot removed.");
     }
     0
 }
@@ -180,15 +183,21 @@ fn set_autostart(enabled: bool) -> i32 {
 fn run_daemon() -> i32 {
     let logger = Logger::new(paths::log_path());
 
-    // 守護鎖必須存活到函式結束；重複雙擊時直接安靜退出。
+    // Single-instance lock must remain in scope until function ends; quiet exit on duplicate launch.
     let _instance = match SingleInstance::acquire() {
         Ok(instance) => instance,
         Err(InstanceError::AlreadyRunning) => {
-            logger.record("常駐檢查", "已檢測到背景實例正在執行中，結束重複啟動。");
+            logger.record(
+                "instance_check",
+                "Background instance is already running; exiting duplicate launch.",
+            );
             return 0;
         }
         Err(error) => {
-            logger.record("啟動錯誤", &format!("無法取得單一實例鎖: {error}"));
+            logger.record(
+                "startup_error",
+                &format!("cannot acquire single-instance lock: {error}"),
+            );
             return 1;
         }
     };
@@ -199,26 +208,35 @@ fn run_daemon() -> i32 {
     if !config_path.exists()
         && let Err(error) = config.save(&config_path)
     {
-        logger.record("警告", &format!("無法建立預設設定檔: {error}"));
+        logger.record(
+            "warning",
+            &format!("cannot create default config file: {error}"),
+        );
     }
 
     if config.autostart {
         match autostart::set_enabled(true) {
-            Ok(()) => logger.record("設定", "開機自動啟動已確認。"),
-            Err(error) => logger.record("警告", &format!("開機自動啟動設定失敗: {error}")),
+            Ok(()) => logger.record("config", "Autostart on boot verified."),
+            Err(error) => logger.record(
+                "warning",
+                &format!("failed to configure autostart on boot: {error}"),
+            ),
         }
     } else {
-        logger.record("設定", "設定檔已停用開機自動啟動，略過登錄。");
+        logger.record(
+            "config",
+            "Autostart disabled in configuration file; skipping registration.",
+        );
     }
 
     logger.record(
-        "服務啟動",
-        &format!("pc_onoff 背景常駐服務啟動 (PID: {})", std::process::id()),
+        "service_start",
+        &format!("pc_onoff daemon started (PID: {})", std::process::id()),
     );
     logger.record(
-        "本機資訊",
+        "local_info",
         &format!(
-            "區域網路 IP: {} (請於手機端填寫此 IP)",
+            "Local IP: {} (enter this IP in mobile app)",
             server::local_ipv4()
         ),
     );
@@ -226,11 +244,11 @@ fn run_daemon() -> i32 {
     let dispatcher = Dispatcher::new(SystemPower);
     match server::serve(&dispatcher, config.udp_port, &logger) {
         Ok(()) => {
-            logger.record("服務停止", "UDP 監聽服務已結束。");
+            logger.record("service_stop", "UDP listener service terminated.");
             0
         }
         Err(error) => {
-            logger.record("啟動錯誤", &error.to_string());
+            logger.record("startup_error", &error.to_string());
             1
         }
     }
@@ -243,26 +261,26 @@ fn print_help() {
         "pc_onoff"
     };
 
-    println!("Wake-on-LAN 電腦端遠端控制常駐程式");
+    println!("Wake-on-LAN Computer Power Control Daemon");
     println!();
-    println!("用法:");
-    println!("  {exe}              背景常駐執行，並依設定註冊開機自啟 (預設)");
-    println!("  {exe} --status     檢視目前運作與開機自啟狀態");
-    println!("  {exe} --log        檢視最新日誌記錄");
-    println!("  {exe} --stop       停止正在背景執行的服務");
-    println!("  {exe} --install    啟用開機自動啟動");
-    println!("  {exe} --uninstall  解除開機自動啟動");
-    println!("  {exe} --help       顯示本說明");
+    println!("Usage:");
+    println!("  {exe}              Run as background daemon and register autostart (default)");
+    println!("  {exe} --status     View current runtime and autostart status");
+    println!("  {exe} --log        View latest log entries");
+    println!("  {exe} --stop       Stop running background daemon");
+    println!("  {exe} --install    Enable autostart on boot");
+    println!("  {exe} --uninstall  Disable autostart on boot");
+    println!("  {exe} --help       Show this help");
     println!();
-    println!("遠端指令 (UDP, 大小寫不拘):");
+    println!("Remote commands (UDP, case-insensitive):");
     println!("  shutdown | reboot | sleep | hibernate | lock");
-    println!("  也接受 SHUTDOWN:<IP> 形式，:<IP> 部分會被忽略。");
+    println!("  Also accepts SHUTDOWN:<IP> format; the :<IP> part is ignored.");
     println!();
     println!(
-        "設定檔: {} (udp_port, autostart)",
+        "Config file: {} (udp_port, autostart)",
         paths::config_path().display()
     );
-    println!("日誌檔: {}", paths::log_path().display());
+    println!("Log file:    {}", paths::log_path().display());
 }
 
 #[cfg(test)]

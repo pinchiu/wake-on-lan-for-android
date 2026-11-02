@@ -1,8 +1,8 @@
-//! UDP 傳輸適配器：接收封包、交給 [`Dispatcher`]，再以日誌呈現結果。
+//! UDP transport adapter: receives datagrams, hands them to [`Dispatcher`], and logs results.
 //!
-//! 這個模組是整個服務唯一知道「UDP 9877」的地方；協定語法在
-//! [`crate::action`]，電源操作在 [`crate::power`]。若未來新增 MQTT 或
-//! HTTP 通道，只需再寫一個同樣薄的適配器。
+//! This module is the only part of the daemon aware of "UDP 9877"; protocol syntax is in
+//! [`crate::action`], and power execution is in [`crate::power`]. If MQTT or HTTP channels
+//! are added in the future, only a similarly lightweight adapter is needed.
 
 use std::fmt;
 use std::net::{SocketAddr, UdpSocket};
@@ -16,7 +16,7 @@ use crate::{LISTEN_IP, MAX_COMMAND_BYTES};
 
 const ERROR_BACKOFF: Duration = Duration::from_millis(250);
 
-/// 伺服器啟動失敗。
+/// Server startup error.
 #[derive(Debug)]
 pub struct ServerError {
     message: String,
@@ -38,7 +38,7 @@ impl fmt::Display for ServerError {
 
 impl std::error::Error for ServerError {}
 
-/// 綁定 UDP 連接埠並常駐監聽，直到行程被終止。
+/// Bind UDP port and serve indefinitely until process terminates.
 pub fn serve<P: PowerController>(
     dispatcher: &Dispatcher<P>,
     port: u16,
@@ -47,13 +47,13 @@ pub fn serve<P: PowerController>(
     let bind_address = format!("{LISTEN_IP}:{port}");
     let socket = UdpSocket::bind(&bind_address).map_err(|error| {
         ServerError::new(format!(
-            "綁定 UDP {bind_address} 失敗: {error} (連接埠可能已被佔用)"
+            "failed to bind UDP {bind_address}: {error} (port may already be in use)"
         ))
     })?;
 
     logger.record(
-        "服務啟動",
-        &format!("成功綁定 UDP {bind_address}，正在常駐監聽遠端控制指令..."),
+        "server_start",
+        &format!("successfully bound UDP {bind_address}, listening for remote commands..."),
     );
 
     let mut buffer = [0u8; MAX_COMMAND_BYTES];
@@ -61,14 +61,17 @@ pub fn serve<P: PowerController>(
         match socket.recv_from(&mut buffer) {
             Ok((size, source)) => handle_datagram(dispatcher, &buffer[..size], source, logger),
             Err(error) => {
-                logger.record("網路錯誤", &format!("接收 UDP 資料發生異常: {error}"));
+                logger.record(
+                    "network_error",
+                    &format!("error receiving UDP data: {error}"),
+                );
                 thread::sleep(ERROR_BACKOFF);
             }
         }
     }
 }
 
-/// 處理單一 UDP 封包。與迴圈分離，讓分派行為可以單元測試。
+/// Handle a single UDP packet. Separated from loop for unit testability.
 fn handle_datagram<P: PowerController>(
     dispatcher: &Dispatcher<P>,
     payload: &[u8],
@@ -79,32 +82,35 @@ fn handle_datagram<P: PowerController>(
     let command = raw.trim();
 
     logger.record(
-        "網路接收",
+        "network",
         &format!(
-            "來自 {source} 長度: {} 位元組，指令: '{command}'",
+            "from {source} len: {} bytes, command: '{command}'",
             payload.len()
         ),
     );
 
     match dispatcher.dispatch(command) {
         Ok(action) => logger.record(
-            "指令結果",
-            &format!("來源: {source} | {} 執行成功", action.label()),
+            "result",
+            &format!(
+                "source: {source} | {} executed successfully",
+                action.label()
+            ),
         ),
         Err(error) => {
             let category = match &error {
-                DispatchError::Rejected(_) => "警告",
-                DispatchError::Execution { .. } => "指令失敗",
+                DispatchError::Rejected(_) => "warning",
+                DispatchError::Execution { .. } => "command_failed",
             };
-            logger.record(category, &format!("來源: {source} | {error}"));
+            logger.record(category, &format!("source: {source} | {error}"));
         }
     }
 }
 
-/// 取得本機對外 IP（用於在手機端填寫目標位址）。
+/// Get local IPv4 address (for configuring in mobile app).
 ///
-/// UDP `connect` 不會真的送出封包，因此離線時也能快速取得路由介面位址；
-/// 失敗時退回 `127.0.0.1`。
+/// UDP `connect` does not actually send packets, allowing fast interface discovery even offline;
+/// falls back to `127.0.0.1` on error.
 pub fn local_ipv4() -> String {
     UdpSocket::bind("0.0.0.0:0")
         .and_then(|socket| {
@@ -142,7 +148,7 @@ mod tests {
     }
 
     fn source() -> SocketAddr {
-        "192.168.1.50:54321".parse().expect("來源位址")
+        "192.168.1.50:54321".parse().expect("source address")
     }
 
     #[test]
@@ -201,6 +207,6 @@ mod tests {
     #[test]
     fn local_ipv4_is_always_parseable() {
         let ip = local_ipv4();
-        assert!(ip.parse::<std::net::IpAddr>().is_ok(), "得到 {ip}");
+        assert!(ip.parse::<std::net::IpAddr>().is_ok(), "got {ip}");
     }
 }

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # scripts/remote-build.sh
-# 跨平台 (Linux / macOS / WSL) 遠端與本地建置腳本
+# Cross-platform (Linux / macOS / WSL) remote and local build script
 #
-# 功能：
-#   優先透過 SSH 連線至 Homeserver 執行 Gradle 建置與測試；
-#   若無法連線 Homeserver，則自動降級為本地端 (POSIX) 執行。
+# Purpose:
+#   Prioritizes SSH delegation to Homeserver for Gradle builds and tests;
+#   gracefully falls back to local execution if Homeserver is unreachable.
 #
-# 使用方式：
-#   ./scripts/remote-build.sh -a test              # 僅執行單元測試
-#   ./scripts/remote-build.sh -a build             # 僅打包 Release APK
-#   ./scripts/remote-build.sh -a all               # 執行單元測試並打包 Release APK (預設)
-#   ./scripts/remote-build.sh -a all -t both       # 同時驗證與打包 Home 和 Remote 雙端應用
+# Usage:
+#   ./scripts/remote-build.sh -a test              # Run unit tests only
+#   ./scripts/remote-build.sh -a build             # Assemble Release APKs only
+#   ./scripts/remote-build.sh -a all               # Run tests & assemble Release APKs (default)
+#   ./scripts/remote-build.sh -a all -t both       # Build both Home and Remote apps
 # ==============================================================================
 
 set -uo pipefail
@@ -22,9 +22,9 @@ HOST_NAME="${BUILD_HOST:-homeserver}"
 REMOTE_REPO_PATH="~/wake-on-lan-for-android"
 
 usage() {
-    echo "用法: $0 [-a test|build|all] [-t home|remote|both]"
-    echo "  -a : 執行動作 (預設: all)"
-    echo "  -t : 目標模組 (home: 家用端, remote: 外出端, both: 雙端, 預設: home)"
+    echo "Usage: $0 [-a test|build|all] [-t home|remote|both]"
+    echo "  -a : Action to execute (default: all)"
+    echo "  -t : Target module (home: Home Phone, remote: Remote Phone, both: both apps, default: home)"
     exit 1
 }
 
@@ -38,12 +38,12 @@ done
 
 case "$ACTION" in
     test|build|all) ;;
-    *) echo "錯誤: 無效的 Action '$ACTION'，請選擇 test, build, 或 all"; exit 1 ;;
+    *) echo "Error: Invalid Action '$ACTION', choose test, build, or all"; exit 1 ;;
 esac
 
 case "$TARGET" in
     home|remote|both) ;;
-    *) echo "錯誤: 無效的 Target '$TARGET'，請選擇 home, remote, 或 both"; exit 1 ;;
+    *) echo "Error: Invalid Target '$TARGET', choose home, remote, or both"; exit 1 ;;
 esac
 
 GRADLE_TASKS=()
@@ -63,39 +63,39 @@ if [ "$TARGET" = "remote" ] || [ "$TARGET" = "both" ]; then
     PROJECTS+=("wakeonwanremotephone")
 fi
 
-# 取得專案根目錄
+# Get repository root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo ">>> 檢查遠端建置主機 ($HOST_NAME) 連線狀態..."
+echo ">>> Checking remote build host ($HOST_NAME) connection..."
 TEST_CONN=$(ssh -q -o BatchMode=yes -o ConnectTimeout=4 "$HOST_NAME" "echo ok" 2>/dev/null || true)
 
 if [ "$TEST_CONN" = "ok" ]; then
-    echo ">>> 已連線至 $HOST_NAME，開始遠端建置..."
+    echo ">>> Connected to $HOST_NAME, starting remote build..."
 
     for PROJ in "${PROJECTS[@]}"; do
-        echo ">>> [$PROJ] 遠端執行: $TASKS_STRING"
+        echo ">>> [$PROJ] Remote execution: $TASKS_STRING"
         REMOTE_SCRIPT="export PATH=/home/scott/jdk-21/bin:/home/scott/android-sdk/cmdline-tools/latest/bin:/home/scott/android-sdk/platform-tools:/usr/local/bin:/usr/bin:/bin; export JAVA_HOME=/home/scott/jdk-21; export ANDROID_HOME=/home/scott/android-sdk; export ANDROID_SDK_ROOT=/home/scott/android-sdk; cd $REMOTE_REPO_PATH/$PROJ && chmod +x ./gradlew && ./gradlew $TASKS_STRING --stacktrace"
         ssh "$HOST_NAME" "bash -c '$REMOTE_SCRIPT'"
     done
 
-    # 若包含 build，下載 APK 至本地專案根目錄
+    # If action includes build, download APKs to local project root
     if [ "$ACTION" = "build" ] || [ "$ACTION" = "all" ]; then
-        echo ">>> 下載編譯產物至本地..."
+        echo ">>> Downloading build artifacts to local root..."
         if [ "$TARGET" = "home" ] || [ "$TARGET" = "both" ]; then
             scp "$HOST_NAME:$REMOTE_REPO_PATH/wakeonlanhomephone/app/build/outputs/apk/release/app-release.apk" "$ROOT_DIR/wakeonlan-home-phone.apk"
-            echo ">>> 已下載家用端 APK 至: $ROOT_DIR/wakeonlan-home-phone.apk"
+            echo ">>> Downloaded Home Phone APK to: $ROOT_DIR/wakeonlan-home-phone.apk"
         fi
         if [ "$TARGET" = "remote" ] || [ "$TARGET" = "both" ]; then
             scp "$HOST_NAME:$REMOTE_REPO_PATH/wakeonwanremotephone/app/build/outputs/apk/release/app-release.apk" "$ROOT_DIR/wakeonwan-remote-phone.apk"
-            echo ">>> 已下載外出端 APK 至: $ROOT_DIR/wakeonwan-remote-phone.apk"
+            echo ">>> Downloaded Remote Phone APK to: $ROOT_DIR/wakeonwan-remote-phone.apk"
         fi
     fi
 else
-    echo ">>> 無法連線至 $HOST_NAME (主機可能關機或非同內網)，自動降級為本地端執行！"
+    echo ">>> Cannot connect to $HOST_NAME (host offline or not on LAN), falling back to local build..."
 
     for PROJ in "${PROJECTS[@]}"; do
-        echo ">>> [$PROJ] 本地執行: $TASKS_STRING"
+        echo ">>> [$PROJ] Local execution: $TASKS_STRING"
         PROJ_DIR="$ROOT_DIR/$PROJ"
         (
             cd "$PROJ_DIR"
@@ -110,7 +110,7 @@ else
             APK_DST="$ROOT_DIR/wakeonlan-home-phone.apk"
             if [ -f "$APK_SRC" ]; then
                 cp -f "$APK_SRC" "$APK_DST"
-                echo ">>> 已同步家用端 APK 至: $APK_DST"
+                echo ">>> Synced Home Phone APK to: $APK_DST"
             fi
         fi
         if [ "$TARGET" = "remote" ] || [ "$TARGET" = "both" ]; then
@@ -118,10 +118,10 @@ else
             APK_DST="$ROOT_DIR/wakeonwan-remote-phone.apk"
             if [ -f "$APK_SRC" ]; then
                 cp -f "$APK_SRC" "$APK_DST"
-                echo ">>> 已同步外出端 APK 至: $APK_DST"
+                echo ">>> Synced Remote Phone APK to: $APK_DST"
             fi
         fi
     fi
 fi
 
-echo ">>> 全部任務執行完成！"
+echo ">>> All tasks completed successfully!"

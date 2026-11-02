@@ -261,7 +261,7 @@ jobs:
 
       - name: Display Release Asset List
         run: |
-          echo "=== 準備上傳至 Release 的產物清單 ==="
+          echo "=== Release Asset List ==="
           ls -lh release-assets/
 
       - name: Determine Release Tag

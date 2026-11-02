@@ -1,7 +1,8 @@
-//! 日誌輸出：主控台 + 檔案，附帶大小輪替與控制字元清理。
+//! Log output: console + file, with size-based rotation and control character sanitization.
 //!
-//! 介面只有 [`Logger::record`]。檔案路徑、時間戳、輪替與執行緒同步都藏在
-//! 實作裡；模組本身從不 panic，日誌失敗也不會影響電源服務。
+//! The interface consists solely of [`Logger::record`]. File paths, timestamps, rotation,
+//! and thread synchronization are encapsulated. This module never panics; logging errors
+//! will never crash the power service.
 
 use std::borrow::Cow;
 use std::fs::{self, OpenOptions};
@@ -9,10 +10,10 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-/// 日誌檔超過此大小時輪替為 `*.1`。
+/// Rotate log file to `*.1` when exceeding this size.
 pub const DEFAULT_MAX_LOG_BYTES: u64 = 5 * 1024 * 1024;
 
-/// [`Logger`] 的可調整選項（測試會關閉主控台輸出並縮小上限）。
+/// Configurable options for [`Logger`] (tests disable console echoing and lower limits).
 #[derive(Debug, Clone)]
 pub struct LoggerOptions {
     pub path: Option<PathBuf>,
@@ -30,14 +31,14 @@ impl Default for LoggerOptions {
     }
 }
 
-/// 執行緒安全的事件記錄器。
+/// Thread-safe event logger.
 pub struct Logger {
     options: LoggerOptions,
     rotation_lock: Mutex<()>,
 }
 
 impl Logger {
-    /// 建立寫入 `path` 的記錄器。
+    /// Create a logger writing to `path`.
     pub fn new(path: PathBuf) -> Self {
         Self::with_options(LoggerOptions {
             path: Some(path),
@@ -45,7 +46,7 @@ impl Logger {
         })
     }
 
-    /// 不輸出任何內容的記錄器（測試或停用日誌時使用）。
+    /// Logger that writes nothing (used in tests or when logging is disabled).
     pub fn disabled() -> Self {
         Self::with_options(LoggerOptions {
             echo_stdout: false,
@@ -64,8 +65,8 @@ impl Logger {
         self.options.path.as_deref()
     }
 
-    /// 記錄一筆事件。分類與訊息中的換行等控制字元會先被置換，
-    /// 避免遠端封包偽造額外的日誌行。
+    /// Record an event. Control characters in category and message (such as newlines)
+    /// are sanitized to prevent log forgery via forged remote packets.
     pub fn record(&self, category: &str, message: &str) {
         let line = format_line(&local_timestamp(), category, message);
 
@@ -85,12 +86,12 @@ impl Logger {
         if let Err(error) = append_line(path, &line, self.options.max_bytes)
             && self.options.echo_stdout
         {
-            eprintln!("[pc_onoff] 無法寫入日誌 {}: {error}", path.display());
+            eprintln!("[pc_onoff] cannot write to log {}: {error}", path.display());
         }
     }
 }
 
-/// 產生一行日誌；時間戳由呼叫端提供，讓格式化本身可被測試。
+/// Format a single log line; timestamp is supplied by caller for testability.
 fn format_line(timestamp: &str, category: &str, message: &str) -> String {
     format!(
         "[{}] [{}] {}",
@@ -100,7 +101,7 @@ fn format_line(timestamp: &str, category: &str, message: &str) -> String {
     )
 }
 
-/// 將控制字元（含 `\r`、`\n`、NUL）替換為空白。
+/// Replace control characters (including `\r`, `\n`, NUL) with spaces.
 fn sanitize(input: &str) -> Cow<'_, str> {
     if input.chars().any(char::is_control) {
         Cow::Owned(
@@ -168,7 +169,7 @@ fn local_timestamp() -> String {
             "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
             time.year, time.month, time.day, time.hour, time.minute, time.second
         ),
-        None => "未知時間".to_owned(),
+        None => "unknown time".to_owned(),
     }
 }
 
@@ -176,7 +177,7 @@ fn local_timestamp() -> String {
 fn local_civil_time() -> Option<CivilTime> {
     #[repr(C)]
     #[derive(Default)]
-    #[allow(dead_code)] // 欄位順序必須符合 Win32 SYSTEMTIME 版面
+    #[allow(dead_code)] // Field layout must match Win32 SYSTEMTIME
     struct SystemTimeWin {
         year: u16,
         month: u16,
@@ -214,8 +215,7 @@ fn local_civil_time() -> Option<CivilTime> {
 fn local_civil_time() -> Option<CivilTime> {
     use std::os::raw::{c_char, c_int, c_long};
 
-    // 與 glibc / musl / macOS 的 struct tm 版面一致；後兩個欄位是 BSD 擴充，
-    // localtime_r 會實際寫入，因此必須保留空間。
+    // Matches glibc / musl / macOS struct tm layout; last two fields are BSD extensions.
     #[repr(C)]
     #[allow(dead_code)]
     struct CTime {
@@ -275,25 +275,29 @@ mod tests {
     #[test]
     fn formats_a_complete_line() {
         assert_eq!(
-            format_line("2026-10-30 12:34:56", "網路接收", "指令: shutdown"),
-            "[2026-10-30 12:34:56] [網路接收] 指令: shutdown"
+            format_line("2026-10-30 12:34:56", "network", "command: shutdown"),
+            "[2026-10-30 12:34:56] [network] command: shutdown"
         );
     }
 
     #[test]
     fn sanitizes_embedded_control_characters() {
         assert_eq!(sanitize("shut\ndown\r\0"), "shut down  ");
-        assert_eq!(sanitize("正常字串"), "正常字串");
+        assert_eq!(sanitize("normal string"), "normal string");
     }
 
     #[test]
     fn prevents_log_forgery_through_packet_payload() {
         let line = format_line(
             "2026-10-30 12:34:56",
-            "警告",
-            "未知指令 'x\n[2026-10-30 12:34:56] [執行指令] shutdown'",
+            "warning",
+            "unknown command 'x\n[2026-10-30 12:34:56] [execute] shutdown'",
         );
-        assert_eq!(line.lines().count(), 1, "惡意封包不可產生第二行日誌");
+        assert_eq!(
+            line.lines().count(),
+            1,
+            "malicious packet must not create a second log line"
+        );
     }
 
     #[test]
@@ -306,14 +310,14 @@ mod tests {
             echo_stdout: false,
         });
 
-        logger.record("服務啟動", "第一行");
-        logger.record("執行指令", "第二行");
+        logger.record("service_start", "line 1");
+        logger.record("execute", "line 2");
 
-        let content = fs::read_to_string(&path).expect("讀取日誌");
+        let content = fs::read_to_string(&path).expect("read log");
         let lines: Vec<_> = content.lines().collect();
         assert_eq!(lines.len(), 2);
-        assert!(lines[0].contains("[服務啟動] 第一行"));
-        assert!(lines[1].contains("[執行指令] 第二行"));
+        assert!(lines[0].contains("[service_start] line 1"));
+        assert!(lines[1].contains("[execute] line 2"));
         assert!(lines[0].starts_with('['));
     }
 
@@ -327,7 +331,7 @@ mod tests {
             echo_stdout: false,
         });
 
-        logger.record("測試", "內容");
+        logger.record("test", "content");
         assert!(path.exists());
     }
 
@@ -342,18 +346,21 @@ mod tests {
         });
 
         let message = "x".repeat(80);
-        logger.record("測試", &message);
-        logger.record("測試", &message);
+        logger.record("test", &message);
+        logger.record("test", &message);
 
         let rotated = rotated_path(&path);
-        assert!(rotated.exists(), "超過上限時應輪替為 .1");
+        assert!(rotated.exists(), "must rotate to .1 when exceeding limit");
         assert_eq!(
-            fs::read_to_string(&path).expect("目前日誌").lines().count(),
+            fs::read_to_string(&path)
+                .expect("current log")
+                .lines()
+                .count(),
             1
         );
         assert_eq!(
             fs::read_to_string(&rotated)
-                .expect("輪替日誌")
+                .expect("rotated log")
                 .lines()
                 .count(),
             1
@@ -364,14 +371,14 @@ mod tests {
     fn disabled_logger_writes_nothing() {
         let logger = Logger::disabled();
         assert!(logger.path().is_none());
-        logger.record("測試", "不應輸出到檔案");
+        logger.record("test", "should not write to file");
     }
 
     #[test]
     fn timestamp_has_the_expected_shape() {
         let timestamp = local_timestamp();
-        if timestamp != "未知時間" {
-            assert_eq!(timestamp.len(), 19, "格式應為 YYYY-MM-DD HH:MM:SS");
+        if timestamp != "unknown time" {
+            assert_eq!(timestamp.len(), 19, "format should be YYYY-MM-DD HH:MM:SS");
             assert_eq!(&timestamp[4..5], "-");
             assert_eq!(&timestamp[10..11], " ");
         }

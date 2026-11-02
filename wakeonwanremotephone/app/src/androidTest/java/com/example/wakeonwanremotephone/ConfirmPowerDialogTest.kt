@@ -20,8 +20,8 @@ class ConfirmPowerDialogTest {
 
         composeRule.setContent {
             ConfirmPowerDialog(
-                actionName = "電腦關機",
-                targetName = "測試電腦",
+                actionName = "Shutdown",
+                targetName = "Test PC",
                 targetIp = "192.168.0.11",
                 isDestructive = true,
                 onConfirm = { confirmCalls++ },
@@ -31,7 +31,7 @@ class ConfirmPowerDialogTest {
 
         composeRule.onNodeWithTag("confirm_power_action").performClick()
 
-        assertEquals("確認執行應觸發 onConfirm", 1, confirmCalls)
-        assertEquals("確認執行不應先清空父層狀態", 0, dismissCalls)
+        assertEquals("Confirmation click should trigger onConfirm", 1, confirmCalls)
+        assertEquals("Confirmation click should not clear parent state first", 0, dismissCalls)
     }
 }

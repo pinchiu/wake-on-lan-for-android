@@ -1,20 +1,21 @@
-//! 深模組：將一個原始指令轉換為實際的電源操作。
+//! Deep module: translates a raw command into actual system power execution.
 //!
-//! 呼叫者只需要知道 [`Dispatcher::dispatch`]；語法解析、別名、錯誤分類與
-//! 電源控制器呼叫都藏在介面之後。這個模組不寫日誌、不碰 socket，
-//! 只回傳結構化結果，讓每個傳輸適配器自行決定如何呈現。
+//! Callers only need to know [`Dispatcher::dispatch`]; syntax parsing, aliases,
+//! error categorization, and power controller invocations are encapsulated behind the interface.
+//! This module does not write logs or touch sockets; it returns structured results so each
+//! transport adapter can present them appropriately.
 
 use std::fmt;
 
 use crate::action::{ParseError, PowerAction};
 use crate::power::{PowerController, PowerError};
 
-/// `dispatch` 失敗的兩種情形：指令被拒絕，或動作執行失敗。
+/// Two scenarios of `dispatch` failure: syntax rejected, or execution failed.
 #[derive(Debug, PartialEq, Eq)]
 pub enum DispatchError {
-    /// 語法無法辨識，沒有執行任何動作。
+    /// Syntax was not recognized; no action was executed.
     Rejected(ParseError),
-    /// 語法正確，但系統電源操作失敗。
+    /// Syntax is valid, but the system power execution failed.
     Execution {
         action: PowerAction,
         failure: PowerError,
@@ -26,7 +27,7 @@ impl fmt::Display for DispatchError {
         match self {
             Self::Rejected(error) => error.fmt(f),
             Self::Execution { action, failure } => {
-                write!(f, "{}執行失敗: {failure}", action.label())
+                write!(f, "failed to execute {}: {failure}", action.label())
             }
         }
     }
@@ -47,7 +48,7 @@ impl From<ParseError> for DispatchError {
     }
 }
 
-/// 指令分派器。
+/// Command dispatcher.
 pub struct Dispatcher<P: PowerController> {
     power: P,
 }
@@ -57,7 +58,7 @@ impl<P: PowerController> Dispatcher<P> {
         Self { power }
     }
 
-    /// 解析並執行 `raw`，回傳實際執行的動作。
+    /// Parse and execute `raw`, returning the action that was performed.
     pub fn dispatch(&self, raw: &str) -> Result<PowerAction, DispatchError> {
         let action = PowerAction::parse(raw)?;
         self.power
@@ -96,7 +97,7 @@ mod tests {
         fn execute(&self, action: PowerAction) -> Result<(), PowerError> {
             self.executed.lock().expect("lock").push(action);
             if self.fail {
-                Err(PowerError::new("模擬失敗"))
+                Err(PowerError::new("simulated failure"))
             } else {
                 Ok(())
             }
@@ -147,9 +148,9 @@ mod tests {
         match dispatcher.dispatch("sleep") {
             Err(DispatchError::Execution { action, failure }) => {
                 assert_eq!(action, PowerAction::Sleep);
-                assert_eq!(failure.to_string(), "模擬失敗");
+                assert_eq!(failure.to_string(), "simulated failure");
             }
-            other => panic!("預期執行失敗，實際得到 {other:?}"),
+            other => panic!("expected execution failure, got {other:?}"),
         }
         assert_eq!(dispatcher.power.executed(), vec![PowerAction::Sleep]);
     }
@@ -159,12 +160,15 @@ mod tests {
         let rejected = DispatchError::Rejected(ParseError::Unknown {
             received: "explode".to_owned(),
         });
-        assert_eq!(rejected.to_string(), "未知指令 'explode'");
+        assert_eq!(rejected.to_string(), "unknown command 'explode'");
 
         let failed = DispatchError::Execution {
             action: PowerAction::Hibernate,
-            failure: PowerError::new("沒有休眠檔"),
+            failure: PowerError::new("no hibernation file"),
         };
-        assert_eq!(failed.to_string(), "休眠執行失敗: 沒有休眠檔");
+        assert_eq!(
+            failed.to_string(),
+            "failed to execute Hibernate: no hibernation file"
+        );
     }
 }

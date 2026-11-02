@@ -1,19 +1,20 @@
-//! Wake-on-LAN 電腦端常駐守護程式。
+//! Wake-on-LAN computer power control daemon.
 //!
-//! 模組依賴方向（由內而外）：
+//! Module dependency direction (inside out):
 //!
 //! ```text
-//! action (指令語法) ──► dispatch (深模組：解析 + 執行 + 結構化結果)
-//!        ▲                    ▲
-//!        │                    │
-//!     power (系統電源 seam)   server (UDP 傳輸適配器)
-//!                                 ▲
-//!                                 │
-//!                          cli (命令列 / 生命週期)
+//! action (command syntax) ──► dispatch (deep module: parse + execute + structured result)
+//!        ▲                          ▲
+//!        │                          │
+//!     power (system power seam)   server (UDP transport adapter)
+//!                                       ▲
+//!                                       │
+//!                                cli (command line / lifecycle)
 //! ```
 //!
-//! `dispatch` 只依賴 [`power::PowerController`] 介面，不直接呼叫作業系統，
-//! 因此可用假實作在單元測試中完整驗證，不需真的關機或重啟。
+//! `dispatch` only depends on the [`power::PowerController`] interface and does not
+//! directly invoke OS APIs. It can be fully verified in unit tests using mock implementations
+//! without actually shutting down or rebooting the machine.
 
 pub mod action;
 pub mod autostart;
@@ -27,16 +28,16 @@ pub mod platform;
 pub mod power;
 pub mod server;
 
-/// 應用程式名稱，同時作為資料目錄與互斥鎖名稱的一部分。
+/// Application name, also used as part of data directory and mutex names.
 pub const APP_NAME: &str = "pc_onoff";
 
-/// 預設 UDP 監聽連接埠（與 Android 端協定一致）。
+/// Default UDP listening port (matches the Android client protocol).
 pub const DEFAULT_UDP_PORT: u16 = 9877;
 
-/// 監聽所有網路介面。
+/// Listen on all network interfaces.
 pub const LISTEN_IP: &str = "0.0.0.0";
 
-/// 單一 UDP 指令封包的最大長度。
+/// Maximum length of a single UDP command packet.
 pub const MAX_COMMAND_BYTES: usize = 1024;
 
 #[cfg(test)]
@@ -46,7 +47,7 @@ pub(crate) mod test_support {
 
     static COUNTER: AtomicU64 = AtomicU64::new(0);
 
-    /// 測試用暫存目錄，離開作用域時自動刪除。
+    /// Temporary directory for testing; automatically deleted when dropped.
     pub struct TempDir {
         path: PathBuf,
     }
@@ -60,7 +61,7 @@ pub(crate) mod test_support {
                 label,
                 id
             ));
-            std::fs::create_dir_all(&path).expect("建立測試暫存目錄失敗");
+            std::fs::create_dir_all(&path).expect("failed to create test temporary directory");
             Self { path }
         }
 

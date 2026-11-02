@@ -1,164 +1,151 @@
-# Wake-on-LAN 電腦端電源控制守護程式 (pc_onoff)
+# Wake-on-LAN Computer Power Control Daemon (pc_onoff)
 
-本程式為配合 Android 手機端 Wake-on-LAN / Wake-on-WAN 應用之電腦端常駐守護程式。以 Rust 語言撰寫，無任何外部依賴，編譯為單一極輕量可執行檔（約 420 KB）。完整支援 **Windows**、**macOS (Apple)** 與 **Linux** 跨平台環境。
-
----
-
-## 核心特色
-
-1. **零干擾背景常駐（無黑視窗、無多餘 GUI）**：
-   * Windows 雙擊 `pc_onoff.exe` 直接於背景安靜運行，不會彈出任何黑色命令提示字元視窗或多餘的 GUI 介面。
-   * macOS / Linux 執行 `./pc_onoff` 於背景安靜監聽。
-2. **預設自動啟用開機啟動**：
-   * 預設在啟動時確保開機自啟設定：
-     - Windows 註冊至使用者登錄檔 `HKCU Run`（完全免管理員權限）。
-     - macOS 自動建立 `launchd` LaunchAgent (`~/Library/LaunchAgents`)。
-     - Linux 自動註冊 `systemd --user` 與 XDG Autostart。
-   * 開機登入系統後自動於背景常駐運行，無需使用者手動介入。
-   * 可由 `config.ini` 的 `autostart=false` 或 `--uninstall` 停用。
-3. **單實例守護**：
-   * Windows 使用具名互斥鎖、macOS / Linux 使用 PID 鎖定檔，多次啟動不會導致連接埠衝突或重複執行。
-4. **本地即時日誌紀錄**：
-   * 每次連線來源 IP、執行時間戳記與系統電源操作均自動記錄於 `pc_onoff.log`。
-   * 日誌超過 5 MB 會自動輪替為 `pc_onoff.log.1`，不會無限制成長。
-   * 遠端封包中的換行等控制字元會被清理，避免偽造日誌行。
+A cross-platform background daemon designed to pair with the Android Wake-on-LAN / Wake-on-WAN mobile applications. Written in pure Rust with zero third-party crate dependencies, compiled into a single lightweight binary (~420 KB). Fully supports **Windows**, **Apple macOS**, and **Linux**.
 
 ---
 
-## 跨平台開機自動啟動機制
+## Key Features
 
-| 作業系統 | 實作機制 | 權限需求 | 特點 |
+1. **Zero-Distraction Background Daemon (No Console Windows, No Popups)**:
+   * Windows: Double-click `pc_onoff.exe` to run quietly in the background without any console window or intrusive GUI.
+   * macOS / Linux: Run `./pc_onoff` to listen quietly in the background.
+2. **Automatic Autostart Configuration by Default**:
+   * Registers automatic startup on user login:
+     - Windows: Registered in user registry `HKCU Run` (requires no administrator privileges).
+     - macOS: Automatically creates a `launchd` LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`).
+     - Linux: Automatically registers `systemd --user` service and XDG Autostart (`~/.config/autostart`).
+   * Runs automatically upon system reboot/login without manual intervention.
+   * Can be disabled via `autostart=false` in `config.ini` or with `--uninstall`.
+3. **Single-Instance Protection**:
+   * Windows uses named mutexes (`Local\WakeOnLanPcOnOffMutex`); macOS and Linux use PID lockfiles to prevent duplicate instances or port conflicts.
+4. **Local Event Logging with Automatic Rotation**:
+   * Connection source IP, timestamps, and system power operations are automatically recorded in `pc_onoff.log`.
+   * Automatically rotates to `pc_onoff.log.1` when exceeding 5 MB to prevent unbounded growth.
+   * Control characters in remote packets are sanitized to prevent log injection.
+
+---
+
+## Cross-Platform Autostart Mechanisms
+
+| OS | Mechanism | Permissions | Highlights |
 | :--- | :--- | :--- | :--- |
-| **Windows** | 使用者登錄檔 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | 免管理員權限 | 雙擊自動完成註冊，重啟電腦後自動背景執行 |
-| **macOS (Apple)** | `launchd` LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`) | 免 root 權限 | 登入 macOS 時自動由 launchd 背景喚起，支援 `launchctl` 管理 |
-| **Linux** | `systemd --user` 服務檔 + XDG Autostart (`~/.config/autostart/`) | 免 sudo 權限 | 同時支援主流桌面環境 (GNOME/KDE) 與純伺服器模式 |
+| **Windows** | User registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | No admin required | Auto-registers on double-click; automatically runs in background after reboot |
+| **macOS (Apple)** | `launchd` LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`) | No root required | Managed by launchd upon user login; controllable via `launchctl` |
+| **Linux** | `systemd --user` service unit + XDG Autostart (`~/.config/autostart/`) | No sudo required | Supports both mainstream desktop environments (GNOME/KDE) and headless user sessions |
 
 ---
 
-## 支援的遠端控制指令 (UDP 9877)
+## Supported Remote Commands (UDP 9877)
 
-| 指令 | 說明 | Windows 呼叫方式 | macOS (Apple) 呼叫方式 | Linux 呼叫方式 |
+| Command | Action | Windows Invocation | macOS Invocation | Linux Invocation |
 | :--- | :--- | :--- | :--- | :--- |
-| `shutdown` | 關機 | `shutdown /s /f /t 0` (靜默無黑視窗) | `osascript` (System Events) / `shutdown -h now` | `systemctl poweroff` |
-| `reboot` | 重新開機 | `shutdown /r /f /t 0` (靜默無黑視窗) | `osascript` (System Events) / `shutdown -r now` | `systemctl reboot` |
-| `sleep` | 進入睡眠 | 鎖定工作站並調用原生 `SetSuspendState(0, 0, 0)`（保留 WoL 喚醒能力） | `pmset sleepnow` / `osascript` (System Events) | `systemctl suspend` |
-| `hibernate` | 進入休眠 | 鎖定工作站並執行休眠 | `pmset sleepnow` (依系統安全休眠設定) | `systemctl hibernate` |
-| `lock` | 鎖定螢幕 | 原生調用 `LockWorkStation` | `CGSession -suspend` / `pmset displaysleepnow` | `loginctl lock-session` |
+| `shutdown` | Power off | `shutdown /s /f /t 0` (silent) | `osascript` (System Events) / `shutdown -h now` | `systemctl poweroff` |
+| `reboot` | Restart | `shutdown /r /f /t 0` (silent) | `osascript` (System Events) / `shutdown -r now` | `systemctl reboot` |
+| `sleep` | Suspend to RAM | Locks workstation, calls native `SetSuspendState(0, 0, 0)` (preserves WoL) | `pmset sleepnow` / `osascript` (System Events) | `systemctl suspend` |
+| `hibernate` | Suspend to Disk | Locks workstation, triggers hibernation | `pmset sleepnow` (follows system sleepmode) | `systemctl hibernate` |
+| `lock` | Lock screen | Native `LockWorkStation` | `CGSession -suspend` / `pmset displaysleepnow` | `loginctl lock-session` |
 
-* 大小寫不拘（`SHUTDOWN`、`Shutdown` 皆可）。
-* 相容 Android 端送出的 `SHUTDOWN:<IP>`、`SLEEP,<IP>` 形式；`:<IP>` 部分會被忽略。
-* 另接受別名：`poweroff`、`restart`、`suspend`、`standby`。
+* Case-insensitive (`SHUTDOWN`, `Shutdown`, etc.).
+* Tolerates `SHUTDOWN:<IP>` or `SLEEP,<IP>` wire formats sent by Android apps; the `:<IP>` segment is safely ignored.
+* Accepts common aliases: `poweroff`, `restart`, `suspend`, `standby`.
 
 ---
 
-## 設定檔
+## Configuration File
 
-程式會依下列順序選擇 `config.ini` 位置：
+The daemon resolves `config.ini` in the following order:
 
-1. 執行檔所在目錄（若已有檔案或目錄可寫入）。
-2. Windows：`%LOCALAPPDATA%\pc_onoff\config.ini`
-3. macOS：`~/Library/Application Support/pc_onoff/config.ini`
-4. Linux：`~/.config/pc_onoff/config.ini`
+1. Directory containing the executable (if file exists or directory is writable).
+2. Windows: `%LOCALAPPDATA%\pc_onoff\config.ini`
+3. macOS: `~/Library/Application Support/pc_onoff/config.ini`
+4. Linux: `~/.config/pc_onoff/config.ini`
 
 ```ini
-# Wake-on-LAN 電腦端電源控制設定
+# Wake-on-LAN Computer Power Control Configuration
 udp_port=9877
 autostart=true
 ```
 
-| 鍵 | 預設值 | 說明 |
+| Key | Default | Description |
 | :--- | :--- | :--- |
-| `udp_port` | `9877` | UDP 監聽連接埠，需與手機端設定一致。 |
-| `autostart` | `true` | 啟動時是否確保開機自動啟動。 |
+| `udp_port` | `9877` | UDP listening port, matching the mobile app setting. |
+| `autostart` | `true` | Whether to ensure autostart registration on launch. |
 
-未知的鍵與格式錯誤的值會被忽略，舊版設定檔（含 `start_minimized`）仍可安全載入。
-
----
-
-## 使用方式
-
-### Windows 使用方式
-1. 直接在檔案總管雙擊執行 `pc_onoff.exe`。
-2. 程式將自動於背景開始監聽 UDP 9877，並依設定註冊開機自動啟動。
-3. 可隨時開啟同目錄下的 `pc_onoff.log` 檢視本機 IP、運作狀態與遠端控制紀錄。
-
-### macOS (Apple) 使用方式
-* 於終端機執行 `./pc_onoff`，自動註冊 `launchd` LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`) 並於背景監聽 UDP 9877。
-
-### Linux 使用方式
-* 於終端機執行 `./pc_onoff`，自動註冊 `systemd --user` 服務與 XDG Autostart 並於背景監聽。
-
-### 命令列常用管理參數
-* `pc_onoff`（Windows 為 `pc_onoff.exe`）：預設在背景執行並依設定註冊開機啟動
-* `pc_onoff --status`：檢視背景服務、本機 IP、連接埠與開機啟動設定
-* `pc_onoff --log`：檢視最新 25 行日誌
-* `pc_onoff --stop`：停止正在背景運行的服務
-* `pc_onoff --install`：啟用開機自動啟動（並同步寫入 `config.ini`）
-* `pc_onoff --uninstall`：解除開機自動啟動（並同步寫入 `config.ini`）
-* `pc_onoff --help`：檢視參數說明
+Unknown keys and formatting errors are safely ignored; older configs (including `start_minimized`) load cleanly.
 
 ---
 
-## 專案結構（深模組）
+## Usage
 
-核心業務收斂在 `dispatch`：呼叫端只需 `Dispatcher::dispatch(raw)`，語法解析與系統電源操作都藏在介面之後。`power::PowerController` 是唯一的系統電源 seam，測試以假實作注入，因此不需要真的關機。
+### Windows
+1. Double-click `pc_onoff-windows-x86_64.exe` (or `pc_onoff.exe`).
+2. The program runs quietly in the background on UDP port 9877 and registers autostart.
+3. Check `pc_onoff.log` in the same directory or application data directory for local IP, operational status, and incoming commands.
 
-| 檔案 | 職責 |
+### macOS (Apple)
+* Run in terminal: `./pc_onoff`. Automatically registers a user LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`) and listens on UDP 9877.
+
+### Linux
+* Run AppImage:
+  ```bash
+  chmod +x pc_onoff-linux-x86_64.AppImage
+  ./pc_onoff-linux-x86_64.AppImage
+  ```
+* Or run standalone binary: `./pc_onoff`. Automatically registers `systemd --user` service and XDG Autostart.
+
+### CLI Options
+* `pc_onoff` (Windows: `pc_onoff.exe`): Run as background daemon and register autostart (default)
+* `pc_onoff --status`: View background service, local IP, port, and autostart configuration
+* `pc_onoff --log`: View latest 25 log lines
+* `pc_onoff --stop`: Stop running background daemon
+* `pc_onoff --install`: Enable autostart on boot (and persist to `config.ini`)
+* `pc_onoff --uninstall`: Disable autostart on boot (and persist to `config.ini`)
+* `pc_onoff --help`: Show command usage
+
+---
+
+## Architecture (Deep Module)
+
+The core business logic converges in `dispatch`: callers only need `Dispatcher::dispatch(raw)`. Parsing, alias normalization, and power execution are encapsulated behind the interface. `power::PowerController` is the single system power seam, allowing unit tests to inject mocks without performing actual power operations.
+
+| File | Responsibility |
 | :--- | :--- |
-| `src/action.rs` | 指令語法解析（大小寫、空白、`:`／`,`、別名）與 `PowerAction`。 |
-| `src/dispatch.rs` | **深模組**：解析 → 執行 → 結構化 `DispatchError`，不寫日誌、不碰 socket。 |
-| `src/power.rs` | `PowerController` seam 與 Windows／macOS／Linux 系統實作。 |
-| `src/server.rs` | UDP 9877 傳輸適配器；將封包交給 dispatcher 並記錄結果。 |
-| `src/config.rs` | `config.ini` 純函式解析與原子寫入。 |
-| `src/logging.rs` | 主控台＋檔案日誌、5 MB 輪替、控制字元清理。 |
-| `src/autostart.rs` | Windows 登錄檔／macOS launchd／Linux systemd 與 XDG 開機自啟。 |
-| `src/instance.rs` | 單一實例守護與 `--stop` 實作。 |
-| `src/paths.rs` | 設定檔／日誌路徑選擇（不產生探測副作用）。 |
-| `src/cli.rs` | 命令列解析與行程生命週期。 |
-| `src/main.rs` | 極薄的程式入口。 |
+| `src/action.rs` | Command syntax parsing (casing, whitespace, delimiters, aliases) and `PowerAction`. |
+| `src/dispatch.rs` | **Deep module**: parse → execute → structured `DispatchError`; does not touch sockets or write logs. |
+| `src/power.rs` | `PowerController` seam and Windows / macOS / Linux OS implementations. |
+| `src/server.rs` | UDP 9877 transport adapter; passes incoming packets to dispatcher and records logs. |
+| `src/config.rs` | `config.ini` pure parsing and atomic persistence. |
+| `src/logging.rs` | Console + file logging, 5 MB size rotation, control character sanitization. |
+| `src/autostart.rs` | Windows HKCU Run / macOS launchd / Linux systemd & XDG autostart. |
+| `src/instance.rs` | Single-instance mutual exclusion and `--stop` implementation. |
+| `src/paths.rs` | Config / log path resolution without side-effect probes. |
+| `src/cli.rs` | Command line argument parsing and process lifecycle. |
+| `src/main.rs` | Thin program entry point. |
 
 ---
 
-## 編譯與建置說明
+## Building and Testing
 
-* **Windows 本地編譯**：
-  ```powershell
-  cd computer
-  cargo fmt --all -- --check
-  cargo clippy --all-targets -- -D warnings
-  cargo test
-  cargo build --release
-  ```
-* **macOS (Apple) 本地編譯**：
-  ```bash
-  cd computer
-  cargo fmt --all -- --check
-  cargo clippy --all-targets -- -D warnings
-  cargo test
-  cargo build --release
-  ```
-* **Linux 本地/遠端編譯**：
-  ```bash
-  cd computer
-  cargo fmt --all -- --check
-  cargo clippy --all-targets -- -D warnings
-  cargo test
-  cargo build --release
-  ```
+```bash
+cd computer
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+cargo build --release
+```
 
 ---
 
-## 自動化打包與 GitHub Release 發行
+## Automated Packaging & GitHub Releases
 
-專案配置有 GitHub Actions 自動化發行工作流程（`.github/workflows/release.yml`）。每當推播版本標籤（如 `git tag v1.6.1 && git push origin v1.6.1`）或手動於 GitHub Actions 觸發 `Release` 時，系統將自動於原生虛擬機平行建置並上傳全平台產物至 GitHub Releases：
+The project includes automated GitHub Actions release workflows (`.github/workflows/release.yml`). When a version tag is pushed (e.g. `git tag v1.6.1 && git push origin v1.6.1`) or manually dispatched, artifacts are compiled across native runners:
 
-| 作業系統 / 平台 | Release 發行產物格式 | 說明 |
+| OS / Platform | Release Artifact Format | Description |
 | :--- | :--- | :--- |
-| **Windows** | `pc_onoff-windows-x86_64.exe`<br>`pc_onoff-windows-x86_64.zip` | 獨立無依賴執行檔與完整說明文件壓縮包 |
-| **Linux** | `pc_onoff-linux-x86_64.AppImage`<br>`pc_onoff-linux-x86_64`<br>`pc_onoff-linux-x86_64.tar.gz` | 單一檔案免安裝點擊即跑 AppImage，以及伺服器/無桌面獨立二進位檔 |
-| **Apple (macOS)** | `pc_onoff-macos-universal`<br>`pc_onoff-macos-universal.zip`<br>`pc_onoff-macos-universal.tar.gz` | 透過 lipo 合併的 Universal Binary，同時原生支援 Apple Silicon (M1~M4) 與 Intel Mac |
-| **Android** | `wakeonlan-home-phone.apk`<br>`wakeonwan-remote-phone.apk` | 家用助手端與外出遙控端 Release APK |
+| **Windows** | `pc_onoff-windows-x86_64.exe`<br>`pc_onoff-windows-x86_64.zip` | Standalone executable and archive with README |
+| **Linux** | `pc_onoff-linux-x86_64.AppImage`<br>`pc_onoff-linux-x86_64`<br>`pc_onoff-linux-x86_64.tar.gz` | Portable zero-install AppImage and standalone server binary |
+| **Apple macOS** | `pc_onoff-macos-universal`<br>`pc_onoff-macos-universal.zip`<br>`pc_onoff-macos-universal.tar.gz` | Universal Binary via lipo for Apple Silicon (M1-M4) and Intel Macs |
+| **Android** | `wakeonlan-home-phone.apk`<br>`wakeonwan-remote-phone.apk` | Helper and remote mobile app Release APKs |
 
 > [!NOTE]
-> 本專案不引入任何第三方 crate；Win32 API 以 `extern "system"` 直接宣告，
-> 其餘平台差異以 `#[cfg(windows)]`、`#[cfg(target_os = "macos")]` 與 `#[cfg(all(unix, not(target_os = "macos")))]` 收斂於各模組內。
+> This daemon does not depend on any third-party crates; Win32 APIs are declared via `extern "system"`, and platform variations are cleanly handled via `#[cfg(windows)]`, `#[cfg(target_os = "macos")]`, and `#[cfg(all(unix, not(target_os = "macos")))]`.

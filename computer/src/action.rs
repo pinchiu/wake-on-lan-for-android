@@ -1,12 +1,13 @@
-//! 遠端電源指令的語法解析。
+//! Remote power command syntax parsing.
 //!
-//! 這是守護程式與 Android 用戶端之間的協定邊界：一份 `&str` 進來，
-//! 一個經過驗證的 [`PowerAction`] 出去。所有大小寫、空白與分隔符的
-//! 容錯都集中在這裡，傳輸通道（UDP、未來的 MQTT／Webhook）無需重複實作。
+//! Protocol boundary between the daemon and Android clients: a `&str` comes in,
+//! a validated [`PowerAction`] comes out. All fault tolerance for casing, whitespace,
+//! and delimiters is centralized here, so transport layers (UDP, future MQTT/Webhooks)
+//! don't need to re-implement parsing logic.
 
 use std::fmt;
 
-/// 守護程式支援的電源動作。
+/// Power actions supported by the daemon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PowerAction {
     Shutdown,
@@ -17,7 +18,7 @@ pub enum PowerAction {
 }
 
 impl PowerAction {
-    /// 所有支援的動作，供說明文件或未來 UI 列舉使用。
+    /// All supported actions, for documentation or future UI enumeration.
     pub const ALL: [Self; 5] = [
         Self::Shutdown,
         Self::Reboot,
@@ -26,7 +27,7 @@ impl PowerAction {
         Self::Lock,
     ];
 
-    /// 協定上的標準關鍵字（小寫）。
+    /// Standard protocol keyword (lowercase).
     pub const fn keyword(self) -> &'static str {
         match self {
             Self::Shutdown => "shutdown",
@@ -37,25 +38,25 @@ impl PowerAction {
         }
     }
 
-    /// 日誌與訊息使用的中文名稱。
+    /// Human-readable label used in logging and notifications.
     pub const fn label(self) -> &'static str {
         match self {
-            Self::Shutdown => "關機",
-            Self::Reboot => "重啟",
-            Self::Sleep => "睡眠",
-            Self::Hibernate => "休眠",
-            Self::Lock => "鎖定螢幕",
+            Self::Shutdown => "Shutdown",
+            Self::Reboot => "Reboot",
+            Self::Sleep => "Sleep",
+            Self::Hibernate => "Hibernate",
+            Self::Lock => "Lock Screen",
         }
     }
 
-    /// 將一個 UDP 封包內容解析為動作。
+    /// Parse a UDP packet string into an action.
     ///
-    /// 容許：
-    /// * 前後空白（`"  shutdown  "`）
-    /// * 任意大小寫（`"ShUtDoWn"`）
-    /// * `:` 或 `,` 之後的目標資訊，例如 Android 端送出的
-    ///   `"SHUTDOWN:192.168.1.100"`（本程式只收已送達的封包，目標資訊會被忽略）
-    /// * 常見別名：`poweroff`、`restart`、`suspend`、`standby`
+    /// Accepts:
+    /// * Leading/trailing whitespace (`"  shutdown  "`)
+    /// * Any case (`"ShUtDoWn"`)
+    /// * Target info after `:` or `,` sent by Android clients, such as
+    ///   `"SHUTDOWN:192.168.1.100"` (target info is safely ignored)
+    /// * Common aliases: `poweroff`, `restart`, `suspend`, `standby`
     pub fn parse(raw: &str) -> Result<Self, ParseError> {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
@@ -89,20 +90,20 @@ impl fmt::Display for PowerAction {
     }
 }
 
-/// 指令無法被辨識的原因。
+/// Reasons why a command failed to parse.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
-    /// 封包內容為空或只有空白。
+    /// Packet was empty or contained only whitespace.
     Empty,
-    /// 動詞不在支援清單中。
+    /// Verb is not in the supported action list.
     Unknown { received: String },
 }
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Empty => f.write_str("收到空白指令"),
-            Self::Unknown { received } => write!(f, "未知指令 '{received}'"),
+            Self::Empty => f.write_str("received empty command"),
+            Self::Unknown { received } => write!(f, "unknown command '{received}'"),
         }
     }
 }
@@ -191,6 +192,6 @@ mod tests {
     #[test]
     fn labels_and_keywords_are_stable() {
         assert_eq!(PowerAction::Sleep.to_string(), "sleep");
-        assert_eq!(PowerAction::Lock.label(), "鎖定螢幕");
+        assert_eq!(PowerAction::Lock.label(), "Lock Screen");
     }
 }

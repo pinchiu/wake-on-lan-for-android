@@ -7,8 +7,8 @@ import com.google.gson.reflect.TypeToken
 import java.util.UUID
 
 /**
- * 目標電腦資料模型。
- * 支援使用者儲存多台電腦之名稱、網卡 MAC 地址與內網 IPv4 位址。
+ * Target computer data model.
+ * Supports storing multiple computers with name, MAC address, and local IPv4 address.
  */
 data class DeviceProfile(
     val id: String = UUID.randomUUID().toString(),
@@ -18,7 +18,7 @@ data class DeviceProfile(
 )
 
 /**
- * 遠端遙控端之裝置與設定檔管理員。
+ * Device and profile manager for the Remote Phone client.
  */
 class DeviceProfileManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -35,7 +35,7 @@ class DeviceProfileManager(private val context: Context) {
     }
 
     init {
-        // 自動遷移舊版單一電腦設定
+        // Automatically migrate legacy single-computer preferences
         if (getDevices().isEmpty()) {
             val oldMac = prefs.getString(KEY_MAC, "")?.trim() ?: ""
             val oldIp = prefs.getString(KEY_IPV4, "")?.trim() ?: ""

@@ -7,8 +7,8 @@ import com.google.gson.reflect.TypeToken
 import java.util.UUID
 
 /**
- * 家用助手端目標電腦資料模型。
- * 支援使用者儲存多台電腦之名稱、網卡 MAC 地址與區域網路 IPv4 位址。
+ * Target computer data model for Home Phone helper.
+ * Supports saving computer name, network adapter MAC address, and local IPv4 address.
  */
 data class DeviceProfile(
     val id: String = UUID.randomUUID().toString(),
@@ -18,8 +18,8 @@ data class DeviceProfile(
 )
 
 /**
- * 家用助手端電腦設定檔管理員。
- * 管理目標電腦清單、當前選定目標，並自動與 MqttConfigManager 及桌面小工具 (WakePcWidgetProvider) 同步。
+ * Computer device profile manager for Home Phone helper.
+ * Manages the list of target computers, currently selected device, and syncs with MqttConfigManager and WakePcWidgetProvider.
  */
 class DeviceProfileManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -32,7 +32,7 @@ class DeviceProfileManager(private val context: Context) {
     }
 
     init {
-        // 向下相容：初次啟動時自動遷移 MqttConfigManager 的舊版單一 MAC 設定
+        // Backwards compatibility: migrate legacy single MAC setting from MqttConfigManager on first run
         if (getDevices().isEmpty()) {
             val configManager = MqttConfigManager(context)
             val oldMac = configManager.getConfig().targetMac.trim()

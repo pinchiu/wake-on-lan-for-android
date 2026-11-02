@@ -1,7 +1,7 @@
-//! 檔案位置解析：優先放在執行檔旁，不可寫入時退回使用者資料目錄。
+//! File location resolution: prefers next to the executable, falling back to user data directory if unwritable.
 //!
-//! [`choose_file`] 以注入的目錄參數決定位置，方便測試，也避免像舊版那樣
-//! 用「建立真正的設定檔」來試探目錄是否可寫。
+//! [`choose_file`] determines location based on injected directory parameters for easy testing,
+//! avoiding legacy approaches that probed directories by creating actual configuration files.
 
 use std::env;
 use std::fs::OpenOptions;
@@ -15,7 +15,7 @@ const LOG_FILE_NAME: &str = "pc_onoff.log";
 
 static PROBE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// 設定檔路徑。
+/// Configuration file path.
 pub fn config_path() -> PathBuf {
     choose_file(
         CONFIG_FILE_NAME,
@@ -24,12 +24,13 @@ pub fn config_path() -> PathBuf {
     )
 }
 
-/// 日誌檔路徑。
+/// Log file path.
 pub fn log_path() -> PathBuf {
     choose_file(LOG_FILE_NAME, executable_dir().as_deref(), &app_data_dir())
 }
 
-/// 使用者資料目錄（Windows：`%LOCALAPPDATA%\pc_onoff`；macOS：`~/Library/Application Support/pc_onoff`；Linux/Unix：`~/.config/pc_onoff`）。
+/// User application data directory
+/// (Windows: `%LOCALAPPDATA%\pc_onoff`; macOS: `~/Library/Application Support/pc_onoff`; Linux/Unix: `~/.config/pc_onoff`).
 pub fn app_data_dir() -> PathBuf {
     #[cfg(windows)]
     if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
@@ -57,8 +58,8 @@ fn executable_dir() -> Option<PathBuf> {
         .and_then(|exe| exe.parent().map(Path::to_path_buf))
 }
 
-/// 若執行檔旁已有同名檔案，或備援目錄尚無設定且執行檔目錄可寫，就使用執行檔目錄；
-/// 否則使用備援目錄（避免搬動執行檔後忽略既有的使用者設定）。
+/// If a file already exists next to the executable, or fallback has no file and executable dir is writable,
+/// use the executable directory; otherwise use fallback directory (preserves settings across binary relocations).
 fn choose_file(file_name: &str, executable_dir: Option<&Path>, fallback_dir: &Path) -> PathBuf {
     if let Some(directory) = executable_dir {
         let candidate = directory.join(file_name);
@@ -71,7 +72,7 @@ fn choose_file(file_name: &str, executable_dir: Option<&Path>, fallback_dir: &Pa
     fallback_dir.join(file_name)
 }
 
-/// 以建立再刪除臨時檔的方式偵測目錄可寫性，不會留下探測檔。
+/// Detect directory writability by creating and deleting a temporary probe file.
 fn is_directory_writable(directory: &Path) -> bool {
     let id = PROBE_COUNTER.fetch_add(1, Ordering::Relaxed);
     let probe = directory.join(format!(".{APP_NAME}.probe.{}.{id}", std::process::id()));
@@ -98,7 +99,7 @@ mod tests {
         let dir = TempDir::new("paths-existing");
         let fallback = dir.path().join("fallback");
         let path = dir.path().join("config.ini");
-        fs::write(&path, "udp_port=9000").expect("建立設定檔");
+        fs::write(&path, "udp_port=9000").expect("create config file");
 
         assert_eq!(choose_file("config.ini", Some(dir.path()), &fallback), path);
     }
@@ -118,8 +119,8 @@ mod tests {
     fn existing_fallback_file_is_not_ignored_after_moving_the_executable() {
         let dir = TempDir::new("paths-fallback-existing");
         let fallback = dir.path().join("fallback");
-        fs::create_dir_all(&fallback).expect("建立備援目錄");
-        fs::write(fallback.join("config.ini"), "udp_port=9000").expect("建立備援設定");
+        fs::create_dir_all(&fallback).expect("create fallback dir");
+        fs::write(fallback.join("config.ini"), "udp_port=9000").expect("create fallback config");
 
         assert_eq!(
             choose_file("config.ini", Some(dir.path()), &fallback),
@@ -145,8 +146,8 @@ mod tests {
         let dir = TempDir::new("paths-probe");
         assert!(is_directory_writable(dir.path()));
 
-        let entries = fs::read_dir(dir.path()).expect("讀取目錄").count();
-        assert_eq!(entries, 0, "探測檔應被刪除");
+        let entries = fs::read_dir(dir.path()).expect("read dir").count();
+        assert_eq!(entries, 0, "probe file should be removed");
     }
 
     #[test]

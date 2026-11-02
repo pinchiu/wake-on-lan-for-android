@@ -1,13 +1,12 @@
-//! 開機自動啟動的註冊與查詢。
+//! Autostart registration and query.
 //!
-//! Windows 使用 `HKCU\...\Run`（免管理員權限）；Linux 使用
-//! `~/.config/autostart` 與 `systemd --user`；macOS 使用
-//! `~/Library/LaunchAgents` (launchd)。所有平台差異都藏在
-//! [`is_enabled`]／[`set_enabled`] 之後，呼叫端只看到布林值與錯誤。
+//! Windows uses `HKCU\...\Run` (no admin privileges required); Linux uses
+//! `~/.config/autostart` and `systemd --user`; macOS uses `~/Library/LaunchAgents` (launchd).
+//! All platform nuances are encapsulated behind [`is_enabled`] / [`set_enabled`].
 
 use std::fmt;
 
-/// 開機自動啟動設定失敗。
+/// Autostart configuration failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AutostartError {
     message: String,
@@ -29,7 +28,7 @@ impl fmt::Display for AutostartError {
 
 impl std::error::Error for AutostartError {}
 
-/// 目前使用者是否已註冊本程式為開機自動啟動。
+/// Check whether the current user has registered this program for autostart on login.
 pub fn is_enabled() -> bool {
     #[cfg(windows)]
     {
@@ -45,7 +44,7 @@ pub fn is_enabled() -> bool {
     }
 }
 
-/// 啟用或解除開機自動啟動。
+/// Enable or disable autostart.
 pub fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
     #[cfg(windows)]
     {
@@ -91,7 +90,7 @@ mod windows {
 
     pub(super) fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
         let executable = env::current_exe()
-            .map_err(|error| AutostartError::new(format!("無法取得目前執行檔路徑: {error}")))?;
+            .map_err(|error| AutostartError::new(format!("cannot get executable path: {error}")))?;
 
         if enabled {
             let value = format!("\"{}\"", executable.display());
@@ -100,26 +99,30 @@ mod windows {
                     "add", RUN_KEY, "/v", RUN_NAME, "/t", "REG_SZ", "/d", &value, "/f",
                 ])
                 .output()
-                .map_err(|error| AutostartError::new(format!("無法執行 reg add: {error}")))?;
+                .map_err(|error| AutostartError::new(format!("cannot execute reg add: {error}")))?;
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 let stderr = stderr.trim();
                 return Err(AutostartError::new(if stderr.is_empty() {
-                    "寫入 Windows 開機啟動登錄項失敗".to_owned()
+                    "failed to write Windows autostart registry entry".to_owned()
                 } else {
-                    format!("寫入 Windows 開機啟動登錄項失敗: {stderr}")
+                    format!("failed to write Windows autostart registry entry: {stderr}")
                 }));
             }
         } else {
             let output = platform::command("reg")
                 .args(["delete", RUN_KEY, "/v", RUN_NAME, "/f"])
                 .output()
-                .map_err(|error| AutostartError::new(format!("無法執行 reg delete: {error}")))?;
+                .map_err(|error| {
+                    AutostartError::new(format!("cannot execute reg delete: {error}"))
+                })?;
 
-            // 值原本就不存在時 reg delete 會回傳失敗，這不算錯誤。
+            // If the value did not exist in the first place, reg delete returns an error which is not fatal.
             if !output.status.success() && is_enabled() {
-                return Err(AutostartError::new("移除 Windows 開機啟動登錄項失敗"));
+                return Err(AutostartError::new(
+                    "failed to remove Windows autostart registry entry",
+                ));
             }
         }
 
@@ -194,9 +197,10 @@ pub(crate) mod linux {
 
     #[cfg_attr(target_os = "macos", allow(dead_code))]
     pub(super) fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
-        let home = home_dir().ok_or_else(|| AutostartError::new("找不到 HOME 環境變數"))?;
+        let home =
+            home_dir().ok_or_else(|| AutostartError::new("HOME environment variable not found"))?;
         let executable = env::current_exe()
-            .map_err(|error| AutostartError::new(format!("無法取得執行檔路徑: {error}")))?;
+            .map_err(|error| AutostartError::new(format!("cannot get executable path: {error}")))?;
 
         let desktop = desktop_path(&home);
         let service = service_path(&home);
@@ -244,16 +248,21 @@ pub(crate) mod linux {
     fn write_file(path: &Path, content: &str) -> Result<(), AutostartError> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|error| {
-                AutostartError::new(format!("無法建立目錄 {}: {error}", parent.display()))
+                AutostartError::new(format!(
+                    "cannot create directory {}: {error}",
+                    parent.display()
+                ))
             })?;
         }
-        fs::write(path, content)
-            .map_err(|error| AutostartError::new(format!("無法寫入 {}: {error}", path.display())))
+        fs::write(path, content).map_err(|error| {
+            AutostartError::new(format!("cannot write {}: {error}", path.display()))
+        })
     }
 
     fn remove_file(path: &Path) -> Result<(), AutostartError> {
-        fs::remove_file(path)
-            .map_err(|error| AutostartError::new(format!("無法刪除 {}: {error}", path.display())))
+        fs::remove_file(path).map_err(|error| {
+            AutostartError::new(format!("cannot remove {}: {error}", path.display()))
+        })
     }
 
     fn desktop_entry(executable: &Path) -> String {
@@ -286,7 +295,7 @@ pub(crate) mod linux {
         )
     }
 
-    /// XDG Desktop Entry 的 Exec 需要雙引號跳脫，`%` 是欄位代碼必須加倍。
+    /// XDG Desktop Entry Exec requires double quote escaping; `%` is a field code and must be escaped.
     fn desktop_exec(executable: &Path) -> String {
         let path = executable.to_string_lossy();
         let mut escaped = String::with_capacity(path.len() + 2);
@@ -305,7 +314,7 @@ pub(crate) mod linux {
         escaped
     }
 
-    /// systemd unit 的 ExecStart 同樣使用雙引號，`%` 需以 `%%` 表示。
+    /// systemd unit ExecStart also quotes paths; `%` is escaped as `%%`.
     fn systemd_exec(executable: &Path) -> String {
         let path = executable.to_string_lossy();
         let mut escaped = String::with_capacity(path.len() + 2);
@@ -391,9 +400,10 @@ pub(crate) mod macos {
 
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(super) fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
-        let home = home_dir().ok_or_else(|| AutostartError::new("找不到 HOME 環境變數"))?;
+        let home =
+            home_dir().ok_or_else(|| AutostartError::new("HOME environment variable not found"))?;
         let executable = env::current_exe()
-            .map_err(|error| AutostartError::new(format!("無法取得執行檔路徑: {error}")))?;
+            .map_err(|error| AutostartError::new(format!("cannot get executable path: {error}")))?;
 
         let plist = plist_path(&home);
 
@@ -425,17 +435,22 @@ pub(crate) mod macos {
     fn write_file(path: &Path, content: &str) -> Result<(), AutostartError> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|error| {
-                AutostartError::new(format!("無法建立目錄 {}: {error}", parent.display()))
+                AutostartError::new(format!(
+                    "cannot create directory {}: {error}",
+                    parent.display()
+                ))
             })?;
         }
-        fs::write(path, content)
-            .map_err(|error| AutostartError::new(format!("無法寫入 {}: {error}", path.display())))
+        fs::write(path, content).map_err(|error| {
+            AutostartError::new(format!("cannot write {}: {error}", path.display()))
+        })
     }
 
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     fn remove_file(path: &Path) -> Result<(), AutostartError> {
-        fs::remove_file(path)
-            .map_err(|error| AutostartError::new(format!("無法刪除 {}: {error}", path.display())))
+        fs::remove_file(path).map_err(|error| {
+            AutostartError::new(format!("cannot remove {}: {error}", path.display()))
+        })
     }
 
     fn xml_escape(input: &str) -> String {
@@ -510,7 +525,7 @@ pub(crate) mod macos {
 mod tests {
     #[test]
     fn error_messages_are_visible_to_callers() {
-        let error = super::AutostartError::new("測試失敗");
-        assert_eq!(error.to_string(), "測試失敗");
+        let error = super::AutostartError::new("test failure");
+        assert_eq!(error.to_string(), "test failure");
     }
 }

@@ -1,8 +1,8 @@
-//! `config.ini` 的解析與持久化。
+//! `config.ini` parsing and persistence.
 //!
-//! 解析器是純函式（[`AppConfig::parse`]），可以在不碰檔案系統的情況下測試；
-//! 檔案存取則由 [`AppConfig::load`]／[`AppConfig::save`] 負責，寫入採
-//! 「暫存檔 + 更名」以避免停電或當機造成設定檔半截。
+//! The parser is a pure function ([`AppConfig::parse`]) testable without file system access.
+//! File I/O is handled by [`AppConfig::load`] / [`AppConfig::save`], writing atomically
+//! via temporary file + rename to avoid partial writes during power loss or crashes.
 
 use std::fmt;
 use std::fs;
@@ -11,12 +11,12 @@ use std::path::{Path, PathBuf};
 use crate::DEFAULT_UDP_PORT;
 
 const CONFIG_HEADER: &str = "\
-# Wake-on-LAN 電腦端電源控制設定
-# udp_port: UDP 監聽連接埠 (預設 9877)
-# autostart: 是否隨系統登入自動啟動 (true / false)
+# Wake-on-LAN Computer Power Control Configuration
+# udp_port: UDP listening port (default 9877)
+# autostart: Launch automatically on system login (true / false)
 ";
 
-/// 守護程式的設定值。
+/// Daemon configuration values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppConfig {
     pub udp_port: u16,
@@ -33,10 +33,10 @@ impl Default for AppConfig {
 }
 
 impl AppConfig {
-    /// 從 INI 文字解析設定。
+    /// Parse configuration from INI text.
     ///
-    /// 未知的鍵、註解、空行與格式錯誤的數值都會被忽略，保留預設值，
-    /// 因此舊版設定檔（例如含 `start_minimized`）仍可安全載入。
+    /// Unknown keys, comments, blank lines, and malformed values are safely ignored,
+    /// preserving defaults so older configs (e.g. containing `start_minimized`) load cleanly.
     pub fn parse(content: &str) -> Self {
         let mut config = Self::default();
 
@@ -66,7 +66,7 @@ impl AppConfig {
         config
     }
 
-    /// 載入設定；檔案不存在或無法讀取時回傳預設值（不會寫入檔案）。
+    /// Load configuration; returns default values if file does not exist or cannot be read.
     pub fn load(path: &Path) -> Self {
         match fs::read_to_string(path) {
             Ok(content) => Self::parse(&content),
@@ -74,28 +74,37 @@ impl AppConfig {
         }
     }
 
-    /// 以原子方式寫入設定檔。
+    /// Atomically save configuration file.
     pub fn save(&self, path: &Path) -> Result<(), ConfigError> {
         if let Some(parent) = path.parent()
             && !parent.as_os_str().is_empty()
         {
             fs::create_dir_all(parent).map_err(|e| {
-                ConfigError::new(format!("無法建立設定目錄 {}: {e}", parent.display()))
+                ConfigError::new(format!(
+                    "cannot create configuration directory {}: {e}",
+                    parent.display()
+                ))
             })?;
         }
 
         let temporary = temporary_path(path);
         fs::write(&temporary, self.render()).map_err(|e| {
-            ConfigError::new(format!("無法寫入暫存設定檔 {}: {e}", temporary.display()))
+            ConfigError::new(format!(
+                "cannot write temporary configuration file {}: {e}",
+                temporary.display()
+            ))
         })?;
 
         fs::rename(&temporary, path).map_err(|e| {
             let _ = fs::remove_file(&temporary);
-            ConfigError::new(format!("無法更新設定檔 {}: {e}", path.display()))
+            ConfigError::new(format!(
+                "cannot update configuration file {}: {e}",
+                path.display()
+            ))
         })
     }
 
-    /// 產生設定檔內容。
+    /// Render configuration file content.
     pub fn render(&self) -> String {
         format!(
             "{CONFIG_HEADER}udp_port={}\nautostart={}\n",
@@ -117,7 +126,7 @@ fn temporary_path(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
-/// 設定檔存取失敗。
+/// Configuration access failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConfigError {
     message: String,
@@ -195,7 +204,7 @@ autostart=maybe
         let path = dir.path().join("config.ini");
 
         assert_eq!(AppConfig::load(&path), AppConfig::default());
-        assert!(!path.exists(), "載入不應有建立檔案的副作用");
+        assert!(!path.exists(), "loading should not have side effects");
     }
 
     #[test]
@@ -207,29 +216,32 @@ autostart=maybe
             autostart: false,
         };
 
-        config.save(&path).expect("儲存設定");
+        config.save(&path).expect("save config");
         assert_eq!(AppConfig::load(&path), config);
 
         let leftovers: Vec<_> = fs::read_dir(dir.path())
-            .expect("讀取設定目錄")
+            .expect("read config dir")
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp"))
             .collect();
-        assert!(leftovers.is_empty(), "暫存檔應在更名後消失");
+        assert!(
+            leftovers.is_empty(),
+            "temp files should disappear after rename"
+        );
     }
 
     #[test]
     fn save_overwrites_existing_file() {
         let dir = TempDir::new("config-overwrite");
         let path = dir.path().join("config.ini");
-        fs::write(&path, "udp_port=1234\nautostart=false\n").expect("寫入舊設定");
+        fs::write(&path, "udp_port=1234\nautostart=false\n").expect("write old config");
 
         AppConfig {
             udp_port: 4321,
             autostart: true,
         }
         .save(&path)
-        .expect("覆寫設定");
+        .expect("overwrite config");
 
         let reloaded = AppConfig::load(&path);
         assert_eq!(reloaded.udp_port, 4321);

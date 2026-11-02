@@ -17,8 +17,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 桌面微型小工具 (App Widget) 提供者。
- * 讓使用者可在 Android 桌面上點擊單一按鈕，直接將 Wake-on-LAN 開機封包發送至 App 設定之當前目標主機。
+ * Home screen widget (App Widget) provider.
+ * Allows users to trigger Wake-on-LAN packets with a single tap on the Android home screen for the currently active target PC.
  */
 class WakePcWidgetProvider : AppWidgetProvider() {
 
@@ -101,11 +101,11 @@ class WakePcWidgetProvider : AppWidgetProvider() {
                         views.setTextViewText(R.id.widget_title, localized.getString(R.string.shortcut_wake_pc_short))
                         views.setTextViewText(R.id.widget_status, localized.getString(R.string.widget_no_mac_hint))
                         appWidgetManager.updateAppWidget(componentName, views)
-                        AppLogger.log("[WIDGET] 點擊開機小工具失敗：尚未設定目標 MAC 地址")
+                        AppLogger.log("[WIDGET] Tap failed: Target MAC address is not configured")
                         return@launch
                     }
 
-                    // 透過深模組 PcActionDispatcher 發送開機封包
+                    // Dispatch wake command via the deep module PcActionDispatcher
                     val dispatcher = PcActionDispatcher(
                         defaultMacProvider = { targetMac }
                     )
@@ -119,9 +119,9 @@ class WakePcWidgetProvider : AppWidgetProvider() {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, localized.getString(R.string.widget_toast_sent, deviceName, targetMac), Toast.LENGTH_SHORT).show()
                     }
-                    AppLogger.log("[WIDGET] 已發送喚醒封包至 $deviceName ($targetMac) (${result.toProtocolString()})")
+                    AppLogger.log("[WIDGET] Sent wake packet to $deviceName ($targetMac) (${result.toProtocolString()})")
                 } catch (e: Exception) {
-                    AppLogger.log("[WIDGET] 小工具發送異常: ${e.message}")
+                    AppLogger.log("[WIDGET] Widget error: ${e.message}")
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, AppLocale.wrap(context).getString(R.string.widget_toast_failed, e.message), Toast.LENGTH_SHORT).show()
                     }

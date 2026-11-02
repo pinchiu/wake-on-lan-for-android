@@ -1,6 +1,6 @@
-//! 作業系統的細微差異集中於此：建立子程序、取得寬字元字串、附加主控台。
+//! Operating system nuances: subprocess spawning, wide strings, console attachment.
 //!
-//! 這裡的介面刻意保持極小，讓其他模組不必到處散落 `#[cfg(windows)]`。
+//! The interface here is intentionally minimal so other modules don't need scattered `#[cfg(windows)]`.
 
 use std::ffi::OsStr;
 use std::process::Command;
@@ -36,8 +36,8 @@ mod windows_ffi {
     pub const INVALID_HANDLE_VALUE: *mut c_void = usize::MAX as *mut c_void;
 }
 
-/// 建立子程序命令；在 Windows 上自動加上 `CREATE_NO_WINDOW`，
-/// 確保背景守護程式不會因呼叫 `reg`、`shutdown`、`taskkill` 而閃出黑色視窗。
+/// Create a subprocess command; on Windows automatically adds `CREATE_NO_WINDOW`
+/// to prevent console popups when invoking `reg`, `shutdown`, `taskkill`, etc.
 pub fn command(program: impl AsRef<OsStr>) -> Command {
     #[cfg(windows)]
     {
@@ -54,10 +54,10 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     }
 }
 
-/// 若父行程有主控台，將輸出附加其上（方便從終端機執行 `--status` 等指令）。
+/// If the parent process has a console, attach output to it (convenient for CLI commands like `--status`).
 ///
-/// GUI 子系統的程式不會自動取得 `stdout`，因此附加後還要把 `CONOUT$` 設為
-/// 標準輸出／錯誤；若呼叫端已重導向輸出（例如 `> status.txt`），則保留原句柄。
+/// Windows GUI subsystem binaries don't automatically receive stdout/stderr, so `CONOUT$` is assigned
+/// to standard output/error after attaching. If the caller redirected output (e.g. `> status.txt`), the handle is preserved.
 #[cfg(windows)]
 pub fn attach_console() {
     use std::ptr;
@@ -92,7 +92,7 @@ pub fn attach_console() {
     }
 }
 
-/// 將字串轉為以 NUL 結尾的 UTF-16，供 Win32 `...W` 系列 API 使用。
+/// Convert a string to NUL-terminated UTF-16 for Win32 `...W` APIs.
 #[cfg(windows)]
 pub fn wide(value: &str) -> Vec<u16> {
     value.encode_utf16().chain(std::iter::once(0)).collect()

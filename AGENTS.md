@@ -1,61 +1,62 @@
-# 跨工具專案全域開發與維護規範 (AGENTS.md)
+# Global Project Development & Maintenance Specification (AGENTS.md)
 
-本文件為專案之全域規範設定檔（支援 Linux Foundation / Agentic AI 標準，以及 Antigravity、Claude Code、Cursor、Windsurf 等所有 AI 開發代理工具與人工開發者）。詳細記錄專案之核心架構、深模組設計、指令分派管線、各檔案職責，以及**跨平台（Linux、macOS、Windows）建置、測試與驗證作業程序**。
-
----
-
-## 1. 專案整體架構與核心模組
-
-本專案由三大核心子系統組成：
-
-* [`wakeonlanhomephone/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/)：**家用助手端 Android 應用程式**。放置於家中常駐連線 Wi-Fi，作為外網進入區域網路之控制樞紐。負責在區域網路發送 UDP WoL 廣播、監聽外網 TCP (Port 9876)、訂閱 MQTT Broker、接收語音捷徑觸發與桌面小工具點擊，並透過 `PcActionDispatcher` 統一分派與執行指令。
-* [`wakeonwanremotephone/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/)：**外出遙控端 Android 應用程式**。供使用者隨身攜帶，透過 TCP (IPv6/IPv4)、MQTT 或內網直連向家用助手或目標電腦發送控制指令。支援多主機 Profile 切換與桌面一鍵喚醒小工具。
-* [`computer/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/)：**目標電腦端控制程式（Rust 跨平台守護程式）**。在 Windows、Linux 與 Apple macOS 背景監聽 UDP Port 9877，接收關機 (`shutdown`)、重啟 (`reboot`)、睡眠 (`sleep`)、休眠 (`hibernate`) 與螢幕鎖定 (`lock`) 指令，並透過原生作業系統呼叫（Win32 API / Linux systemd-logind / macOS AppleScript & pmset）安全執行電源狀態轉換。同時具備開機自動啟動註冊（Windows Registry / Linux systemd & XDG / macOS LaunchAgent）與日誌自動輪替功能。
+This document is the global specification and architectural guidelines for this project (supporting Linux Foundation / Agentic AI standards, as well as AI development agents such as Antigravity, Claude Code, Cursor, Windsurf, and human developers). It details the core system architecture, deep module design, command dispatch pipeline, file responsibilities, and **cross-platform (Linux, macOS, Windows) build, test, and verification standard operating procedures (SOP)**.
 
 ---
 
-## 2. 核心深模組架構：PcActionDispatcher
+## 1. System Architecture & Core Modules
 
-為了消除傳輸協議與業務邏輯之緊密耦合，家用端 (`wakeonlanhomephone`) 採用「深模組 (Deep Module)」架構設計：
+The system consists of three core subsystems:
+
+* [`wakeonlanhomephone/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/): **Home Phone Helper Android Application**. Stationed at home and permanently connected to the local Wi-Fi network, serving as the gateway/bridge from WAN into the local LAN. Broadcasts Wake-on-LAN UDP Magic Packets (port 9), listens for incoming WAN TCP connections (port 9876), subscribes to MQTT brokers, receives voice shortcuts / routines, and handles home screen widgets, converging all commands through `PcActionDispatcher`.
+* [`wakeonwanremotephone/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/): **Remote Phone Controller Android Application**. Carried by the user to send control commands to the Home Phone helper or directly to target computers via TCP (IPv6/IPv4), MQTT, or local LAN broadcast. Supports multi-host profile management and a 1-tap desktop wake-up widget.
+* [`computer/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/): **Target Computer Daemon (Rust Cross-Platform Service)**. Runs in the background on Windows, Linux, and Apple macOS listening on UDP port 9877. Receives power commands (`shutdown`, `reboot`, `sleep`, `hibernate`, `lock`) and executes safe OS transitions via native system calls (Win32 API / Linux systemd-logind / macOS AppleScript & pmset). Includes zero-admin autostart registration (Windows Registry HKCU Run / Linux systemd & XDG / macOS LaunchAgent) and automatic 5 MB log rotation.
+
+---
+
+## 2. Core Deep Module Architecture: PcActionDispatcher
+
+To eliminate tight coupling between network transport protocols and domain business logic, the Home Phone helper adopts a **Deep Module** architecture:
 
 ```
-[外部輸入端 (Transport Adapters)]
-  ├── TCP 監聽器 (WolListenerService: 9876)
-  ├── MQTT 訂閱器 (MqttWolService: wakeonlan/#)
-  ├── 語音/捷徑 (VoiceWakeActivity: Routine / Shortcut)
-  └── 桌面小工具 (WakePcWidgetProvider: App Widget)
+[Transport Adapters]
+  ├── TCP Listener (WolListenerService: 9876)
+  ├── MQTT Subscriber (MqttWolService: wakeonlan/#)
+  ├── Voice / Shortcut (VoiceWakeActivity: Routine / Shortcut)
+  └── Desktop Widget (WakePcWidgetProvider: App Widget)
                 │
-                ▼ (統一呼叫)
+                ▼ (Unified Ingestion)
 ┌─────────────────────────────────────────────────────────────┐
-│          PcActionDispatcher (深模組 / 核心業務收斂)          │
+│          PcActionDispatcher (Deep Module / Domain Core)       │
 │                                                             │
-│  介面: suspend fun dispatch(rawCommand, source): PcActionResult
+│  Interface: suspend fun dispatch(rawCommand, source):        │
+│                         PcActionResult                      │
 │                                                             │
-│  職責:                                                      │
-│    1. 指令語法解析與正規化 (分開分隔符 :, 處理與空白修整)    │
-│    2. 參數提取 (MAC 地址校驗、IP 地址解析)                  │
-│    3. 業務操作執行:                                          │
-│       - WAKE: 發送 WoL UDP 廣播封包 (Port 9)               │
-│       - SHUTDOWN/REBOOT/SLEEP/HIBERNATE:                    │
-│         發送電腦電源控制 UDP 封包至 目標IP:9877             │
-│    4. 結構化結果契約封裝 (PcActionResult)                    │
+│  Responsibilities:                                          │
+│    1. Command syntax parsing & normalization (:, delimiters)│
+│    2. Parameter validation (MAC formatting, IPv4 parsing)   │
+│    3. Business operation execution:                         │
+│       - WAKE: Broadcasts WoL UDP Magic Packet (Port 9)      │
+│       - SHUTDOWN/REBOOT/SLEEP/HIBERNATE/LOCK:               │
+│         Sends power control UDP packet to target_ip:9877    │
+│    4. Structured result encapsulation (PcActionResult)      │
 └─────────────────────────────────────────────────────────────┘
                 │
-                ▼ (回傳結果)
+                ▼ (Return Result)
         PcActionResult (Success / Failure)
                 │
-                ├─► TCP Adapter: 回傳 toProtocolString() ("SUCCESS: ..." / "ERROR: ...")
-                ├─► MQTT / Voice Adapter: 記錄 AppLogger 與系統通知
-                └─► Widget Adapter: 顯示 Toast 與更新小工具時間
+                ├─► TCP Adapter: Returns toProtocolString() ("SUCCESS: ..." / "ERROR: ...")
+                ├─► MQTT / Voice Adapter: Records to AppLogger & system notifications
+                └─► Widget Adapter: Shows Toast & updates widget timestamp
 ```
 
-### 2.1 介面與契約定義
+### 2.1 Interface & Result Contract
 
-* **入口介面**：
+* **Entry Interface**:
   ```kotlin
   suspend fun dispatch(rawCommand: String, source: String = "local"): PcActionResult
   ```
-* **結果型別**：
+* **Result Type**:
   ```kotlin
   sealed class PcActionResult {
       data class Success(val message: String, val details: String? = null) : PcActionResult()
@@ -63,25 +64,26 @@
       fun toProtocolString(): String
   }
   ```
-  `toProtocolString()` 產生符合 TCP 通訊協議之字串格式，成功為 `SUCCESS: <訊息>`，失敗為 `ERROR: <原因>`。
+  `toProtocolString()` generates protocol-compliant wire formats: `SUCCESS: <message>` or `ERROR: <reason>`.
 
-### 2.2 支援的指令語法
+### 2.2 Supported Command Syntax
 
-`PcActionDispatcher` 支援以下所有指令格式（大小寫不敏感，支援 `:` 與 `,` 分隔符）：
+`PcActionDispatcher` supports the following command formats (case-insensitive, supporting `:` and `,` delimiters):
 
-| 指令格式 | 範例 | 說明 |
+| Command Format | Example | Description |
 | :--- | :--- | :--- |
-| `WAKE` | `WAKE` | 使用系統預設的 MAC 地址發送 WoL 廣播封包 |
-| `WAKE:<MAC>` 或 `WAKE,<MAC>` | `WAKE:AA:BB:CC:DD:EE:FF` | 使用指定 MAC 地址發送 WoL 廣播封包 |
-| `<MAC>` (純 MAC) | `AA:BB:CC:DD:EE:FF` | 自動識別為 MAC 地址並發送 WoL 封包 |
-| `SHUTDOWN:<IP>` 或 `SHUTDOWN,<IP>` | `SHUTDOWN:192.168.1.100` | 發送 UDP 電源指令 `shutdown` 至 `192.168.1.100:9877` |
-| `REBOOT:<IP>` 或 `REBOOT,<IP>` | `REBOOT:192.168.1.100` | 發送 UDP 電源指令 `reboot` 至 `192.168.1.100:9877` |
-| `SLEEP:<IP>` 或 `SLEEP,<IP>` | `SLEEP:192.168.1.100` | 發送 UDP 電源指令 `sleep` 至 `192.168.1.100:9877` |
-| `HIBERNATE:<IP>` 或 `HIBERNATE,<IP>` | `HIBERNATE:192.168.1.100` | 發送 UDP 電源指令 `hibernate` 至 `192.168.1.100:9877` |
+| `WAKE` | `WAKE` | Broadcasts WoL packet using the default configured MAC |
+| `WAKE:<MAC>` or `WAKE,<MAC>` | `WAKE:AA:BB:CC:DD:EE:FF` | Broadcasts WoL packet to the specified MAC address |
+| `<MAC>` (pure MAC) | `AA:BB:CC:DD:EE:FF` | Automatically detected as MAC and broadcasts WoL packet |
+| `SHUTDOWN:<IP>` or `SHUTDOWN,<IP>` | `SHUTDOWN:192.168.1.100` | Sends UDP command `shutdown` to `192.168.1.100:9877` |
+| `REBOOT:<IP>` or `REBOOT,<IP>` | `REBOOT:192.168.1.100` | Sends UDP command `reboot` to `192.168.1.100:9877` |
+| `SLEEP:<IP>` or `SLEEP,<IP>` | `SLEEP:192.168.1.100` | Sends UDP command `sleep` to `192.168.1.100:9877` |
+| `HIBERNATE:<IP>` or `HIBERNATE,<IP>` | `HIBERNATE:192.168.1.100` | Sends UDP command `hibernate` to `192.168.1.100:9877` |
+| `LOCK:<IP>` or `LOCK,<IP>` | `LOCK:192.168.1.100` | Sends UDP command `lock` to `192.168.1.100:9877` |
 
-### 2.3 電腦端守護程式的對稱深模組 (Rust `Dispatcher`)
+### 2.3 Symmetrical PC Daemon Deep Module (Rust `Dispatcher`)
 
-[`computer/src/dispatch.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/dispatch.rs) 以相同的深模組思路實作 PC 端指令收斂：
+[`computer/src/dispatch.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/dispatch.rs) implements the exact symmetrical deep module pattern on the PC daemon side:
 
 ```rust
 pub trait PowerController {
@@ -95,229 +97,218 @@ impl<P: PowerController> Dispatcher<P> {
 }
 ```
 
-* **小介面**：呼叫端只需知道 `dispatch(raw)`；回傳 `Result<PowerAction, DispatchError>`。
-* **深實作**：`action.rs` 處理大小寫、空白、`:`／`,` 與別名；`power.rs` 處理 Windows Win32 API、Linux `systemctl`/`loginctl` 與 macOS `osascript`（System Events）/`pmset`/`CGSession` 差異；`server.rs` 只負責 UDP 傳輸與日誌呈現。
-* **可測試性**：`PowerController` 是唯一的系統電源 seam，單元測試注入假實作，不需真的關機。
-* **單一方向依賴**：`power → action`、`dispatch → {action, power}`、`server → dispatch`、`cli → 全部`。
+* **Small Interface**: Callers only need `dispatch(raw)` returning `Result<PowerAction, DispatchError>`.
+* **Deep Implementation**: `action.rs` handles casing, whitespace, delimiters, and aliases; `power.rs` encapsulates platform differences (Win32 API on Windows, `systemctl`/`loginctl` on Linux, AppleScript `osascript`/`pmset`/`CGSession` on macOS); `server.rs` only handles UDP transport and logging.
+* **Testability**: `PowerController` is the single system seam, allowing unit tests to inject mock controllers without triggering actual shutdowns.
+* **Unidirectional Dependency**: `power → action`, `dispatch → {action, power}`, `server → dispatch`, `cli → all`.
 
 ---
 
-## 3. 外出端多電腦 Profile 管理與桌面小工具
+## 3. Remote Phone Multi-Host Profile Management & Widgets
 
-### 3.1 多主機設定管理 (`DeviceProfileManager`)
-* **資料結構**：`DeviceProfile(id, name, mac, ip)`。
-* **持久化**：使用 `SharedPreferences` 配合 Gson 儲存 JSON 陣列。
-* **向下相容**：初次啟動時自動遷移舊版單一 MAC / IP 設定為「Default PC」。
-* **同步機制**：切換目前選中電腦時，自動更新 App 內部狀態並廣播觸發桌面小工具 (`RemoteWakeWidgetProvider`) 更新顯示之電腦名稱。
+### 3.1 Device Profile Management (`DeviceProfileManager`)
+* **Data Structure**: `DeviceProfile(id, name, mac, ip)`.
+* **Persistence**: Stored as a JSON array in `SharedPreferences` via Gson.
+* **Backwards Compatibility**: Automatically migrates legacy single MAC / IP preferences to "Default PC" on first launch.
+* **State Synchronization**: When switching active profiles, broadcasts an update to refresh the desktop widget (`RemoteWakeWidgetProvider`).
 
-### 3.2 雙端桌面小工具 (Desktop Widgets)
-* **家用端小工具** ([`WakePcWidgetProvider.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WakePcWidgetProvider.kt))：
-  單鍵點擊發送內網 WoL 廣播封包，立即喚醒預設主機並顯示發送狀態與時間戳記。
-* **外出端小工具** ([`RemoteWakeWidgetProvider.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteWakeWidgetProvider.kt))：
-  顯示當前選定的目標電腦名稱，點擊即透過連線助手發送喚醒指令，支援多主機即時連動。
+### 3.2 Dual Desktop Widgets (App Widgets)
+* **Home Phone Widget** ([`WakePcWidgetProvider.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WakePcWidgetProvider.kt)):
+  1-tap button to broadcast a local WoL packet to wake the default PC, showing status and execution timestamp.
+* **Remote Phone Widget** ([`RemoteWakeWidgetProvider.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteWakeWidgetProvider.kt)):
+  Displays the currently selected target PC name and sends a remote wake command via the helper or direct connection.
 
 ---
 
-## 4. 各模組檔案職責速查表
+## 4. File Responsibilities Table
 
-| 功能區塊 | 檔案路徑 | 核心職責 |
+| Component | File Path | Core Responsibility |
 | :--- | :--- | :--- |
-| **指令分派核心 (深模組)** | [`wakeonlanhomephone/.../PcActionDispatcher.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/PcActionDispatcher.kt) | 指令語法切割、參數檢核、WoL 與 UDP 9877 發送、封裝 `PcActionResult`。純 JVM 實作，完全解耦 Android 依賴。 |
-| **單元測試套件** | [`wakeonlanhomephone/.../PcActionDispatcherTest.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/test/java/com/example/wakeonlanhomephone/PcActionDispatcherTest.kt) | 涵蓋所有指令格式、邊界條件與例外處理之單元測試（10 項完整測試案例）。 |
-| **TCP 服務適配器** | [`wakeonlanhomephone/.../WolListenerService.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt) | 監聽 TCP 9876，將連線輸入導向 `dispatcher.dispatch()`，並回寫 `toProtocolString()`。 |
-| **MQTT 服務適配器** | [`wakeonlanhomephone/.../MqttWolService.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt) | 訂閱 MQTT Topic，將訊息 Payload 導向 `dispatcher.dispatch()`。 |
-| **語音捷徑適配器** | [`wakeonlanhomephone/.../VoiceWakeActivity.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/VoiceWakeActivity.kt) | 接收語音/捷徑 Intent，呼叫 `dispatcher.dispatch("WAKE")`，非同步發送後立即關閉。 |
-| **家用端桌面小工具** | [`wakeonlanhomephone/.../WakePcWidgetProvider.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WakePcWidgetProvider.kt) | Android 桌面微型小工具，單鍵發送內網 WoL 開機廣播封包。 |
-| **WoL 底層廣播公用程式** | [`wakeonlanhomephone/.../WolUtil.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolUtil.kt) | 底層 Magic Packet 二進位封包組裝與 UDP Socket 發送。 |
-| **設定值管理** | [`wakeonlanhomephone/.../MqttConfigManager.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttConfigManager.kt) | 管理目標電腦 MAC、MQTT 伺服器配置之 SharedPreferences 存取。 |
-| **捷徑靜態註冊** | [`wakeonlanhomephone/.../res/xml/shortcuts.xml`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/res/xml/shortcuts.xml) | 宣告 Google 助理可用之靜態捷徑 `wake_pc_shortcut`。 |
-| **日誌記錄器** | [`wakeonlanhomephone/.../AppLogger.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/AppLogger.kt) | 提供全域 UI 即時日誌快取與顯示。 |
-| **外出端多主機管理** | [`wakeonwanremotephone/.../DeviceProfileManager.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/DeviceProfileManager.kt) | 外出端多電腦設定管理（支援多台電腦名稱、MAC、IP 儲存、新增、編輯與切換）。 |
-| **外出端桌面小工具** | [`wakeonwanremotephone/.../RemoteWakeWidgetProvider.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteWakeWidgetProvider.kt) | 外出端桌面小工具，單鍵遠端喚醒當前選定電腦。 |
-| **外出端網路工具庫** | [`wakeonwanremotephone/.../RemoteNetworkUtil.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt) | 外出端網路指令封裝（TCP 9876、LAN WoL 廣播、UDP 9877 直連）。 |
-| **電腦端守護程式（Rust 深模組）** | [`computer/src/dispatch.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/dispatch.rs) | `Dispatcher<P: PowerController>::dispatch(raw)`：解析 → 執行 → 結構化 `DispatchError`；不寫日誌、不碰 socket，可用假電源控制器完整測試。 |
-| **電腦端指令語法** | [`computer/src/action.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/action.rs) | `PowerAction` 與容錯解析（大小寫、空白、`:`／`,`、`shutdown`、`reboot`、`sleep`、`hibernate`、`lock` 等別名）。 |
-| **電腦端電源 seam** | [`computer/src/power.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/power.rs) | `PowerController` 介面；Windows Win32 API、Linux `systemctl`/`loginctl`、macOS AppleScript (`osascript`) / `pmset` / `CGSession` 實作。 |
-| **電腦端開機自啟** | [`computer/src/autostart.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/autostart.rs) | 跨平台無 root 自動啟動註冊（Windows HKCU Run、Linux systemd user / XDG autostart、macOS `~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`）。 |
-| **電腦端設定路徑** | [`computer/src/paths.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/paths.rs) | 跨平台設定檔與日誌路徑解析（Windows `%APPDATA%`、Linux `~/.config`、macOS `~/Library/Application Support`）。 |
-| **電腦端 UDP 適配器** | [`computer/src/server.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/server.rs) | 監聽 UDP 9877、呼叫 dispatcher、日誌呈現與本機 IP 查詢。 |
-| **電腦端輔助模組** | [`computer/src/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/) | `config`（原子寫入）、`logging`（5 MB 輪替）、`instance`（單實例互斥／優雅停止）、`cli`（跨平台 CLI 與色彩輸出）。 |
-| **電腦端舊版 Python 參考實作** | [`computer/pc_onoff.py`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/pc_onoff.py) | 支援 Windows、Linux 與 macOS（`sys.platform == "darwin"`）之參考實作；CI 進行語法檢查。 |
+| **Command Dispatch Core (Deep Module)** | [`wakeonlanhomephone/.../PcActionDispatcher.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/PcActionDispatcher.kt) | Command parsing, parameter validation, WoL Magic Packet & UDP 9877 delivery, structured `PcActionResult`. Pure Kotlin/JVM, decoupled from Android frameworks. |
+| **Unit Test Suite** | [`wakeonlanhomephone/.../PcActionDispatcherTest.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/test/java/com/example/wakeonlanhomephone/PcActionDispatcherTest.kt) | 100% comprehensive unit test coverage for all command formats, boundary conditions, and error cases. |
+| **TCP Service Adapter** | [`wakeonlanhomephone/.../WolListenerService.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt) | Listens on TCP 9876, directs stream input to `dispatcher.dispatch()`, and writes back `toProtocolString()`. |
+| **MQTT Service Adapter** | [`wakeonlanhomephone/.../MqttWolService.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt) | Subscribes to MQTT topic, forwarding payload strings to `dispatcher.dispatch()`. |
+| **Voice / Shortcut Adapter** | [`wakeonlanhomephone/.../VoiceWakeActivity.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/VoiceWakeActivity.kt) | Invisible entry activity for Google Assistant / App Shortcuts; invokes `dispatcher.dispatch("WAKE")` asynchronously and exits immediately. |
+| **Home Phone Widget** | [`wakeonlanhomephone/.../WakePcWidgetProvider.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WakePcWidgetProvider.kt) | Android desktop widget for 1-tap local WoL packet broadcasting. |
+| **Low-Level WoL Broadcaster** | [`wakeonlanhomephone/.../WolUtil.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolUtil.kt) | Constructs 102-byte Magic Packet binary frames and sends UDP datagrams. |
+| **Configuration Manager** | [`wakeonlanhomephone/.../MqttConfigManager.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttConfigManager.kt) | Manages target MAC and MQTT broker settings in SharedPreferences. |
+| **Static Shortcut Declaration** | [`wakeonlanhomephone/.../res/xml/shortcuts.xml`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/res/xml/shortcuts.xml) | Declares static `wake_pc_shortcut` for Google Assistant and launcher long-press. |
+| **Application Logger** | [`wakeonlanhomephone/.../AppLogger.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/AppLogger.kt) | Provides in-memory real-time log ring buffer for UI display. |
+| **Remote Profile Manager** | [`wakeonwanremotephone/.../DeviceProfileManager.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/DeviceProfileManager.kt) | Manages multi-host configuration (name, MAC, IP) and active target selection on the remote controller. |
+| **Remote Wake Widget** | [`wakeonwanremotephone/.../RemoteWakeWidgetProvider.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteWakeWidgetProvider.kt) | Desktop widget for 1-tap remote waking of the selected PC. |
+| **Remote Network Utilities** | [`wakeonwanremotephone/.../RemoteNetworkUtil.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt) | Network command wrappers (TCP 9876, LAN WoL broadcast, UDP 9877 direct). |
+| **PC Daemon Dispatcher (Rust Deep Module)** | [`computer/src/dispatch.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/dispatch.rs) | `Dispatcher<P: PowerController>::dispatch(raw)`: Parse → execute → structured `DispatchError`; completely testable with mock controller. |
+| **PC Daemon Command Syntax** | [`computer/src/action.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/action.rs) | `PowerAction` enum and fault-tolerant parsing (casing, whitespace, delimiters, aliases). |
+| **PC Daemon Power Seam** | [`computer/src/power.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/power.rs) | `PowerController` trait; Win32 API on Windows, `systemctl`/`loginctl` on Linux, AppleScript `osascript`/`pmset`/`CGSession` on macOS. |
+| **PC Daemon Autostart** | [`computer/src/autostart.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/autostart.rs) | Zero-admin autostart management (Windows HKCU Run, Linux systemd user & XDG, macOS `~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`). |
+| **PC Daemon Path Resolution** | [`computer/src/paths.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/paths.rs) | Cross-platform config/log path resolution (Windows `%LOCALAPPDATA%`, Linux `~/.config`, macOS `~/Library/Application Support`). |
+| **PC Daemon UDP Server** | [`computer/src/server.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/server.rs) | Listens on UDP 9877, passes datagrams to dispatcher, logs events, resolves local IPv4. |
+| **PC Daemon Support Modules** | [`computer/src/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/) | `config` (atomic INI persistence), `logging` (5 MB rotation), `instance` (single-instance mutex & stop), `cli` (CLI args & status). |
+| **PC Daemon Python Reference** | [`computer/pc_onoff.py`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/pc_onoff.py) | Reference implementation supporting Windows, Linux, and macOS; checked for syntax in CI. |
 
 ---
 
-## 5. 語音喚醒 (Gemini / Google 助理) 執行鏈路
+## 5. Voice Wake-up (Gemini / Google Assistant) Execution Chain
 
-1. **語音觸發**：使用者對家用手機說出「Hey Google，打開電腦」。
-2. **助理匹配**：Gemini / Google 助理日常安排 (Routine) 匹配語音詞條，啟動應用程式捷徑 `wake_pc_shortcut`。
-3. **無介面入口**：系統啟動透明 Activity [`VoiceWakeActivity`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/VoiceWakeActivity.kt)（不顯示完整 UI，不干擾畫面）。
-4. **委派深模組**：呼叫 `PcActionDispatcher.dispatch("WAKE", "VoiceWakeActivity")`。
-5. **廣播發送**：Dispatcher 讀取目標 MAC 並由背景執行緒發送 UDP Magic Packet 廣播至 `255.255.255.255:9`。
-6. **結束生命週期**：寫入 `AppLogger`，彈出 Toast 提示，立即呼叫 `finish()` 關閉 Activity。
+1. **Voice Trigger**: User says "Hey Google, turn on my computer" to the Home Phone.
+2. **Assistant Matching**: Google Assistant Routine matches the phrase and launches App Shortcut `wake_pc_shortcut`.
+3. **Headless Entry**: System starts transparent activity [`VoiceWakeActivity`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/VoiceWakeActivity.kt) (no visible UI).
+4. **Delegate to Deep Module**: Calls `PcActionDispatcher.dispatch("WAKE", "VoiceWakeActivity")`.
+5. **Magic Packet Broadcast**: Dispatcher reads target MAC and sends UDP Magic Packet broadcast to `255.255.255.255:9`.
+6. **Lifecycle End**: Records to `AppLogger`, shows Toast feedback, and calls `finish()` immediately.
 
 ---
 
-## 6. 跨平台建置、測試與驗證作業程序 (SOP)
+## 6. Cross-Platform Build, Test, and Verification SOP
 
-本專案支援在 **Linux**、**macOS** 與 **Windows** 跨平台環境進行開發與驗證。
+### 6.1 Automated Delegation & Local Fallback Scripts (Recommended)
 
-### 6.1 自動化委派與本地備援腳本 (推薦)
+The project includes cross-platform build scripts supporting **priority SSH delegation to a LAN build server (Homeserver)**, with **automatic graceful fallback to local compilation**:
 
-專案提供跨平台自動化腳本，支援**優先委派至區域網路專屬建置伺服器 (Homeserver)**；若未配置或無法連線建置主機，腳本將**自動優雅降級為本地端建置**：
-
-* **Linux / macOS (Bash / Zsh)**：
+* **Linux / macOS (Bash / Zsh)**:
   ```bash
-  # 執行單元測試
+  # Run unit tests
   ./scripts/remote-build.sh -a test
 
-  # 建置 Release APK 並下載至根目錄
+  # Build Release APK and download to project root
   ./scripts/remote-build.sh -a build
 
-  # 全流程 (單元測試 + 建置 APK)
+  # Full workflow (test + build APK)
   ./scripts/remote-build.sh -a all
 
-  # 同時建置家用端與外出端
+  # Build both Home Phone and Remote Phone
   ./scripts/remote-build.sh -a all -t both
   ```
 
-* **Windows (PowerShell)**：
+* **Windows (PowerShell)**:
   ```powershell
-  # 執行單元測試
+  # Run unit tests
   .\scripts\remote-build.ps1 -Action test
 
-  # 建置 Release APK 並同步至根目錄
+  # Build Release APK and sync to project root
   .\scripts\remote-build.ps1 -Action build
 
-  # 全流程 (單元測試 + 建置 APK)
+  # Full workflow (test + build APK)
   .\scripts\remote-build.ps1 -Action all
 
-  # 同時建置家用端與外出端
+  # Build both Home Phone and Remote Phone
   .\scripts\remote-build.ps1 -Action all -Target both
   ```
 
 > [!TIP]
-> **遠端建置伺服器配置**：若欲使用 SSH 遠端建置卸載本地運算，僅需於個人的 `~/.ssh/config` 中配置別名 `homeserver`：
+> **Remote Build Server Configuration**: To offload builds to a remote host via SSH, configure an alias in `~/.ssh/config`:
 > ```sshconfig
 > Host homeserver
->     HostName <主機IP或網域名稱>
->     User <使用者名稱>
->     IdentityFile <私鑰路徑>
+>     HostName <Host IP or Domain>
+>     User <Username>
+>     IdentityFile <Path to Private Key>
 > ```
-> 亦可透過環境變數 `BUILD_HOST=<別名或IP>` 指定遠端主機。
+> You can also specify the host using `BUILD_HOST=<alias or IP>`.
 
 ---
 
-### 6.2 跨平台本地原生指令對照表
+### 6.2 Native Command Reference Table
 
-若開發者偏好直接在終端機手動執行原生指令，請依所在作業系統使用以下指令：
-
-#### A. 執行深模組單元測試（必須 100% 通過）
-* **Linux / macOS**：
+#### A. Run Deep Module Unit Tests (Must Pass 100%)
+* **Linux / macOS**:
   ```bash
   cd wakeonlanhomephone && ./gradlew testDebugUnitTest
   ```
-* **Windows (PowerShell)**：
+* **Windows (PowerShell)**:
   ```powershell
   cd wakeonlanhomephone; .\gradlew.bat testDebugUnitTest
   ```
 
-#### B. Kotlin 編譯語法檢查
-* **Linux / macOS**：
+#### B. Kotlin Compilation Check
+* **Linux / macOS**:
   ```bash
   cd wakeonlanhomephone && ./gradlew compileDebugKotlin
   ```
-* **Windows (PowerShell)**：
+* **Windows (PowerShell)**:
   ```powershell
   cd wakeonlanhomephone; .\gradlew.bat compileDebugKotlin
   ```
 
-#### C. 本地打包 Release APK 並同步至根目錄
-* **Linux / macOS**：
+#### C. Local Release APK Build & Sync to Root
+* **Linux / macOS**:
   ```bash
   cd wakeonlanhomephone && ./gradlew assembleRelease && cp app/build/outputs/apk/release/app-release.apk ../wakeonlan-home-phone.apk
   ```
-* **Windows (PowerShell)**：
+* **Windows (PowerShell)**:
   ```powershell
   cd wakeonlanhomephone; .\gradlew.bat assembleRelease; Copy-Item -Path app\build\outputs\apk\release\app-release.apk -Destination ..\wakeonlan-home-phone.apk -Force
   ```
 
-#### D. 電腦端 Python 守護腳本語法驗證
-* **Linux / macOS**：
+#### D. PC Python Daemon Syntax Validation
+* **Linux / macOS**:
   ```bash
   python3 -m py_compile computer/pc_onoff.py
   ```
-* **Windows (PowerShell)**：
+* **Windows (PowerShell)**:
   ```powershell
   python -m py_compile computer\pc_onoff.py
   ```
 
-#### E. 電腦端 Rust 守護程式測試與靜態檢查（必須 100% 通過）
-* **Linux / macOS**：
+#### E. PC Rust Daemon Testing & Linting (Must Pass 100%)
+* **Linux / macOS**:
   ```bash
   cd computer && cargo fmt --all -- --check && cargo clippy --all-targets -- -D warnings && cargo test
   ```
-* **Windows (PowerShell)**：
+* **Windows (PowerShell)**:
   ```powershell
   cd computer; cargo fmt --all -- --check; cargo clippy --all-targets -- -D warnings; cargo test
   ```
 
 ---
 
-## 7. GitHub Actions CI/CD 與 Release 發布流水線守則
+## 7. GitHub Actions CI/CD & Release Workflows
 
-### 7.1 CI/CD 流水線 (`ci.yml`)
-* **設定檔路徑**：[`.github/workflows/ci.yml`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/.github/workflows/ci.yml)
-* **觸發條件**：`push` 或 `pull_request` 至 `master` / `main`（排除 `**.md` 與 `.gitignore`），或透過 `workflow_dispatch` 手動觸發。
-* **智慧子系統變更偵測與條件執行**：
-  使用 `dorny/paths-filter` 嚴格隔離三個獨立子系統，**未變更之模組絕對不重複執行 Action**：
-  1. `detect-changes`：檢測 `home-phone` (`wakeonlanhomephone/**`)、`remote-phone` (`wakeonwanremotephone/**`) 與 `computer` (`computer/**`)。
-  2. `build-home-phone`：僅在助手端變更時以 JDK 21 執行單元測試與 APK 打包（若未修改 App 程式碼則自動略過）。
-  3. `build-remote-phone`：僅在遠端控制端變更時以 JDK 21 建置 APK（若未修改 App 程式碼則自動略過）。
-  4. `build-computer`：僅在電腦端 Rust 程式碼變更時執行 `cargo fmt --check`、`cargo clippy`、`cargo test`、Linux 產物建置，以及 Python 語法驗證（若未修改 Rust/電腦端則自動略過）。
+### 7.1 CI/CD Pipeline (`ci.yml`)
+* **Workflow Path**: [`.github/workflows/ci.yml`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/.github/workflows/ci.yml)
+* **Trigger Conditions**: `push` or `pull_request` to `master` / `main` (ignoring `**.md` and `.gitignore`), or manual `workflow_dispatch`.
+* **Subsystem Path Filtering & Conditional Execution**:
+  Uses `dorny/paths-filter` to isolate subsystems so **unchanged components are never compiled redundantly**:
+  1. `detect-changes`: Inspects `home-phone` (`wakeonlanhomephone/**`), `remote-phone` (`wakeonwanremotephone/**`), and `computer` (`computer/**`).
+  2. `build-home-phone`: Runs JDK 21 unit tests and APK packaging only when `wakeonlanhomephone/**` changes (skipped otherwise).
+  3. `build-remote-phone`: Builds Release APK only when `wakeonwanremotephone/**` changes (skipped otherwise).
+  4. `build-computer`: Runs `cargo fmt --check`, `cargo clippy`, `cargo test`, Linux release build, and Python syntax check only when `computer/**` changes (skipped otherwise).
 
-### 7.2 Release 全平台產物發布流水線 (`release.yml`)
-* **設定檔路徑**：[`.github/workflows/release.yml`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/.github/workflows/release.yml)
-* **觸發條件**：推播版本標籤 `v*`，或手動透過 `workflow_dispatch`（支援參數勾選是否強制建置 Rust 或 Android）。
-* **全平台產物打包矩陣**：
-  1. `build-windows`：建置 Windows 64 位元獨立執行檔 `pc_onoff-windows-x86_64.exe` 與 `pc_onoff-windows-x86_64.zip`（僅在電腦端變更或指定強制建置時執行）。
-  2. `build-linux`：使用 `appimagetool` 建置免安裝、各 Linux 發行版隨點隨開之 `pc_onoff-linux-x86_64.AppImage`，並打包獨立二進位檔 `pc_onoff-linux-x86_64` 與 `pc_onoff-linux-x86_64.tar.gz`。
-  3. `build-macos`：在 macOS Runner 上編譯 Apple Silicon (`aarch64-apple-darwin`) 與 Intel (`x86_64-apple-darwin`) 雙架構，透過 `lipo` 合併為通用二進位檔 (Universal Binary) `pc_onoff-macos-universal`，並提供 `.zip` 與 `.tar.gz`。
-  4. `build-android`：建置助手端與外出端 Release APK (`wakeonlan-home-phone.apk`、`wakeonwan-remote-phone.apk`)（僅在 Android 變更或指定強制建置時執行）。
-  5. `publish-release`：使用 `softprops/action-gh-release@v2` 自動將上述所有平台的產物發布至 GitHub Release 頁面。
+### 7.2 Multi-Platform Release Pipeline (`release.yml`)
+* **Workflow Path**: [`.github/workflows/release.yml`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/.github/workflows/release.yml)
+* **Trigger Conditions**: Tag push `v*`, or manual `workflow_dispatch` (with options to force Rust or Android builds).
+* **Multi-Platform Build Matrix**:
+  1. `build-windows`: Builds 64-bit standalone executable `pc_onoff-windows-x86_64.exe` and `pc_onoff-windows-x86_64.zip`.
+  2. `build-linux`: Packages portable `pc_onoff-linux-x86_64.AppImage` via `appimagetool` and standalone binary `pc_onoff-linux-x86_64` / `.tar.gz`.
+  3. `build-macos`: Compiles Apple Silicon (`aarch64-apple-darwin`) and Intel (`x86_64-apple-darwin`) on a macOS runner, merging into Universal Binary `pc_onoff-macos-universal` (`.zip` and `.tar.gz`).
+  4. `build-android`: Builds Release APKs (`wakeonlan-home-phone.apk`, `wakeonwan-remote-phone.apk`).
+  5. `publish-release`: Publishes all generated assets to GitHub Releases via `softprops/action-gh-release@v2`.
 
-### 7.3 強制性 CI/CD 監控與修復循環規範 (Post-Push Verification Loop)
+### 7.3 Mandatory CI/CD Verification Loop (Post-Push SOP)
 
 > [!IMPORTANT]
-> **推播後必檢規範 (Mandatory CI/CD Verification)**：
-> 任何 AI Agent 或開發者在完成 `git push origin <branch>` 推播程式碼後，**絕對不得直接結束任務**。必須依循以下程序：
-> 1. **監控 CI/CD 狀態**：使用 GitHub CLI 執行 `gh run list -L 1` 取得剛觸發的 Run ID，並使用 `gh run watch <RunID>`（或在背景追蹤）等待流水線執行完畢。
-> 2. **檢驗執行結果**：確認所有 Jobs（`build-home-phone`、`build-remote-phone`、`build-computer`）皆為綠燈通過（Success）。
-> 3. **錯誤即時修復與重推 (Fix & Push Again)**：
->    - 若任何 Job 失敗（Failure / Error），必須立即調閱失敗工作之錯誤日誌（如 `gh run view <RunID> --log-failed`）。
->    - 深入分析失敗根因（例如單元測試斷言失敗、Kotlin 編譯錯誤、依賴套件衝突等）並進行程式碼修復。
->    - 重新在本機執行測試確認修復後，再次提交 (`git commit`) 並推播至 GitHub (`git push`)。
->    - 持續重複監控直到 CI/CD 100% 通過為止。
+> **Mandatory Post-Push Verification**:
+> Whenever an AI Agent or developer pushes commits via `git push origin <branch>`, **never conclude the task immediately**. Always follow this procedure:
+> 1. **Monitor CI Status**: Run `gh run list -L 1` to find the newly triggered Run ID, and track it with `gh run watch <RunID>`.
+> 2. **Verify Results**: Ensure all executed jobs succeed (green status).
+> 3. **Fix and Re-push**: If any job fails, inspect failure logs (`gh run view <RunID> --log-failed`), resolve root causes, verify locally, commit, push, and monitor until 100% green.
 
 ---
 
-## 8. 常見擴充與修改指引 (How-To for Future Agents)
+## 8. Extension and Modification Guidelines
 
-### 8.1 若需要新增一項電腦控制指令 (例如鎖定螢幕 LOCK)
-1. **修改 [`PcActionDispatcher.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/PcActionDispatcher.kt)**：
-   * 在指令前綴匹配中加入 `rawUpper.startsWith("LOCK:") || rawUpper.startsWith("LOCK,")`。
-   * 呼叫 `sendUdpCommand(ip, 9877, "lock")`。
-2. **修改電腦端 [`action.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/action.rs)**：
-   * 在 `PowerAction` enum 加入新變體、`keyword()`／`label()` 與 `parse()` 的 match 分支。
-3. **修改電腦端 [`power.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/power.rs)**：
-   * 在 Windows／Linux 實作中補上對應的系統呼叫；傳輸層與 `dispatch.rs` 無需修改。
-4. **編寫單元測試**：
-   * 在 [`PcActionDispatcherTest.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/app/src/test/java/com/example/wakeonlanhomephone/PcActionDispatcherTest.kt) 中加入 `dispatch_lockCommand_sendsUdpPacket` 測試。
-   * 在 `computer/src/action.rs` 與 `computer/src/dispatch.rs` 的測試模組加入解析與分派案例。
-5. **所有傳輸管道自動生效**：TCP、MQTT、語音與 Widget 皆無需修改任何通訊程式碼即可直接支援該新指令。
+### 8.1 Adding a New Power Command (e.g. Screen Lock)
+1. **Modify [`PcActionDispatcher.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/PcActionDispatcher.kt)**:
+   * Add prefix matching: `rawUpper.startsWith("LOCK:") || rawUpper.startsWith("LOCK,")`.
+   * Call `sendUdpCommand(ip, 9877, "lock")`.
+2. **Modify PC Daemon [`action.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/action.rs)**:
+   * Add new variant to `PowerAction` enum, `keyword()`, `label()`, and match arms in `parse()`.
+3. **Modify PC Daemon [`power.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/power.rs)**:
+   * Implement system calls for Windows, Linux, and macOS.
+4. **Add Unit Tests**:
+   * Add test case in `PcActionDispatcherTest.kt`.
+   * Add parsing and dispatch test cases in `computer/src/action.rs` and `computer/src/dispatch.rs`.
+5. **Transport Channels Work Automatically**: TCP, MQTT, Voice, and Widgets will immediately support the new command without changing transport code.
 
-### 8.2 若需要支援多台電腦開機或定向子網廣播
-* 在 `PcActionDispatcher` 初始化或呼叫時，`dispatch("WAKE:11:22:33:44:55:66")` 或 `dispatch("WAKE", ...)` 已支援動態傳入 MAC。
-* 定向子網廣播可於 `PcActionDispatcher` 增加廣播位址參數（預設仍為 `255.255.255.255`）。
-
-### 8.3 若需要新增傳輸通道 (例如 Webhook HTTP Server 或 BLE)
-* 僅需建立新的傳輸適配器 Service/Receiver，將收到的文字指令直接丟入 `dispatcher.dispatch(raw, source)`，完全無須重寫指令解析與網路發送邏輯。
+### 8.2 Subnet Broadcast & Multi-PC Wake-up
+* `PcActionDispatcher.dispatch("WAKE:<MAC>")` dynamically supports passing target MAC addresses.
+* Subnet-directed broadcasts can be configured by passing custom broadcast IP addresses to `sendUdpPacket()`.

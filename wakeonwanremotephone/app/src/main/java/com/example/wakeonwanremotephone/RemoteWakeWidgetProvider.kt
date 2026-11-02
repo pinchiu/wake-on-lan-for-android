@@ -17,8 +17,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 外出遙控端桌面小工具 (Remote Wake Widget)。
- * 讓使用者可在 Android 桌面上單鍵遠端喚醒目標電腦。
+ * Remote Wake Widget provider.
+ * Allows users to remotely wake up the target computer with a single tap on the Android home screen.
  */
 class RemoteWakeWidgetProvider : AppWidgetProvider() {
 

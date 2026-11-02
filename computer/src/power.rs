@@ -1,14 +1,14 @@
-//! 系統電源操作的 seam（介面）。
+//! System power operations seam (interface).
 //!
-//! [`PowerController`] 是整個守護程式唯一會真正關機／重啟的地方。
-//! 上層的 [`crate::dispatch::Dispatcher`] 只認得這個介面，因此測試可以注入
-//! 假實作，驗證指令分派而不會動到執行中的電腦。
+//! [`PowerController`] is the only place in the daemon that executes actual shutdowns or reboots.
+//! The higher-level [`crate::dispatch::Dispatcher`] only depends on this interface, allowing unit
+//! tests to inject mock implementations and verify dispatch logic without affecting the host system.
 
 use std::fmt;
 
 use crate::action::PowerAction;
 
-/// 電源操作失敗的原因。
+/// Reasons why a power operation failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PowerError {
     message: String,
@@ -30,12 +30,15 @@ impl fmt::Display for PowerError {
 
 impl std::error::Error for PowerError {}
 
-/// 執行一個電源動作。
+/// Execute a system power action.
 pub trait PowerController {
     fn execute(&self, action: PowerAction) -> Result<(), PowerError>;
 }
 
-/// 真實系統實作：Windows 使用 Win32 API 與系統命令，macOS 使用 osascript/pmset/CGSession，其餘平台使用 systemctl 等命令。
+/// Real system implementation:
+/// - Windows uses Win32 API and system commands.
+/// - macOS uses osascript/pmset/CGSession.
+/// - Linux uses systemctl/loginctl and fallback commands.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemPower;
 
@@ -75,13 +78,13 @@ mod windows {
             PowerAction::Reboot => run("shutdown", &["/r", "/f", "/t", "0"]),
             PowerAction::Lock => lock_workstation(),
             PowerAction::Sleep => {
-                // 先鎖定工作站，避免喚醒後畫面停留在桌面。
+                // Lock workstation first to avoid exposing desktop upon wakeup.
                 let _ = lock_workstation();
-                // SetSuspendState(0, 0, 0)：睡眠、非強制、保留 Wake-on-LAN 喚醒事件。
+                // SetSuspendState(0, 0, 0): sleep, non-force, preserve Wake-on-LAN events.
                 let result = unsafe { SetSuspendState(0, 0, 0) };
                 if result == 0 {
                     Err(PowerError::new(
-                        "SetSuspendState 呼叫失敗，系統可能不支援 S3 睡眠",
+                        "SetSuspendState call failed; system may not support S3 sleep",
                     ))
                 } else {
                     Ok(())
@@ -92,10 +95,10 @@ mod windows {
                 match run("shutdown", &["/h"]) {
                     Ok(()) => Ok(()),
                     Err(primary) => {
-                        // 部分系統停用 shutdown /h 但仍有休眠能力，改用原生 API。
+                        // Some systems disable shutdown /h but have hibernation enabled; fallback to API.
                         let result = unsafe { SetSuspendState(1, 0, 0) };
                         if result == 0 {
-                            Err(PowerError::new(format!("休眠失敗: {primary}")))
+                            Err(PowerError::new(format!("hibernation failed: {primary}")))
                         } else {
                             Ok(())
                         }
@@ -108,7 +111,7 @@ mod windows {
     fn lock_workstation() -> Result<(), PowerError> {
         let result = unsafe { LockWorkStation() };
         if result == 0 {
-            Err(PowerError::new("LockWorkStation 呼叫失敗"))
+            Err(PowerError::new("LockWorkStation call failed"))
         } else {
             Ok(())
         }
@@ -118,7 +121,7 @@ mod windows {
         let output = platform::command(program)
             .args(args)
             .output()
-            .map_err(|e| PowerError::new(format!("無法執行 {program}: {e}")))?;
+            .map_err(|e| PowerError::new(format!("cannot execute {program}: {e}")))?;
 
         if output.status.success() {
             return Ok(());
@@ -127,11 +130,13 @@ mod windows {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let detail = stderr.trim();
         let detail = if detail.is_empty() {
-            format!("結束碼 {:?}", output.status.code())
+            format!("exit code {:?}", output.status.code())
         } else {
             detail.to_owned()
         };
-        Err(PowerError::new(format!("{program} 執行失敗 ({detail})")))
+        Err(PowerError::new(format!(
+            "{program} execution failed ({detail})"
+        )))
     }
 }
 
@@ -219,7 +224,7 @@ mod unix {
         }
     }
 
-    /// 依序嘗試候選命令，第一個成功者即回傳；全部失敗才回報錯誤。
+    /// Try candidate commands in sequence. Return Ok on the first success; report error only if all fail.
     fn run_first(candidates: &[(&str, &[&str])]) -> Result<(), PowerError> {
         let mut failures = Vec::new();
 
@@ -230,7 +235,7 @@ mod unix {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     let stderr = stderr.trim();
                     if stderr.is_empty() {
-                        failures.push(format!("{program}: 結束碼 {:?}", output.status.code()));
+                        failures.push(format!("{program}: exit code {:?}", output.status.code()));
                     } else {
                         failures.push(format!("{program}: {stderr}"));
                     }
@@ -240,7 +245,7 @@ mod unix {
         }
 
         Err(PowerError::new(format!(
-            "所有電源指令皆失敗 ({})",
+            "all power commands failed ({})",
             failures.join("; ")
         )))
     }
@@ -263,14 +268,20 @@ mod tests {
 
         for action in actions {
             let linux = unix::linux_candidates(action);
-            assert!(!linux.is_empty(), "Linux 候選指令不可為空: {action:?}");
+            assert!(
+                !linux.is_empty(),
+                "Linux candidates cannot be empty: {action:?}"
+            );
             for (prog, args) in linux {
                 assert!(!prog.is_empty());
                 let _ = args;
             }
 
             let macos = unix::macos_candidates(action);
-            assert!(!macos.is_empty(), "macOS 候選指令不可為空: {action:?}");
+            assert!(
+                !macos.is_empty(),
+                "macOS candidates cannot be empty: {action:?}"
+            );
             for (prog, args) in macos {
                 assert!(!prog.is_empty());
                 let _ = args;

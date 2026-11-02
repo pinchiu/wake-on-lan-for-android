@@ -1,7 +1,7 @@
-//! 單一實例守護與停止背景服務。
+//! Single-instance daemon protection and background service shutdown.
 //!
-//! Windows 以具名互斥鎖（`CreateMutexW`）判定；Unix 以鎖定檔記錄 PID。
-//! 呼叫端只看到 [`SingleInstance::acquire`]、[`request_stop`] 與其結果型別。
+//! Windows uses named mutexes (`CreateMutexW`); Unix uses lock files with PID checks.
+//! Callers interact via [`SingleInstance::acquire`], [`request_stop`], and result types.
 
 use std::fmt;
 
@@ -11,12 +11,12 @@ use crate::paths;
 #[cfg(not(windows))]
 const LOCK_FILE_NAME: &str = "pc_onoff.lock";
 
-/// 取得實例鎖失敗的原因。
+/// Reasons why acquiring an instance lock failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InstanceError {
-    /// 已有另一個守護程式持有實例鎖。
+    /// Another daemon is already holding the instance lock.
     AlreadyRunning,
-    /// 無法建立互斥鎖或鎖定檔（權限、磁碟等問題）。
+    /// Cannot create mutex or lock file (permissions, disk error, etc.).
     Unavailable { reason: String },
 }
 
@@ -31,7 +31,7 @@ impl InstanceError {
 impl fmt::Display for InstanceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::AlreadyRunning => f.write_str("已有另一個 pc_onoff 實例正在執行"),
+            Self::AlreadyRunning => f.write_str("another pc_onoff instance is already running"),
             Self::Unavailable { reason } => f.write_str(reason),
         }
     }
@@ -39,16 +39,16 @@ impl fmt::Display for InstanceError {
 
 impl std::error::Error for InstanceError {}
 
-/// 停止背景服務的結果。
+/// Result of requesting a background service to stop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StopOutcome {
-    /// 已送出停止訊號。
+    /// Stop signal has been sent.
     Signaled,
-    /// 目前沒有執行中的服務。
+    /// No running service was found.
     NotRunning,
 }
 
-/// 停止服務時發生的錯誤（例如無法執行系統命令）。
+/// Errors when stopping the service (e.g. system command failed).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StopError {
     message: String,
@@ -70,7 +70,7 @@ impl fmt::Display for StopError {
 
 impl std::error::Error for StopError {}
 
-/// 持有實例鎖；離開作用域時自動釋放。
+/// Holds the instance lock; automatically released when dropped.
 pub struct SingleInstance {
     #[cfg(windows)]
     _guard: windows::HeldMutex,
@@ -79,7 +79,7 @@ pub struct SingleInstance {
 }
 
 impl SingleInstance {
-    /// 嘗試取得實例鎖。
+    /// Attempt to acquire the instance lock.
     pub fn acquire() -> Result<Self, InstanceError> {
         #[cfg(windows)]
         {
@@ -92,7 +92,7 @@ impl SingleInstance {
     }
 }
 
-/// 要求背景服務停止。
+/// Request running background service to stop.
 pub fn request_stop() -> Result<StopOutcome, StopError> {
     #[cfg(windows)]
     {
@@ -104,7 +104,7 @@ pub fn request_stop() -> Result<StopOutcome, StopError> {
     }
 }
 
-/// 目前是否有守護程式持有實例鎖。
+/// Check if a daemon instance is currently holding the lock.
 pub fn is_running() -> bool {
     #[cfg(windows)]
     {
@@ -159,10 +159,10 @@ mod windows {
             let handle = unsafe { CreateMutexW(ptr::null_mut(), 0, wide_name.as_ptr()) };
 
             if handle.is_null() {
-                return Err(InstanceError::unavailable("無法建立具名互斥鎖"));
+                return Err(InstanceError::unavailable("cannot create named mutex"));
             }
 
-            // 必須緊接在 CreateMutexW 之後讀取，中間不可再呼叫其他 Win32 API。
+            // Must read GetLastError immediately after CreateMutexW without calling other APIs.
             if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
                 unsafe {
                     CloseHandle(handle);
@@ -202,28 +202,30 @@ mod windows {
 
     pub(super) fn request_stop() -> Result<StopOutcome, StopError> {
         let executable = std::env::current_exe()
-            .map_err(|error| StopError::new(format!("無法取得執行檔路徑: {error}")))?;
+            .map_err(|error| StopError::new(format!("cannot get executable path: {error}")))?;
         let image_name = executable
             .file_name()
-            .ok_or_else(|| StopError::new("無法取得執行檔名稱"))?
+            .ok_or_else(|| StopError::new("cannot get executable name"))?
             .to_string_lossy()
             .into_owned();
 
-        // 以影像名稱篩選，但排除自己（--stop 程序本身也是同名的執行檔）。
+        // Filter by image name while excluding current process (--stop process itself has same executable name).
         let image_filter = format!("IMAGENAME eq {image_name}");
         let self_filter = format!("PID ne {}", std::process::id());
 
         let output = platform::command("taskkill")
             .args(["/F", "/FI", &image_filter, "/FI", &self_filter])
             .output()
-            .map_err(|error| StopError::new(format!("無法執行 taskkill: {error}")))?;
+            .map_err(|error| StopError::new(format!("cannot execute taskkill: {error}")))?;
 
         match output.status.code() {
             Some(0) => Ok(StopOutcome::Signaled),
-            // taskkill 在找不到符合條件的程序時回傳 128。
+            // taskkill returns 128 when no matching processes were found.
             Some(128) => Ok(StopOutcome::NotRunning),
-            Some(code) => Err(StopError::new(format!("taskkill 執行失敗 (結束碼 {code})"))),
-            None => Err(StopError::new("taskkill 被系統終止")),
+            Some(code) => Err(StopError::new(format!(
+                "taskkill execution failed (exit code {code})"
+            ))),
+            None => Err(StopError::new("taskkill terminated by system")),
         }
     }
 
@@ -243,30 +245,39 @@ mod windows {
         #[test]
         fn only_one_guard_can_hold_the_mutex() {
             let name = unique_name();
-            let first = HeldMutex::acquire_named(&name).expect("第一次取得互斥鎖");
+            let first = HeldMutex::acquire_named(&name).expect("first mutex acquire");
             assert_eq!(
                 HeldMutex::acquire_named(&name).err(),
                 Some(InstanceError::AlreadyRunning),
-                "第二次取得必須回報已在執行"
+                "second acquire must report already running"
             );
 
             drop(first);
             assert!(
                 HeldMutex::acquire_named(&name).is_ok(),
-                "釋放後應可再次取得"
+                "should acquire again after drop"
             );
         }
 
         #[test]
         fn reports_whether_an_instance_is_running() {
             let name = unique_name();
-            assert!(!is_running_named(&name), "尚未建立時應回報未執行");
+            assert!(
+                !is_running_named(&name),
+                "should report not running before creation"
+            );
 
-            let guard = HeldMutex::acquire_named(&name).expect("取得互斥鎖");
-            assert!(is_running_named(&name), "持有鎖時應回報執行中");
+            let guard = HeldMutex::acquire_named(&name).expect("acquire mutex");
+            assert!(
+                is_running_named(&name),
+                "should report running while holding lock"
+            );
 
             drop(guard);
-            assert!(!is_running_named(&name), "釋放後應回報未執行");
+            assert!(
+                !is_running_named(&name),
+                "should report not running after drop"
+            );
         }
     }
 }
@@ -289,7 +300,7 @@ mod unix {
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent).map_err(|error| {
                     InstanceError::unavailable(format!(
-                        "無法建立鎖定檔目錄 {}: {error}",
+                        "cannot create lockfile directory {}: {error}",
                         parent.display()
                     ))
                 })?;
@@ -307,12 +318,12 @@ mod unix {
                         if read_pid(path).is_some_and(process_alive) {
                             return Err(InstanceError::AlreadyRunning);
                         }
-                        // 上次異常結束留下的鎖定檔。
+                        // Stale lockfile from previous crash.
                         let _ = fs::remove_file(path);
                     }
                     Err(error) => {
                         return Err(InstanceError::unavailable(format!(
-                            "無法建立鎖定檔 {}: {error}",
+                            "cannot create lockfile {}: {error}",
                             path.display()
                         )));
                     }
@@ -320,7 +331,7 @@ mod unix {
             }
 
             Err(InstanceError::unavailable(format!(
-                "無法建立鎖定檔 {}",
+                "cannot create lockfile {}",
                 path.display()
             )))
         }
@@ -349,7 +360,7 @@ mod unix {
         let output = platform::command("kill")
             .args(["-TERM", &pid.to_string()])
             .output()
-            .map_err(|error| StopError::new(format!("無法傳送停止訊號: {error}")))?;
+            .map_err(|error| StopError::new(format!("cannot send stop signal: {error}")))?;
 
         if output.status.success() {
             Ok(StopOutcome::Signaled)
@@ -357,10 +368,12 @@ mod unix {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stderr = stderr.trim();
             if stderr.is_empty() {
-                Err(StopError::new(format!("無法傳送 TERM 訊號給 PID {pid}")))
+                Err(StopError::new(format!(
+                    "cannot send TERM signal to PID {pid}"
+                )))
             } else {
                 Err(StopError::new(format!(
-                    "無法傳送 TERM 訊號給 PID {pid}: {stderr}"
+                    "cannot send TERM signal to PID {pid}: {stderr}"
                 )))
             }
         }
@@ -388,27 +401,33 @@ mod unix {
             let dir = TempDir::new("instance");
             let path = dir.path().join("pc_onoff.lock");
 
-            let first = LockFile::acquire(&path).expect("第一次取得鎖定檔");
+            let first = LockFile::acquire(&path).expect("first lockfile acquire");
             assert_eq!(
                 LockFile::acquire(&path).err(),
                 Some(InstanceError::AlreadyRunning),
-                "第二次取得必須回報已在執行"
+                "second acquire must report already running"
             );
 
             drop(first);
-            assert!(!path.exists(), "離開作用域後應刪除鎖定檔");
-            assert!(LockFile::acquire(&path).is_ok(), "應可重新取得");
+            assert!(
+                !path.exists(),
+                "lockfile should be deleted after guard drop"
+            );
+            assert!(
+                LockFile::acquire(&path).is_ok(),
+                "should acquire again after drop"
+            );
         }
 
         #[test]
         fn stale_lock_file_is_replaced() {
             let dir = TempDir::new("instance-stale");
             let path = dir.path().join("pc_onoff.lock");
-            fs::write(&path, "999999999").expect("建立過期鎖定檔");
+            fs::write(&path, "999999999").expect("create stale lockfile");
 
             assert!(
                 LockFile::acquire(&path).is_ok(),
-                "PID 不存在時應視為過期鎖定"
+                "non-existent PID should be treated as stale lock"
             );
         }
 
@@ -416,13 +435,22 @@ mod unix {
         fn reports_whether_an_instance_is_running() {
             let dir = TempDir::new("instance-running");
             let path = dir.path().join("pc_onoff.lock");
-            assert!(!is_running(&path), "沒有鎖定檔時應回報未執行");
+            assert!(
+                !is_running(&path),
+                "should report not running when no lockfile exists"
+            );
 
-            let guard = LockFile::acquire(&path).expect("取得鎖定檔");
-            assert!(is_running(&path), "鎖定檔指向存活 PID 時應回報執行中");
+            let guard = LockFile::acquire(&path).expect("acquire lockfile");
+            assert!(
+                is_running(&path),
+                "should report running when lockfile points to alive PID"
+            );
 
             drop(guard);
-            assert!(!is_running(&path), "釋放後應回報未執行");
+            assert!(
+                !is_running(&path),
+                "should report not running after guard drop"
+            );
         }
     }
 }

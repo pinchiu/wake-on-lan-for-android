@@ -75,7 +75,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- 桌面開機小工具 (App Widget) -->
+        <!-- Home Screen Wake Widget (App Widget) -->
         <receiver
             android:name=".WakePcWidgetProvider"
             android:exported="true">
