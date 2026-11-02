@@ -10,7 +10,7 @@
 
 * [`wakeonlanhomephone/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonlanhomephone/)：**家用助手端 Android 應用程式**。放置於家中常駐連線 Wi-Fi，作為外網進入區域網路之控制樞紐。負責在區域網路發送 UDP WoL 廣播、監聽外網 TCP (Port 9876)、訂閱 MQTT Broker、接收語音捷徑觸發與桌面小工具點擊，並透過 `PcActionDispatcher` 統一分派與執行指令。
 * [`wakeonwanremotephone/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/)：**外出遙控端 Android 應用程式**。供使用者隨身攜帶，透過 TCP (IPv6/IPv4)、MQTT 或內網直連向家用助手或目標電腦發送控制指令。支援多主機 Profile 切換與桌面一鍵喚醒小工具。
-* [`computer/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/)：**目標電腦端控制程式**。`pc_onoff.py` 於電腦背景監聽 UDP Port 9877，接收關機、重啟、睡眠與休眠指令並執行對應作業系統之系統呼叫。
+* [`computer/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/)：**目標電腦端控制程式（Rust 跨平台守護程式）**。在 Windows、Linux 與 Apple macOS 背景監聽 UDP Port 9877，接收關機 (`shutdown`)、重啟 (`reboot`)、睡眠 (`sleep`)、休眠 (`hibernate`) 與螢幕鎖定 (`lock`) 指令，並透過原生作業系統呼叫（Win32 API / Linux systemd-logind / macOS AppleScript & pmset）安全執行電源狀態轉換。同時具備開機自動啟動註冊（Windows Registry / Linux systemd & XDG / macOS LaunchAgent）與日誌自動輪替功能。
 
 ---
 
@@ -96,7 +96,7 @@ impl<P: PowerController> Dispatcher<P> {
 ```
 
 * **小介面**：呼叫端只需知道 `dispatch(raw)`；回傳 `Result<PowerAction, DispatchError>`。
-* **深實作**：`action.rs` 處理大小寫、空白、`:`／`,` 與別名；`power.rs` 處理 Windows Win32／Linux systemctl 差異；`server.rs` 只負責 UDP 傳輸與日誌呈現。
+* **深實作**：`action.rs` 處理大小寫、空白、`:`／`,` 與別名；`power.rs` 處理 Windows Win32 API、Linux `systemctl`/`loginctl` 與 macOS `osascript`（System Events）/`pmset`/`CGSession` 差異；`server.rs` 只負責 UDP 傳輸與日誌呈現。
 * **可測試性**：`PowerController` 是唯一的系統電源 seam，單元測試注入假實作，不需真的關機。
 * **單一方向依賴**：`power → action`、`dispatch → {action, power}`、`server → dispatch`、`cli → 全部`。
 
@@ -136,11 +136,13 @@ impl<P: PowerController> Dispatcher<P> {
 | **外出端桌面小工具** | [`wakeonwanremotephone/.../RemoteWakeWidgetProvider.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteWakeWidgetProvider.kt) | 外出端桌面小工具，單鍵遠端喚醒當前選定電腦。 |
 | **外出端網路工具庫** | [`wakeonwanremotephone/.../RemoteNetworkUtil.kt`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt) | 外出端網路指令封裝（TCP 9876、LAN WoL 廣播、UDP 9877 直連）。 |
 | **電腦端守護程式（Rust 深模組）** | [`computer/src/dispatch.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/dispatch.rs) | `Dispatcher<P: PowerController>::dispatch(raw)`：解析 → 執行 → 結構化 `DispatchError`；不寫日誌、不碰 socket，可用假電源控制器完整測試。 |
-| **電腦端指令語法** | [`computer/src/action.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/action.rs) | `PowerAction` 與容錯解析（大小寫、空白、`:`／`,`、`poweroff` 等別名）。 |
-| **電腦端電源 seam** | [`computer/src/power.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/power.rs) | `PowerController` 介面；Windows Win32 API／Linux systemctl 實作。 |
+| **電腦端指令語法** | [`computer/src/action.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/action.rs) | `PowerAction` 與容錯解析（大小寫、空白、`:`／`,`、`shutdown`、`reboot`、`sleep`、`hibernate`、`lock` 等別名）。 |
+| **電腦端電源 seam** | [`computer/src/power.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/power.rs) | `PowerController` 介面；Windows Win32 API、Linux `systemctl`/`loginctl`、macOS AppleScript (`osascript`) / `pmset` / `CGSession` 實作。 |
+| **電腦端開機自啟** | [`computer/src/autostart.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/autostart.rs) | 跨平台無 root 自動啟動註冊（Windows HKCU Run、Linux systemd user / XDG autostart、macOS `~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`）。 |
+| **電腦端設定路徑** | [`computer/src/paths.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/paths.rs) | 跨平台設定檔與日誌路徑解析（Windows `%APPDATA%`、Linux `~/.config`、macOS `~/Library/Application Support`）。 |
 | **電腦端 UDP 適配器** | [`computer/src/server.rs`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/server.rs) | 監聽 UDP 9877、呼叫 dispatcher、日誌呈現與本機 IP 查詢。 |
-| **電腦端輔助模組** | [`computer/src/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/) | `config`（原子寫入）、`logging`（5 MB 輪替）、`autostart`、`instance`（單實例／停止）、`paths`、`cli`。 |
-| **電腦端舊版 Python 參考實作** | [`computer/pc_onoff.py`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/pc_onoff.py) | 保留供對照；CI 僅做語法檢查，實際部署以 Rust 版本為準。 |
+| **電腦端輔助模組** | [`computer/src/`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/src/) | `config`（原子寫入）、`logging`（5 MB 輪替）、`instance`（單實例互斥／優雅停止）、`cli`（跨平台 CLI 與色彩輸出）。 |
+| **電腦端舊版 Python 參考實作** | [`computer/pc_onoff.py`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/computer/pc_onoff.py) | 支援 Windows、Linux 與 macOS（`sys.platform == "darwin"`）之參考實作；CI 進行語法檢查。 |
 
 ---
 
@@ -261,17 +263,29 @@ impl<P: PowerController> Dispatcher<P> {
 
 ---
 
-## 7. GitHub Actions CI/CD 流水線與自動化驗證守則
+## 7. GitHub Actions CI/CD 與 Release 發布流水線守則
 
+### 7.1 CI/CD 流水線 (`ci.yml`)
 * **設定檔路徑**：[`.github/workflows/ci.yml`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/.github/workflows/ci.yml)
-* **觸發條件**：`push` 或 `pull_request` 至 `master` / `main`，或透過 `workflow_dispatch` 手動觸發。
-* **流水線工作 (Jobs)**：
-  1. `detect-changes`：使用 `dorny/paths-filter` 檢測變更子系統，未變更之子模組自動略過，避免冗餘編譯。
-  2. `build-home-phone`：以 JDK 21 執行 `./gradlew testDebugUnitTest` 與 `assembleRelease`，驗證單元測試與 APK 建置（僅在助手端變更時執行）。
-  3. `build-remote-phone`：以 JDK 21 建置 `wakeonwanremotephone` Release APK（僅在遠端控制端變更時執行）。
-  4. `build-computer`：以 Rust 執行 `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test` 與 `cargo build --release` 打包 Linux 二進位產物，並以 Python 3.11 檢驗 `computer/pc_onoff.py` 語法（僅在電腦端變更時執行）。
+* **觸發條件**：`push` 或 `pull_request` 至 `master` / `main`（排除 `**.md` 與 `.gitignore`），或透過 `workflow_dispatch` 手動觸發。
+* **智慧子系統變更偵測與條件執行**：
+  使用 `dorny/paths-filter` 嚴格隔離三個獨立子系統，**未變更之模組絕對不重複執行 Action**：
+  1. `detect-changes`：檢測 `home-phone` (`wakeonlanhomephone/**`)、`remote-phone` (`wakeonwanremotephone/**`) 與 `computer` (`computer/**`)。
+  2. `build-home-phone`：僅在助手端變更時以 JDK 21 執行單元測試與 APK 打包（若未修改 App 程式碼則自動略過）。
+  3. `build-remote-phone`：僅在遠端控制端變更時以 JDK 21 建置 APK（若未修改 App 程式碼則自動略過）。
+  4. `build-computer`：僅在電腦端 Rust 程式碼變更時執行 `cargo fmt --check`、`cargo clippy`、`cargo test`、Linux 產物建置，以及 Python 語法驗證（若未修改 Rust/電腦端則自動略過）。
 
-### 7.1 強制性 CI/CD 監控與修復循環規範 (Post-Push Verification Loop)
+### 7.2 Release 全平台產物發布流水線 (`release.yml`)
+* **設定檔路徑**：[`.github/workflows/release.yml`](file:///c:/Users/poo/Desktop/wake-on-lan-for-android/.github/workflows/release.yml)
+* **觸發條件**：推播版本標籤 `v*`，或手動透過 `workflow_dispatch`（支援參數勾選是否強制建置 Rust 或 Android）。
+* **全平台產物打包矩陣**：
+  1. `build-windows`：建置 Windows 64 位元獨立執行檔 `pc_onoff-windows-x86_64.exe` 與 `pc_onoff-windows-x86_64.zip`（僅在電腦端變更或指定強制建置時執行）。
+  2. `build-linux`：使用 `appimagetool` 建置免安裝、各 Linux 發行版隨點隨開之 `pc_onoff-linux-x86_64.AppImage`，並打包獨立二進位檔 `pc_onoff-linux-x86_64` 與 `pc_onoff-linux-x86_64.tar.gz`。
+  3. `build-macos`：在 macOS Runner 上編譯 Apple Silicon (`aarch64-apple-darwin`) 與 Intel (`x86_64-apple-darwin`) 雙架構，透過 `lipo` 合併為通用二進位檔 (Universal Binary) `pc_onoff-macos-universal`，並提供 `.zip` 與 `.tar.gz`。
+  4. `build-android`：建置助手端與外出端 Release APK (`wakeonlan-home-phone.apk`、`wakeonwan-remote-phone.apk`)（僅在 Android 變更或指定強制建置時執行）。
+  5. `publish-release`：使用 `softprops/action-gh-release@v2` 自動將上述所有平台的產物發布至 GitHub Release 頁面。
+
+### 7.3 強制性 CI/CD 監控與修復循環規範 (Post-Push Verification Loop)
 
 > [!IMPORTANT]
 > **推播後必檢規範 (Mandatory CI/CD Verification)**：

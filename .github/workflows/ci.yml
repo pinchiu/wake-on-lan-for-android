@@ -44,8 +44,6 @@ jobs:
               - 'wakeonwanremotephone/**'
             computer:
               - 'computer/**'
-              - 'pc_onoff.exe'
-              - '.github/workflows/**'
 
   build-home-phone:
     name: Build Home Phone (Wake-on-LAN Helper)

@@ -5,19 +5,24 @@ A remote control system that uses an Android phone as a helper to perform Wake-o
 
 ## Features
 - **Wake-on-LAN**: Remotely wake up your computer using local UDP broadcast (LAN) or TCP / MQTT (WAN).
-- **Remote Shutdown/Reboot/Sleep/Hibernate**: Control computer power state via local network or remote helper commands.
+- **Remote Shutdown/Reboot/Sleep/Hibernate/Lock**: Control computer power state and lock screen via local network or remote helper commands.
 - **Reliable Phone-to-Phone Direct Connection (TCP)**: Connect directly from Remote Phone to Home Phone over IPv6/IPv4 using TCP (port 9876) with instant two-way confirmation and status feedback.
 - **Local LAN Mode**: When connected to the same Wi-Fi network, the Remote Phone can directly broadcast Magic Packets via UDP (port 9) without going through the helper phone.
 - **MQTT Support**: Connects to any MQTT broker (e.g., Adafruit IO, HiveMQ, EMQX) for true remote control across firewalls without port forwarding.
-- **Cross-Platform PC Daemon**: High-performance, zero-dependency standalone daemon written in Rust, supporting Windows and Linux without any runtime installation.
+- **Cross-Platform PC Daemon**: High-performance, zero-dependency standalone daemon written in Rust, supporting Windows, Linux (AppImage & binary), and Apple macOS (Universal Binary for Apple Silicon and Intel).
 
 ## Downloads
 
 You can download the latest pre-built files from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-android/releases):
 
+### Android Apps
 - `wakeonlan-home-phone.apk`: Install this on the phone connected to the same home Wi-Fi network as your computer. This phone acts as the "helper / server".
 - `wakeonwan-remote-phone.apk`: Install this on the phone you carry with you to send commands from anywhere. This is your "remote controller".
-- `pc_onoff.exe`: Target computer power control daemon (standalone executable for Windows, no installation needed).
+
+### Computer Power Control Daemon (`pc_onoff`)
+- **Windows**: `pc_onoff-windows-x86_64.exe` (or `pc_onoff-windows-x86_64.zip`) — standalone 64-bit Windows executable, zero installation needed.
+- **Linux**: `pc_onoff-linux-x86_64.AppImage` (or standalone binary `pc_onoff-linux-x86_64` / `pc_onoff-linux-x86_64.tar.gz`) — portable AppImage executable on any modern Linux distribution without root.
+- **Apple macOS**: `pc_onoff-macos-universal.zip` (or `pc_onoff-macos-universal.tar.gz` / standalone binary `pc_onoff-macos-universal`) — Universal Binary supporting both Apple Silicon (M1/M2/M3/M4) and Intel Macs.
 
 ## Architecture and Protocols
 
@@ -42,17 +47,31 @@ You can download the latest pre-built files from the [GitHub Releases page](http
 ## Installation and Setup
 
 ### 1. Computer Power Control Daemon (pc_onoff)
-Download `pc_onoff.exe` from `computer/` (or compile `pc_onoff` on Linux).
+Download the pre-built binary for your operating system from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-android/releases).
 
 #### Running
 - **Windows**:
-  Simply double-click `pc_onoff.exe`!
+  Double-click `pc_onoff-windows-x86_64.exe` (or `pc_onoff.exe`)!
   - Runs in the background immediately listening on UDP 9877 (no console window, no unnecessary GUI popups).
-  - Automatically configures Windows autostart (registered in HKCU Run, no admin privileges required).
+  - Automatically configures Windows autostart (registered in HKCU Run, no administrator privileges required).
   - Automatically logs local IP, connection source, and all power commands in `pc_onoff.log`.
   - Runs quietly in the background upon system reboot without manual intervention.
 - **Linux**:
-  Run `./pc_onoff` in terminal, which automatically registers a `systemd --user` service and XDG Autostart.
+  - **AppImage (Recommended)**:
+    ```bash
+    chmod +x pc_onoff-linux-x86_64.AppImage
+    ./pc_onoff-linux-x86_64.AppImage
+    ```
+  - **Standalone Binary**: Run `./pc_onoff` in terminal. It automatically registers a `systemd --user` service and XDG Autostart to run on user login.
+- **Apple macOS**:
+  - Download and extract `pc_onoff-macos-universal.zip` (or `.tar.gz`).
+  - Run in terminal:
+    ```bash
+    chmod +x pc_onoff
+    ./pc_onoff
+    ```
+  - Automatically installs and loads a user LaunchAgent at `~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`, ensuring it starts on login without requiring root privileges.
+  - Controls macOS power safely via AppleScript System Events (shutdown, restart), `pmset` (sleep, hibernate), and `CGSession` (screen lock).
 
 ### 2. Install the Android Apps
 Download the pre-built APKs from the [GitHub Releases page](https://github.com/pinchiu/wake-on-lan-for-android/releases):
@@ -86,4 +105,7 @@ Download the pre-built APKs from the [GitHub Releases page](https://github.com/p
 
 ## Troubleshooting
 - **WoL Does Not Wake PC**: Ensure Wake-on-LAN is enabled in BIOS / UEFI and in Windows Network Adapter Properties (enable "Magic Packet").
-- **Power Commands Unresponsive**: Ensure Windows Defender Firewall allows UDP 9877. You can test through the Web UI or run `pc_onoff --firewall` as Administrator to add the rule.
+- **Power Commands Unresponsive**: Ensure the firewall allows UDP port 9877:
+  - **Windows**: Windows Defender Firewall must allow UDP 9877. Run `pc_onoff.exe --firewall` as Administrator to add the rule automatically.
+  - **Linux**: If using `ufw`, run `sudo ufw allow 9877/udp`.
+  - **macOS**: Check System Settings → Network → Firewall and allow incoming connections for `pc_onoff` if prompted.

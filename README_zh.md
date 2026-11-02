@@ -5,19 +5,24 @@
 
 ## 功能特色
 - **Wake-on-LAN 遠端喚醒**：支援透過區域網路 UDP 廣播，或透過外網 TCP / MQTT 遠端喚醒電腦。
-- **遠端關機 / 重啟 / 睡眠 / 休眠**：透過區域網路或遠端助手指令控制電腦電源狀態。
+- **遠端關機 / 重啟 / 睡眠 / 休眠 / 螢幕鎖定**：透過區域網路或遠端助手指令控制電腦電源狀態與螢幕鎖定。
 - **可靠的雙手機直連架構 (TCP)**：外出手機與家中助手端透過 IPv6/IPv4 以 TCP (Port 9876) 建立連線，具備即時雙向確認 (ACK) 與狀態回傳反饋。
 - **內網直連模式 (Local LAN Mode)**：當外出手機連上家中 Wi-Fi 時，可切換為內網模式直接透過 UDP (Port 9) 發送 Magic Packet，無須經過助手手機中轉。
 - **MQTT 雲端模式**：可連線至任何 MQTT Broker (如 Adafruit IO、HiveMQ、EMQX 等)，無須設定路由器連接埠轉發即可跨防火牆控制。
-- **跨平台電腦端常駐守護程式**：使用 Rust 開發之高效獨立執行檔，支援 Windows 與 Linux，無須安裝任何執行環境。
+- **跨平台電腦端常駐守護程式**：使用 Rust 開發之高效獨立執行檔，支援 Windows、Linux (AppImage 免安裝與二進位檔) 以及 Apple macOS (Universal Binary 支援 Apple Silicon M 系列與 Intel)，無須安裝任何執行環境。
 
 ## 下載
 
 您可以從 [GitHub Releases 發行頁面](https://github.com/pinchiu/wake-on-lan-for-android/releases) 下載預先建置完成的檔案：
 
+### Android 應用程式
 - `wakeonlan-home-phone.apk`：安裝於放置在家中且與目標電腦連接同一 Wi-Fi 網路的備用手機（助手端）。
 - `wakeonwan-remote-phone.apk`：安裝於隨身攜帶的外出手機（遙控器端）。
-- `pc_onoff.exe`：目標電腦端電源控制守護程式（Windows 獨立執行檔，免安裝）。
+
+### 電腦端電源控制守護程式 (`pc_onoff`)
+- **Windows**：`pc_onoff-windows-x86_64.exe` (或 `pc_onoff-windows-x86_64.zip`) — 64 位元獨立執行檔，免安裝即可直接執行。
+- **Linux**：`pc_onoff-linux-x86_64.AppImage` (或獨立二進位檔 `pc_onoff-linux-x86_64` / `pc_onoff-linux-x86_64.tar.gz`) — 免安裝 AppImage，支援所有主流 Linux 發行版。
+- **Apple macOS**：`pc_onoff-macos-universal.zip` (或 `pc_onoff-macos-universal.tar.gz` / 獨立執行檔 `pc_onoff-macos-universal`) — 通用二進位檔 (Universal Binary)，原生支援 Apple Silicon (M1/M2/M3/M4) 與 Intel Mac。
 
 ## 通訊架構與協定說明
 
@@ -42,17 +47,31 @@
 ## 安裝與設定流程
 
 ### 1. 電腦端電源控制守護程式 (pc_onoff)
-至專案 `computer/` 目錄下載 `pc_onoff.exe`（或 Linux 下編譯 `pc_onoff`）。
+至 [GitHub Releases 發行頁面](https://github.com/pinchiu/wake-on-lan-for-android/releases) 下載適用於您作業系統的建置產物。
 
 #### 啟動方式
 - **Windows**：
-  直接雙擊 `pc_onoff.exe` 即可！
+  直接雙擊 `pc_onoff-windows-x86_64.exe`（或 `pc_onoff.exe`）即可！
   - 預設立即於背景常駐監聽 UDP 9877（無黑視窗、無多餘 GUI 打擾）。
   - 自動完成開機自動啟動設定（註冊至 HKCU Run，免管理員權限）。
   - 自動於同目錄建立 `pc_onoff.log` 紀錄本機 IP、連線來源與所有遠端電源指令。
   - 電腦重啟後將自動於背景啟動，無需任何手動操作。
 - **Linux**：
-  在終端機直接執行 `./pc_onoff`，自動註冊 `systemd --user` 與 XDG Autostart 於背景監聽。
+  - **AppImage（推薦）**：
+    ```bash
+    chmod +x pc_onoff-linux-x86_64.AppImage
+    ./pc_onoff-linux-x86_64.AppImage
+    ```
+  - **獨立二進位檔**：在終端機直接執行 `./pc_onoff`，自動註冊 `systemd --user` 與 XDG Autostart 於背景監聽。
+- **Apple macOS**：
+  - 下載並解壓縮 `pc_onoff-macos-universal.zip`（或 `.tar.gz`）。
+  - 在終端機執行：
+    ```bash
+    chmod +x pc_onoff
+    ./pc_onoff
+    ```
+  - 自動於 `~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist` 註冊使用者的 LaunchAgent，開機登入後自動常駐，完全無需管理者 (root) 權限。
+  - 透過 AppleScript System Events（關機、重新啟動）、`pmset`（睡眠、休眠）與 `CGSession`（鎖定畫面）安全執行操作。
 
 ### 2. 安裝 Android 應用程式
 從 [GitHub 發行頁面](https://github.com/pinchiu/wake-on-lan-for-android/releases) 下載 APK 並安裝：
@@ -86,4 +105,7 @@
 
 ## 疑難排解
 - **WoL 無法喚醒電腦**：請確認主機板 BIOS/UEFI 已開啟 Wake-on-LAN (或 PCI-E 電源喚醒)，以及 Windows 網卡進階內容中已開啟「魔術封包喚醒 (Wake on Magic Packet)」。
-- **遠端關機/睡眠沒有反應**：請確認 Windows Defender 防火牆已允許 UDP 9877 通行。可至 Web UI 控制台進行測試或以管理員身分執行 `pc_onoff --firewall` 自動新增規則。
+- **遠端關機/睡眠沒有反應**：請確認防火牆已允許 UDP 9877 通行：
+  - **Windows**：Windows Defender 防火牆需允許 UDP 9877。可至 Web UI 控制台進行測試或以管理員身分執行 `pc_onoff.exe --firewall` 自動新增規則。
+  - **Linux**：若啟用 `ufw`，可執行 `sudo ufw allow 9877/udp`。
+  - **macOS**：請至「系統設定」→「網路」→「防火牆」，若有跳出提示請允許 `pc_onoff` 的傳入連線。

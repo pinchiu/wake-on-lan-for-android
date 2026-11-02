@@ -10,6 +10,10 @@ on:
         description: 'Release tag (leave blank to use current git tag/timestamp)'
         required: false
         default: ''
+      build_rust:
+        description: 'Force build Rust computer binaries (Windows, Linux, macOS)'
+        type: boolean
+        default: false
       build_apk:
         description: 'Force build Android APKs even if app unchanged'
         type: boolean
@@ -28,10 +32,11 @@ permissions:
 
 jobs:
   detect-changes:
-    name: Detect App Changes
+    name: Detect Changed Subsystems
     runs-on: ubuntu-latest
     outputs:
       android: ${{ steps.filter.outputs.android }}
+      computer: ${{ steps.filter.outputs.computer }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -44,9 +49,13 @@ jobs:
             android:
               - 'wakeonlanhomephone/**'
               - 'wakeonwanremotephone/**'
+            computer:
+              - 'computer/**'
 
   build-windows:
     name: Build Windows (exe & zip)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true'
     runs-on: windows-latest
     defaults:
       run:
@@ -83,6 +92,8 @@ jobs:
 
   build-linux:
     name: Build Linux (AppImage & tar.gz)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -108,6 +119,7 @@ jobs:
           cp target/x86_64-unknown-linux-gnu/release/pc_onoff AppDir/usr/bin/pc_onoff
           cp resources/pc_onoff.desktop AppDir/pc_onoff.desktop
           cp resources/pc_onoff.svg AppDir/pc_onoff.svg
+          cp resources/pc_onoff.svg AppDir/.DirIcon
           cp resources/pc_onoff.svg AppDir/usr/share/icons/hicolor/scalable/apps/pc_onoff.svg
 
           # Create AppRun entrypoint
@@ -143,6 +155,8 @@ jobs:
 
   build-macos:
     name: Build Apple macOS Universal Binary (zip & tar.gz)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true'
     runs-on: macos-latest
     defaults:
       run:
