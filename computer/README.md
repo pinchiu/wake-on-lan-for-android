@@ -123,7 +123,8 @@ pc_onoff --web-ui
 The dashboard is a separate foreground process. It does **not** start a second daemon, so it is
 safe to use while the per-user or system service is running. It binds loopback only, shows the
 daemon state, local IPs, autostart/system-service status and the latest log lines, and sends the
-five power actions through the normal UDP 9877 protocol. Destructive actions ask for confirmation.
+five power actions through the normal UDP 9877 protocol, signed with the same command secret.
+Destructive actions ask for confirmation.
 The page follows `prefers-color-scheme` and uses the same Frost design tokens as the Android apps
 (see `docs/frost-ui.md`).
 
