@@ -15,6 +15,7 @@
   - *外出遙控端小工具*：顯示當前選定之電腦名稱，單鍵發送遠端喚醒。
 - **語音助理整合**：支援 Google 助理 / Gemini 日常安排 (Routine) 語音捷徑 (`wake_pc_shortcut`)，說句語音指令立即喚醒。
 - **雙語介面支援**：手機 App 設定內建即時切換繁體中文與英文介面。
+- **指令簽章驗證**：TCP 9876、MQTT 指令主題與 UDP 9877 均使用 HMAC-SHA256 信封、時間戳與重放保護；不再接受未簽章的電源指令。
 - **跨平台電腦端常駐守護程式 (`pc_onoff`)**：使用 Rust 開發之高效獨立執行檔，支援 Windows、Linux 與 Apple macOS。
   - 無需管理員權限之開機自啟動（Windows 註冊表 `HKCU Run`、Linux `systemd --user` / XDG Autostart、macOS `LaunchAgent`）。
   - 自動 5 MB 日誌滾動輪替 (`pc_onoff.log`)。
@@ -32,6 +33,31 @@
 - **Windows**：`pc_onoff-windows-x86_64.exe` (或 `.zip`) — 64 位元獨立執行檔，免安裝直接執行。
 - **Linux**：`pc_onoff-linux-x86_64.AppImage` (或獨立二進位檔 `pc_onoff-linux-x86_64` / `.tar.gz`) — 免安裝 AppImage，隨點隨開，支援各大主流 Linux 發行版。
 - **Apple macOS**：`pc_onoff-macos-universal.zip` (或 `.tar.gz` / 獨立執行檔 `pc_onoff-macos-universal`) — 通用二進位檔 (Universal Binary)，原生支援 Apple Silicon (M1/M2/M3/M4) 與 Intel Mac。
+
+## 指令簽章驗證（必要）
+
+所有遠端電源指令都必須使用共享密鑰與簽章信封：
+
+```text
+SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677|sig=<hmac-sha256-hex>
+```
+
+- `sig` 是對 `SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677` 計算的 HMAC-SHA256。
+- 時間戳必須在 ±5 分鐘內（請保持 NTP／自動時間同步）。
+- Nonce 會保留 10 分鐘，用於拒絕重放。
+- **沒有未簽章備援**；舊版用戶端必須一併更新。
+
+會用到兩組密鑰：
+
+| 密鑰 | 取得方式 | 貼到哪裡 |
+| :--- | :--- | :--- |
+| **PC 密鑰** | `pc_onoff --status` → `Command Secret: ...` | 家用手機 → 設定 → 安全性 → PC secret；外出手機 → 盾牌圖示 → PC secret |
+| **Helper 密鑰** | 家用手機 → 設定 → 安全性 → Helper secret（首次啟動自動產生） | 外出手機 → 盾牌圖示 → Helper secret |
+
+守護程式首次啟動會自動產生密鑰並寫入 `config.ini` 的 `secret=`；家用手機首次啟動會自動產生
+helper 密鑰。變更密鑰後必須同步更新所有對端。TCP 會回傳 `ERROR: authentication required`／
+`ERROR: authentication failed`；MQTT 與 UDP 會記錄 `auth rejected (<reason>)` 並丟棄，且不會記錄
+密鑰或完整封包內容。
 
 ## 通訊架構與協定說明
 

@@ -15,6 +15,7 @@ A complete cross-platform remote control system that turns an Android phone into
   - *Remote Phone Widget*: 1-tap remote wake targeting the currently selected profile.
 - **Voice Assistant Integration**: Hands-free voice trigger via Google Assistant / Gemini routines using the static app shortcut (`wake_pc_shortcut`).
 - **Bilingual Interface**: Seamlessly switch between English and Traditional Chinese in the app settings.
+- **Authenticated Commands**: TCP 9876, MQTT command topics and UDP 9877 use HMAC-SHA256 envelopes with a timestamp and replay guard. No unsigned power commands are accepted.
 - **Cross-Platform PC Daemon (`pc_onoff`)**: High-performance, zero-dependency standalone daemon written in Rust for Windows, Linux, and Apple macOS.
   - Automatic zero-admin autostart (Windows Registry `HKCU Run`, Linux `systemd --user` / XDG Autostart, macOS `LaunchAgent`).
   - Automatic 5 MB log rotation (`pc_onoff.log`).
@@ -32,6 +33,31 @@ Download the latest pre-built releases from the [GitHub Releases page](https://g
 - **Windows**: `pc_onoff-windows-x86_64.exe` (or `.zip`) — 64-bit standalone executable, runs immediately with zero dependencies.
 - **Linux**: `pc_onoff-linux-x86_64.AppImage` (or standalone binary `pc_onoff-linux-x86_64` / `.tar.gz`) — portable AppImage running on any modern Linux distribution.
 - **Apple macOS**: `pc_onoff-macos-universal.zip` (or `.tar.gz` / binary `pc_onoff-macos-universal`) — Universal Binary natively supporting Apple Silicon (M1/M2/M3/M4) and Intel Macs.
+
+## Command Authentication (required)
+
+Remote power commands are authenticated with a shared secret and a signed envelope:
+
+```text
+SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677|sig=<hmac-sha256-hex>
+```
+
+- `sig` is HMAC-SHA256 over `SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677`.
+- Timestamps must be within ±5 minutes (keep NTP/automatic time enabled).
+- Nonces are remembered for 10 minutes to reject replays.
+- There is **no unsigned fallback**; old clients must be updated with this release.
+
+Two secrets are used:
+
+| Secret | Where to get it | Where to paste it |
+| :--- | :--- | :--- |
+| **PC secret** | `pc_onoff --status` → `Command Secret: ...` | Home Phone → Settings → Security → PC secret; Remote Phone → shield icon → PC secret |
+| **Helper secret** | Home Phone → Settings → Security → Helper secret (generated on first launch) | Remote Phone → shield icon → Helper secret |
+
+The daemon generates its secret on first run and stores it as `secret=` in `config.ini`. The
+Home Phone generates its helper secret on first launch. Changing a secret requires updating
+every peer. TCP returns `ERROR: authentication required` / `ERROR: authentication failed`;
+MQTT and UDP drop and log `auth rejected (<reason>)` without logging secrets or payloads.
 
 ## System Architecture & Protocols
 
