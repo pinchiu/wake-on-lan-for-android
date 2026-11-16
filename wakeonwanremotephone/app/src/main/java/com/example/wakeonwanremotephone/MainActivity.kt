@@ -1,67 +1,118 @@
 package com.example.wakeonwanremotephone
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.rounded.AcUnit
-import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.PowerSettingsNew
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.example.wakeonwanremotephone.ui.components.AnimatedStatusDot
+import com.example.wakeonwanremotephone.ui.components.ConfirmPowerDialog
+import com.example.wakeonwanremotephone.ui.components.FrostBackground
+import com.example.wakeonwanremotephone.ui.components.MasterWakeTriggerButton
+import com.example.wakeonwanremotephone.ui.components.ModernPowerCommandGrid
+import com.example.wakeonwanremotephone.ui.components.PrecisionSurfaceCard
+import com.example.wakeonwanremotephone.ui.components.SegmentedModeSelector
+import com.example.wakeonwanremotephone.ui.components.TerminalHudStatusCard
+import com.example.wakeonwanremotephone.ui.theme.FrostAccent
+import com.example.wakeonwanremotephone.ui.theme.FrostAccentBorder
+import com.example.wakeonwanremotephone.ui.theme.FrostAccentDim
+import com.example.wakeonwanremotephone.ui.theme.FrostBorderStandard
+import com.example.wakeonwanremotephone.ui.theme.FrostBorderSubtle
+import com.example.wakeonwanremotephone.ui.theme.FrostCallout
+import com.example.wakeonwanremotephone.ui.theme.FrostCaption
+import com.example.wakeonwanremotephone.ui.theme.FrostDanger
+import com.example.wakeonwanremotephone.ui.theme.FrostHeadline
+import com.example.wakeonwanremotephone.ui.theme.FrostLargeTitle
+import com.example.wakeonwanremotephone.ui.theme.FrostMicro
+import com.example.wakeonwanremotephone.ui.theme.FrostSuccess
+import com.example.wakeonwanremotephone.ui.theme.FrostSurfaceElevated
+import com.example.wakeonwanremotephone.ui.theme.FrostSurfaceGlass
+import com.example.wakeonwanremotephone.ui.theme.FrostSurfaceInset
+import com.example.wakeonwanremotephone.ui.theme.FrostSurfaceSolid
+import com.example.wakeonwanremotephone.ui.theme.FrostTextPrimary
+import com.example.wakeonwanremotephone.ui.theme.FrostTextSecondary
+import com.example.wakeonwanremotephone.ui.theme.FrostTextTertiary
+import com.example.wakeonwanremotephone.ui.theme.WakeOnWanRemotePhoneTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
-import android.widget.Toast
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
-import com.example.wakeonwanremotephone.ui.theme.*
-import com.example.wakeonwanremotephone.ui.components.*
 
 class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -92,7 +143,7 @@ fun RemoteWakeMainScreen() {
     var selectedDeviceId by remember { mutableStateOf(deviceManager.getSelectedDeviceId()) }
     val currentSelectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
 
-    // Configuration State
+    // Configuration state
     var helperIpv6Address by remember { mutableStateOf(deviceManager.getHelperIpv6()) }
     var computerMacAddress by remember { mutableStateOf(currentSelectedDevice?.mac ?: "") }
     var computerLocalIpv4 by remember { mutableStateOf(currentSelectedDevice?.ip ?: "") }
@@ -159,114 +210,79 @@ fun RemoteWakeMainScreen() {
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBgPrimary)
-    ) {
+    val versionName = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
+        } catch (e: Exception) {
+            "1.0"
+        }
+    }
+    val targetName = currentSelectedDevice?.name ?: stringResource(R.string.default_target_name)
+
+    FrostBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
                 .systemBarsPadding()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // App Header Bar with Telemetry Status Badge
+            // Header: large title, status capsule, About glass button.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.app_title),
-                        color = Slate50,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
+                        color = FrostTextPrimary,
+                        style = FrostLargeTitle,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = if (localLanMode) AccentEmeraldDim else SemanticInfoDim,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (localLanMode) AccentEmeraldBorder else SemanticInfo.copy(alpha = 0.35f)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            AnimatedStatusDot(
-                                color = if (localLanMode) AccentEmerald else SemanticInfo,
-                                size = 5.dp
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (localLanMode) stringResource(R.string.mode_status_lan) else stringResource(R.string.mode_status_wan),
-                                color = if (localLanMode) AccentEmerald else SemanticInfo,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ConnectionStatusCapsule(
+                        localLanMode = localLanMode,
+                        isLoading = isLoading
+                    )
                 }
-
+                Spacer(modifier = Modifier.width(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = AccentEmerald,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
-                    ) {
-                        IconButton(
-                            onClick = { showSecurityDialog = true },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = stringResource(R.string.security_title),
-                                tint = Slate300,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
+                    GlassIconButton(
+                        icon = Icons.Default.Security,
+                        contentDescription = stringResource(R.string.security_title),
+                        onClick = { showSecurityDialog = true }
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
-                    ) {
-                        IconButton(
-                            onClick = { showAboutDialog = true },
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = stringResource(R.string.about_title),
-                                tint = Slate300,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
+                    GlassIconButton(
+                        icon = Icons.Default.Info,
+                        contentDescription = stringResource(R.string.about_title),
+                        onClick = { showAboutDialog = true }
+                    )
                 }
+            }
+
+            // Profile capsule (selected computer) — opens the edit sheet.
+            if (currentSelectedDevice != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SelectedProfileCapsule(
+                    device = currentSelectedDevice,
+                    deviceCount = devices.size,
+                    onClick = {
+                        deviceToEdit = currentSelectedDevice
+                        showEditDeviceDialog = true
+                    }
+                )
+
+
             }
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Segmented Mode Selector
             SegmentedModeSelector(
                 localLanMode = localLanMode,
                 onModeChange = {
@@ -275,9 +291,115 @@ fun RemoteWakeMainScreen() {
                 }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Target Computers Selector Cockpit Card
+            // Hero target card.
+            PrecisionSurfaceCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(FrostAccentDim, RoundedCornerShape(14.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Computer,
+                            contentDescription = null,
+                            tint = FrostAccent,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = targetName,
+                            color = FrostTextPrimary,
+                            style = FrostHeadline,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(R.string.current_selected_target),
+                            color = FrostTextSecondary,
+                            style = FrostCaption
+                        )
+                    }
+                    if (currentSelectedDevice != null) {
+                        IconButton(
+                            onClick = {
+                                deviceToEdit = currentSelectedDevice
+                                showEditDeviceDialog = true
+                            },
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = stringResource(R.string.edit_device_settings),
+                                tint = FrostTextSecondary,
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(FrostSurfaceInset)
+                        .border(1.dp, FrostBorderSubtle, RoundedCornerShape(16.dp))
+                ) {
+                    AddressRow(
+                        label = "MAC",
+                        value = computerMacAddress.ifBlank { stringResource(R.string.no_mac) },
+                        onCopy = {
+                            if (computerMacAddress.isNotBlank()) {
+                                clipboardManager.setText(AnnotatedString(computerMacAddress))
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.mac_copied),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    )
+                    Hairline()
+                    AddressRow(
+                        label = "IPv4",
+                        value = computerLocalIpv4.ifBlank { stringResource(R.string.not_specified) },
+                        onCopy = {
+                            if (computerLocalIpv4.isNotBlank()) {
+                                clipboardManager.setText(AnnotatedString(computerLocalIpv4))
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.ip_copied),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                MasterWakeTriggerButton(
+                    enabled = !isLoading && computerMacAddress.isNotBlank(),
+                    isLoading = isLoading,
+                    targetName = currentSelectedDevice?.name ?: "",
+                    targetMac = computerMacAddress,
+                    onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Target computers: quick switcher + add.
             PrecisionSurfaceCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -287,227 +409,67 @@ fun RemoteWakeMainScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = stringResource(R.string.target_device_list),
-                            color = Slate50,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
+                            color = FrostTextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = DarkSurfaceElevated,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                            shape = CircleShape,
+                            color = FrostSurfaceInset,
+                            border = BorderStroke(1.dp, FrostBorderSubtle)
                         ) {
                             Text(
                                 text = stringResource(R.string.device_count, devices.size),
-                                color = AccentEmerald,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                color = FrostTextSecondary,
+                                style = FrostMicro,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
                     }
 
-                    IconButton(
-                        onClick = { showAddDeviceDialog = true },
-                        modifier = Modifier.size(28.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(FrostAccentDim)
+                            .clickable { showAddDeviceDialog = true },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = stringResource(R.string.add_computer),
-                            tint = AccentEmerald,
-                            modifier = Modifier.size(20.dp)
+                            tint = FrostAccent,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Active Target Detail Banner
-                if (currentSelectedDevice != null) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .background(AccentEmeraldDim, RoundedCornerShape(8.dp))
-                                            .border(1.dp, AccentEmeraldBorder, RoundedCornerShape(8.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Computer,
-                                            contentDescription = null,
-                                            tint = AccentEmerald,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Text(
-                                            text = currentSelectedDevice.name,
-                                            color = Slate50,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.current_selected_target),
-                                            color = Slate400,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                }
-
-                                IconButton(
-                                    onClick = {
-                                        deviceToEdit = currentSelectedDevice
-                                        showEditDeviceDialog = true
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = stringResource(R.string.edit_device_settings),
-                                        tint = Slate300,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Fast copy address chips
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable {
-                                            clipboardManager.setText(AnnotatedString(currentSelectedDevice.mac))
-                                            Toast.makeText(context, context.getString(R.string.mac_copied), Toast.LENGTH_SHORT).show()
-                                        },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = DarkSurface,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column {
-                                            Text("MAC", color = Slate500, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                            Text(
-                                                text = currentSelectedDevice.mac.ifBlank { stringResource(R.string.no_mac) },
-                                                color = Slate200,
-                                                fontSize = 10.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                        Icon(Icons.Default.Share, null, tint = Slate500, modifier = Modifier.size(11.dp))
-                                    }
-                                }
-
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable {
-                                            if (currentSelectedDevice.ip.isNotBlank()) {
-                                                clipboardManager.setText(AnnotatedString(currentSelectedDevice.ip))
-                                                Toast.makeText(context, context.getString(R.string.ip_copied), Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = DarkSurface,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column {
-                                            Text("IPv4", color = Slate500, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                            Text(
-                                                text = currentSelectedDevice.ip.ifBlank { stringResource(R.string.not_specified) },
-                                                color = Slate200,
-                                                fontSize = 10.sp,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                        Icon(Icons.Default.Share, null, tint = Slate500, modifier = Modifier.size(11.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                // Quick Switcher Carousel
-                if (devices.isNotEmpty()) {
+                if (devices.isEmpty()) {
                     Text(
-                        text = stringResource(R.string.switch_target_device),
-                        color = Slate400,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        text = stringResource(R.string.add_computer),
+                        color = FrostTextTertiary,
+                        style = FrostCaption
                     )
+                } else {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         items(devices) { device ->
-                            val isSelected = device.id == selectedDeviceId
-                            val borderColor = if (isSelected) AccentEmeraldBorder else BorderSubtle
-                            val bgColor = if (isSelected) AccentEmeraldDim else DarkSurfaceElevated
-
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        selectedDeviceId = device.id
-                                        deviceManager.setSelectedDeviceId(device.id)
-                                        computerMacAddress = device.mac
-                                        computerLocalIpv4 = device.ip
-                                    },
-                                color = bgColor,
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(
-                                            text = device.name,
-                                            color = if (isSelected) Slate50 else Slate300,
-                                            fontSize = 12.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                        )
-                                        Text(
-                                            text = device.mac.ifEmpty { stringResource(R.string.no_mac) },
-                                            color = if (isSelected) AccentEmerald else Slate500,
-                                            fontSize = 10.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
+                            TargetDeviceCapsule(
+                                name = device.name,
+                                mac = device.mac.ifEmpty { stringResource(R.string.no_mac) },
+                                isSelected = device.id == selectedDeviceId,
+                                onClick = {
+                                    selectedDeviceId = device.id
+                                    deviceManager.setSelectedDeviceId(device.id)
+                                    computerMacAddress = device.mac
+                                    computerLocalIpv4 = device.ip
                                 }
-                            }
+                            )
                         }
                     }
                 }
@@ -515,17 +477,15 @@ fun RemoteWakeMainScreen() {
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Configuration & Connection Parameters
+            // Connection parameters.
             PrecisionSurfaceCard {
                 Text(
                     text = stringResource(R.string.connection_settings),
-                    color = Slate400,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+                    color = FrostTextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
-
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 if (!localLanMode) {
                     PrecisionOutlinedTextField(
@@ -533,13 +493,11 @@ fun RemoteWakeMainScreen() {
                         onValueChange = { helperIpv6Address = it },
                         label = stringResource(R.string.helper_ipv6_label),
                         icon = Icons.Default.Dns,
-                        modifier = Modifier.onFocusChanged {
-                            if (!it.isFocused) {
-                                deviceManager.setHelperIpv6(helperIpv6Address)
-                            }
+                        modifier = Modifier.onFocusChangedCompat {
+                            deviceManager.setHelperIpv6(helperIpv6Address)
                         }
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
                 PrecisionOutlinedTextField(
@@ -550,14 +508,10 @@ fun RemoteWakeMainScreen() {
                     },
                     label = stringResource(R.string.target_mac_label),
                     icon = Icons.Default.Lan,
-                    modifier = Modifier.onFocusChanged {
-                        if (!it.isFocused) {
-                            syncCurrentDevice()
-                        }
-                    }
+                    modifier = Modifier.onFocusChangedCompat { syncCurrentDevice() }
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 PrecisionOutlinedTextField(
                     value = computerLocalIpv4,
@@ -567,28 +521,13 @@ fun RemoteWakeMainScreen() {
                     },
                     label = stringResource(R.string.target_ipv4_label),
                     icon = Icons.Default.Computer,
-                    modifier = Modifier.onFocusChanged {
-                        if (!it.isFocused) {
-                            syncCurrentDevice()
-                        }
-                    }
+                    modifier = Modifier.onFocusChangedCompat { syncCurrentDevice() }
                 )
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Master Hero Trigger: Wake PC
-            MasterWakeTriggerButton(
-                enabled = !isLoading && computerMacAddress.isNotBlank(),
-                isLoading = isLoading,
-                targetName = currentSelectedDevice?.name ?: "",
-                targetMac = computerMacAddress,
-                onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") }
-            )
-
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Secondary Power Command Bento Grid (2x2)
+            // Five power tiles.
             ModernPowerCommandGrid(
                 enabled = !isLoading && computerLocalIpv4.isNotBlank(),
                 onSleep = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
@@ -600,25 +539,30 @@ fun RemoteWakeMainScreen() {
                 onShutdown = {
                     confirmAction = "SHUTDOWN"
                     confirmIsDestructive = true
-                }
+                },
+                onLock = { sendCommand("LOCK:${computerLocalIpv4.trim()}") }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Terminal HUD Console Output
+            // Activity card.
             TerminalHudStatusCard(
                 statusMessage = statusMessage,
                 isStatusError = isStatusError,
                 isLoading = isLoading
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Confirmation Dialog for Destructive Power Actions
+        // Confirmation dialog for destructive power actions.
         if (confirmAction != null) {
             ConfirmPowerDialog(
-                actionName = if (confirmAction == "SHUTDOWN") stringResource(R.string.power_shutdown) else stringResource(R.string.power_reboot),
+                actionName = if (confirmAction == "SHUTDOWN") {
+                    stringResource(R.string.power_shutdown)
+                } else {
+                    stringResource(R.string.power_reboot)
+                },
                 targetName = currentSelectedDevice?.name ?: stringResource(R.string.default_target_name),
                 targetIp = computerLocalIpv4,
                 isDestructive = confirmIsDestructive,
@@ -633,185 +577,11 @@ fun RemoteWakeMainScreen() {
             )
         }
 
-        // About & Update Dialog
         if (showAboutDialog) {
-            Dialog(onDismissRequest = { showAboutDialog = false }) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
-                    color = DarkSurfaceElevated,
-                    tonalElevation = 8.dp
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = stringResource(R.string.about_title),
-                            color = Slate50,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Text(
-                            text = stringResource(R.string.about_app_subtitle),
-                            color = Slate400,
-                            fontSize = 13.sp
-                        )
-                        
-                        val versionName = remember {
-                            try {
-                                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
-                            } catch (e: Exception) {
-                                "1.0"
-                            }
-                        }
-                        Text(
-                            text = stringResource(R.string.about_version, versionName),
-                            color = AccentEmerald,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Language selector: the preference is the single source of truth.
-                        val currentLanguageTag = remember { AppLocale.currentTag(context) }
-                        Text(
-                            text = stringResource(R.string.language_title),
-                            color = Slate400,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val languageOptions = listOf(
-                                AppLocale.TAG_SYSTEM to stringResource(R.string.language_system),
-                                AppLocale.TAG_ZH_TW to stringResource(R.string.language_zh_tw),
-                                AppLocale.TAG_EN to stringResource(R.string.language_en)
-                            )
-                            languageOptions.forEach { (tag, label) ->
-                                val isSelected = tag == currentLanguageTag
-                                Surface(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(
-                                            1.dp,
-                                            if (isSelected) AccentEmeraldBorder else BorderSubtle,
-                                            RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable {
-                                            if (!isSelected) {
-                                                AppLocale.set(context, tag)
-                                            }
-                                        },
-                                    color = if (isSelected) AccentEmeraldDim else DarkSurface,
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = label,
-                                        color = if (isSelected) AccentEmerald else Slate300,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 1,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 4.dp, vertical = 7.dp)
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        val updateManager = remember { UpdateManager(context) }
-                        var isChecking by remember { mutableStateOf(false) }
-                        var updateAvailable by remember { mutableStateOf<String?>(null) }
-                        var updateMessage by remember { mutableStateOf<String?>(null) }
-                        
-                        updateMessage?.let { message ->
-                            Text(
-                                text = message,
-                                color = if (updateAvailable != null) AccentEmerald else Slate300,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(bottom = 12.dp)
-                            )
-                        }
-                        
-                        if (updateAvailable != null) {
-                            Button(
-                                onClick = {
-                                    updateManager.downloadAndInstall(updateAvailable!!)
-                                    Toast.makeText(context, context.getString(R.string.downloading_update_toast), Toast.LENGTH_SHORT).show()
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.fillMaxWidth().height(42.dp)
-                            ) {
-                                Text(stringResource(R.string.download_and_install), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            }
-                        } else {
-                            Button(
-                                onClick = {
-                                    isChecking = true
-                                    updateMessage = context.getString(R.string.checking_update)
-                                    updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
-                                        isChecking = false
-                                        if (hasUpdate && downloadUrl != null) {
-                                            updateAvailable = downloadUrl
-                                            updateMessage = context.getString(R.string.update_found, tag ?: "")
-                                        } else {
-                                            updateMessage = context.getString(R.string.already_latest)
-                                        }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = DarkSurface),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle),
-                                shape = RoundedCornerShape(10.dp),
-                                enabled = !isChecking,
-                                modifier = Modifier.fillMaxWidth().height(42.dp)
-                            ) {
-                                if (isChecking) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = AccentEmerald,
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Text(stringResource(R.string.check_latest_version), color = Slate200, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                }
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(10.dp))
-                        
-                        TextButton(
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases"))
-                                context.startActivity(intent)
-                            }
-                        ) {
-                            Text(stringResource(R.string.view_on_github), color = Slate400, fontSize = 12.sp)
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        TextButton(onClick = { showAboutDialog = false }) {
-                            Text(stringResource(R.string.close), color = Slate500, fontSize = 13.sp)
-                        }
-                    }
-                }
-            }
+            AboutGlassDialog(
+                versionName = versionName,
+                onDismiss = { showAboutDialog = false }
+            )
         }
 
         // Shared secrets setup (helper + PC daemon)
@@ -820,6 +590,7 @@ fun RemoteWakeMainScreen() {
         }
 
         // Add Device Dialog
+
         if (showAddDeviceDialog) {
             AddDeviceDialog(
                 onDismiss = { showAddDeviceDialog = false },
@@ -834,7 +605,6 @@ fun RemoteWakeMainScreen() {
             )
         }
 
-        // Edit Device Dialog
         if (showEditDeviceDialog && deviceToEdit != null) {
             EditDeviceDialog(
                 device = deviceToEdit!!,
@@ -871,15 +641,533 @@ fun RemoteWakeMainScreen() {
 }
 
 @Composable
-fun PrecisionCard(content: @Composable () -> Unit) {
+private fun ConnectionStatusCapsule(
+    localLanMode: Boolean,
+    isLoading: Boolean
+) {
+    Surface(
+        shape = CircleShape,
+        color = FrostSurfaceElevated,
+        border = BorderStroke(1.dp, FrostBorderSubtle)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AnimatedStatusDot(
+                color = if (localLanMode) FrostSuccess else FrostAccent,
+                size = 6.dp
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = if (localLanMode) {
+                    stringResource(R.string.mode_lan_direct)
+                } else {
+                    stringResource(R.string.mode_wan_helper)
+                },
+                color = FrostTextSecondary,
+                style = FrostMicro.copy(fontSize = 12.sp),
+                maxLines = 1
+            )
+            if (isLoading) {
+                Spacer(modifier = Modifier.width(8.dp))
+                CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    color = FrostAccent,
+                    strokeWidth = 1.5.dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedProfileCapsule(
+    device: DeviceProfile,
+    deviceCount: Int,
+    onClick: () -> Unit
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp)),
-        color = DarkSurface,
-        tonalElevation = 0.dp
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = FrostSurfaceGlass,
+        border = BorderStroke(1.dp, FrostBorderStandard)
     ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .background(FrostAccentDim, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Computer,
+                    contentDescription = null,
+                    tint = FrostAccent,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = device.name,
+                    color = FrostTextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(R.string.current_selected_target),
+                    color = FrostTextSecondary,
+                    style = FrostMicro.copy(fontSize = 11.sp),
+                    maxLines = 1
+                )
+            }
+            Text(
+                text = stringResource(R.string.device_count, deviceCount),
+                color = FrostTextTertiary,
+                style = FrostMicro
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = stringResource(R.string.edit_device_settings),
+                tint = FrostTextTertiary,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddressRow(
+    label: String,
+    value: String,
+    onCopy: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onCopy)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = FrostTextSecondary,
+            style = FrostCaption.copy(fontSize = 12.sp),
+            modifier = Modifier.width(44.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = value,
+            color = FrostTextPrimary,
+            style = FrostMicro.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            imageVector = Icons.Default.Share,
+            contentDescription = null,
+            tint = FrostTextTertiary,
+            modifier = Modifier.size(13.dp)
+        )
+    }
+}
+
+@Composable
+private fun TargetDeviceCapsule(
+    name: String,
+    mac: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        shape = CircleShape,
+        color = if (isSelected) FrostSurfaceSolid else FrostSurfaceInset,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isSelected) FrostAccentBorder else FrostBorderSubtle
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(if (isSelected) FrostAccent else FrostTextTertiary, CircleShape)
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+            Column {
+                Text(
+                    text = name,
+                    color = FrostTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                    maxLines = 1
+                )
+                Text(
+                    text = mac,
+                    color = if (isSelected) FrostTextSecondary else FrostTextTertiary,
+                    style = FrostMicro.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp),
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlassIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.size(42.dp),
+        shape = CircleShape,
+        color = FrostSurfaceElevated,
+        border = BorderStroke(1.dp, FrostBorderStandard)
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = FrostTextSecondary,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+/**
+ * White glass sheet used by every dialog: 28 dp radius, hairline border and
+ * a soft ambient shadow.
+ */
+@Composable
+private fun FrostSheet(
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(28.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 520.dp)
+                .shadow(
+                    elevation = 28.dp,
+                    shape = shape,
+                    clip = false,
+                    ambientColor = Color(0x1F000000),
+                    spotColor = Color(0x1F000000)
+                ),
+            shape = shape,
+            color = FrostSurfaceSolid,
+            border = BorderStroke(1.dp, FrostBorderStandard),
+            tonalElevation = 0.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                content = content
+            )
+        }
+    }
+}
+
+@Composable
+private fun AboutGlassDialog(
+    versionName: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val currentLanguageTag = remember { AppLocale.currentTag(context) }
+    val updateManager = remember { UpdateManager(context) }
+    var isChecking by remember { mutableStateOf(false) }
+    var updateAvailable by remember { mutableStateOf<String?>(null) }
+    var updateMessage by remember { mutableStateOf<String?>(null) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        FrostSheet {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(FrostAccentDim, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = FrostAccent,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = stringResource(R.string.about_title),
+                        color = FrostTextPrimary,
+                        style = FrostHeadline
+                    )
+                    Text(
+                        text = stringResource(R.string.about_app_subtitle),
+                        color = FrostTextSecondary,
+                        style = FrostCaption
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = stringResource(R.string.about_version, versionName),
+                color = FrostTextTertiary,
+                style = FrostMicro,
+                modifier = Modifier.padding(start = 56.dp)
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Hairline()
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.language_title),
+                color = FrostTextSecondary,
+                style = FrostCaption.copy(fontWeight = FontWeight.Medium),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(FrostSurfaceInset)
+                    .border(1.dp, FrostBorderSubtle, RoundedCornerShape(14.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val languageOptions = listOf(
+                    AppLocale.TAG_SYSTEM to stringResource(R.string.language_system),
+                    AppLocale.TAG_ZH_TW to stringResource(R.string.language_zh_tw),
+                    AppLocale.TAG_EN to stringResource(R.string.language_en)
+                )
+                languageOptions.forEach { (tag, label) ->
+                    val isSelected = tag == currentLanguageTag
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(11.dp))
+                            .clickable {
+                                if (!isSelected) {
+                                    AppLocale.set(context, tag)
+                                }
+                            },
+                        shape = RoundedCornerShape(11.dp),
+                        color = if (isSelected) FrostSurfaceSolid else Color.Transparent,
+                        border = if (isSelected) {
+                            BorderStroke(1.dp, FrostBorderSubtle)
+                        } else {
+                            null
+                        }
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) FrostTextPrimary else FrostTextSecondary,
+                            style = FrostMicro.copy(fontSize = 12.sp),
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+            }
+
+            updateMessage?.let { message ->
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = message,
+                    color = if (updateAvailable != null) FrostAccent else FrostTextSecondary,
+                    style = FrostCaption
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            if (updateAvailable != null) {
+                PrimaryCapsuleButton(
+                    label = stringResource(R.string.download_and_install),
+                    onClick = {
+                        updateManager.downloadAndInstall(updateAvailable!!)
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.downloading_update_toast),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                )
+            } else {
+                SecondaryCapsuleButton(
+                    enabled = !isChecking,
+                    onClick = {
+                        isChecking = true
+                        updateMessage = context.getString(R.string.checking_update)
+                        updateManager.checkForUpdate(versionName) { hasUpdate, downloadUrl, tag ->
+                            isChecking = false
+                            if (hasUpdate && downloadUrl != null) {
+                                updateAvailable = downloadUrl
+                                updateMessage = context.getString(R.string.update_found, tag ?: "")
+                            } else {
+                                updateMessage = context.getString(R.string.already_latest)
+                            }
+                        }
+                    }
+                ) {
+                    if (isChecking) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = FrostAccent,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.check_latest_version),
+                            color = FrostTextPrimary,
+                            style = FrostCallout
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            TextButton(
+                onClick = {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases")
+                    )
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.view_on_github),
+                    color = FrostTextSecondary,
+                    style = FrostCaption
+                )
+            }
+
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.close),
+                    color = FrostTextSecondary,
+                    style = FrostCallout
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Hairline() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(FrostBorderSubtle)
+    )
+}
+
+@Composable
+private fun PrimaryCapsuleButton(
+    label: String,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = FrostAccent,
+            contentColor = Color.White
+        )
+    ) {
+        Text(
+            text = label,
+            style = FrostCallout.copy(fontWeight = FontWeight.SemiBold)
+        )
+    }
+}
+
+@Composable
+private fun SecondaryCapsuleButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp),
+        enabled = enabled,
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = FrostSurfaceElevated,
+            contentColor = FrostTextPrimary,
+            disabledContainerColor = FrostSurfaceInset,
+            disabledContentColor = FrostTextTertiary
+        ),
+        border = BorderStroke(1.dp, FrostBorderStandard)
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun PrecisionCard(content: @Composable () -> Unit) {
+    PrecisionSurfaceCard {
         content()
     }
 }
@@ -895,32 +1183,54 @@ fun PrecisionOutlinedTextField(
     Column {
         Text(
             text = label,
-            fontSize = 11.sp,
-            color = Slate400,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(bottom = 4.dp)
+            color = FrostTextSecondary,
+            style = FrostCaption.copy(fontSize = 12.sp),
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
         )
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            leadingIcon = { Icon(icon, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = FrostTextTertiary,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AccentEmerald,
-                unfocusedBorderColor = BorderSubtle,
-                focusedTextColor = Slate50,
-                unfocusedTextColor = Slate50,
-                cursorColor = AccentEmerald,
-                focusedContainerColor = DarkSurfaceElevated,
-                unfocusedContainerColor = DarkSurfaceElevated
+                focusedBorderColor = FrostAccent,
+                unfocusedBorderColor = FrostBorderStandard,
+                focusedTextColor = FrostTextPrimary,
+                unfocusedTextColor = FrostTextPrimary,
+                cursorColor = FrostAccent,
+                focusedContainerColor = FrostSurfaceElevated,
+                unfocusedContainerColor = FrostSurfaceElevated,
+                focusedLeadingIconColor = FrostAccent,
+                unfocusedLeadingIconColor = FrostTextTertiary
             ),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-            shape = RoundedCornerShape(10.dp),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = FrostTextPrimary,
+                fontSize = 15.sp
+            ),
+            shape = RoundedCornerShape(14.dp),
             modifier = modifier.fillMaxWidth()
         )
     }
 }
+
+/**
+ * Small helper so field persistence only runs on focus loss, matching the
+ * previous onFocusChanged usage.
+ */
+private fun Modifier.onFocusChangedCompat(onFocusLost: () -> Unit): Modifier =
+    this.then(
+        Modifier.onFocusChanged { focusState ->
+            if (!focusState.isFocused) onFocusLost()
+        }
+    )
 
 @Composable
 fun HardwareCommandCard(
@@ -932,24 +1242,22 @@ fun HardwareCommandCard(
     enabled: Boolean
 ) {
     var pressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "buttonScale")
-
-    val bg = if (isDestructive) SemanticDangerDim else DarkSurfaceElevated
-    val borderCol = if (isDestructive) SemanticDangerBorder else BorderSubtle
-    val iconTint = if (isDestructive) SemanticDanger else Slate300
+    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "buttonScale")
+    val shape = RoundedCornerShape(18.dp)
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .height(76.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, borderCol, RoundedCornerShape(12.dp))
+            .clip(shape)
+            .border(1.dp, FrostBorderSubtle, shape)
             .clickable(enabled = enabled) {
                 pressed = true
                 onClick()
             },
-        color = bg
+        shape = shape,
+        color = FrostSurfaceElevated
     ) {
         Row(
             modifier = Modifier
@@ -959,33 +1267,32 @@ fun HardwareCommandCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(38.dp)
                     .background(
-                        if (isDestructive) SemanticDangerDim else DarkSurface,
-                        RoundedCornerShape(8.dp)
+                        if (isDestructive) FrostDanger.copy(alpha = 0.12f) else FrostAccentDim,
+                        RoundedCornerShape(12.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = iconTint,
+                    tint = if (isDestructive) FrostDanger else FrostTextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
                     text = title,
-                    color = if (isDestructive) SemanticDanger else Slate100,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
+                    color = if (isDestructive) FrostDanger else FrostTextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = subtitle,
-                    color = Slate400,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace
+                    color = FrostTextSecondary,
+                    style = FrostCaption.copy(fontSize = 12.sp)
                 )
             }
         }
@@ -1009,68 +1316,85 @@ fun AddDeviceDialog(
     var ip by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
-            color = DarkSurfaceElevated,
-            tonalElevation = 8.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        FrostSheet {
+            Text(
+                text = stringResource(R.string.add_device_title),
+                color = FrostTextPrimary,
+                style = FrostHeadline.copy(fontSize = 20.sp)
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+
+            PrecisionOutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(R.string.device_name_hint),
+                icon = Icons.Default.Computer
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PrecisionOutlinedTextField(
+                value = mac,
+                onValueChange = { mac = it },
+                label = stringResource(R.string.mac_hint),
+                icon = Icons.Default.Lan
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PrecisionOutlinedTextField(
+                value = ip,
+                onValueChange = { ip = it },
+                label = stringResource(R.string.lan_ipv4_optional),
+                icon = Icons.Default.Dns
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.add_device_title),
-                    color = Slate50,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                PrecisionOutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = stringResource(R.string.device_name_hint),
-                    icon = Icons.Default.Computer
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                PrecisionOutlinedTextField(
-                    value = mac,
-                    onValueChange = { mac = it },
-                    label = stringResource(R.string.mac_hint),
-                    icon = Icons.Default.Lan
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                PrecisionOutlinedTextField(
-                    value = ip,
-                    onValueChange = { ip = it },
-                    label = stringResource(R.string.lan_ipv4_optional),
-                    icon = Icons.Default.Dns
-                )
-                Spacer(modifier = Modifier.height(18.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FrostSurfaceElevated,
+                        contentColor = FrostTextPrimary
+                    ),
+                    border = BorderStroke(1.dp, FrostBorderStandard)
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel), color = Slate400)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            if (mac.isNotBlank()) {
-                                onConfirm(name.ifBlank { context.getString(R.string.new_device_default_name) }, mac.trim(), ip.trim())
-                            }
-                        },
-                        enabled = mac.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(stringResource(R.string.add), color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
+                    Text(stringResource(R.string.cancel), style = FrostCallout)
+                }
+                Button(
+                    onClick = {
+                        if (mac.isNotBlank()) {
+                            onConfirm(
+                                name.ifBlank { context.getString(R.string.new_device_default_name) },
+                                mac.trim(),
+                                ip.trim()
+                            )
+                        }
+                    },
+                    enabled = mac.isNotBlank(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FrostAccent,
+                        contentColor = Color.White,
+                        disabledContainerColor = FrostAccentDim,
+                        disabledContentColor = FrostTextTertiary
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.add),
+                        style = FrostCallout.copy(fontWeight = FontWeight.SemiBold)
+                    )
                 }
             }
         }
@@ -1090,78 +1414,106 @@ fun EditDeviceDialog(
     var ip by remember { mutableStateOf(device.ip) }
     val context = LocalContext.current
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
-            color = DarkSurfaceElevated,
-            tonalElevation = 8.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.edit_device_title),
-                    color = Slate50,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                PrecisionOutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = stringResource(R.string.device_name_label),
-                    icon = Icons.Default.Computer
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                PrecisionOutlinedTextField(
-                    value = mac,
-                    onValueChange = { mac = it },
-                    label = stringResource(R.string.mac_label),
-                    icon = Icons.Default.Lan
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                PrecisionOutlinedTextField(
-                    value = ip,
-                    onValueChange = { ip = it },
-                    label = stringResource(R.string.lan_ipv4_optional),
-                    icon = Icons.Default.Dns
-                )
-                Spacer(modifier = Modifier.height(18.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        FrostSheet {
+            Text(
+                text = stringResource(R.string.edit_device_title),
+                color = FrostTextPrimary,
+                style = FrostHeadline.copy(fontSize = 20.sp)
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+
+            PrecisionOutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(R.string.device_name_label),
+                icon = Icons.Default.Computer
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PrecisionOutlinedTextField(
+                value = mac,
+                onValueChange = { mac = it },
+                label = stringResource(R.string.mac_label),
+                icon = Icons.Default.Lan
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PrecisionOutlinedTextField(
+                value = ip,
+                onValueChange = { ip = it },
+                label = stringResource(R.string.lan_ipv4_optional),
+                icon = Icons.Default.Dns
+            )
+
+            if (canDelete) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = onDelete,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (canDelete) {
-                        IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = SemanticDanger)
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = FrostDanger,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.delete),
+                        color = FrostDanger,
+                        style = FrostCallout
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FrostSurfaceElevated,
+                        contentColor = FrostTextPrimary
+                    ),
+                    border = BorderStroke(1.dp, FrostBorderStandard)
+                ) {
+                    Text(stringResource(R.string.cancel), style = FrostCallout)
+                }
+                Button(
+                    onClick = {
+                        if (mac.isNotBlank()) {
+                            onSave(
+                                name.ifBlank { context.getString(R.string.device_fallback_name) },
+                                mac.trim(),
+                                ip.trim()
+                            )
                         }
-                    } else {
-                        Spacer(modifier = Modifier.width(1.dp))
-                    }
-                    Row {
-                        TextButton(onClick = onDismiss) {
-                            Text(stringResource(R.string.cancel), color = Slate400)
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                if (mac.isNotBlank()) {
-                                    onSave(name.ifBlank { context.getString(R.string.device_fallback_name) }, mac.trim(), ip.trim())
-                                }
-                            },
-                            enabled = mac.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(stringResource(R.string.save), color = Color.Black, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    },
+                    enabled = mac.isNotBlank(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FrostAccent,
+                        contentColor = Color.White,
+                        disabledContainerColor = FrostAccentDim,
+                        disabledContentColor = FrostTextTertiary
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.save),
+                        style = FrostCallout.copy(fontWeight = FontWeight.SemiBold)
+                    )
                 }
             }
         }
