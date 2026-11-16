@@ -101,7 +101,7 @@
     <string name="power_action_sleep">電腦睡眠</string>
     <string name="power_action_reboot">電腦重新開機</string>
     <string name="power_action_shutdown">電腦關機</string>
-    <string name="server_logs_title">即時日誌 TERMINAL</string>
+    <string name="server_logs_title">最近活動</string>
     <string name="server_logs_clear">清除日誌</string>
     <string name="server_logs_empty">暫無日誌記錄</string>
     <string name="log_source_system">系統</string>

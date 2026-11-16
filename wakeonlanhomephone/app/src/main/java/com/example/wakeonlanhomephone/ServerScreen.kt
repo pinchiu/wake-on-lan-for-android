@@ -1,6 +1,5 @@
 package com.example.wakeonlanhomephone
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,34 +7,39 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.wakeonlanhomephone.ui.theme.*
 import com.example.wakeonlanhomephone.ui.components.*
+import com.example.wakeonlanhomephone.ui.theme.*
 import java.net.NetworkInterface
-import java.util.*
 
 @Composable
 fun ServerScreen(
@@ -65,224 +69,185 @@ fun ServerScreen(
     }
 
     val ipv6Addresses = remember { getDeviceIPv6Addresses() }
-    val displayedLogs = remember(logs) { logs.asReversed().take(12) }
-    
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBgPrimary)
-    ) {
+    val displayedLogs = remember(logs) { logs.asReversed().take(5) }
+    val selectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
+
+    Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 48.dp, start = 20.dp, end = 20.dp, bottom = 140.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Header Bar
+            // Large title + status chip
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.server_title),
-                            color = Slate50,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(Modifier.height(2.dp))
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = stringResource(R.string.server_title),
+                        style = FrostLargeTitle,
+                        color = FrostTextPrimary
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServiceStatusChip(isRunning = isRunning)
+                        Spacer(Modifier.width(10.dp))
                         Text(
                             text = stringResource(R.string.server_subtitle),
-                            color = Slate400,
-                            style = MaterialTheme.typography.bodySmall
+                            style = FrostCaption,
+                            color = FrostTextSecondary,
+                            modifier = Modifier.weight(1f)
                         )
-                    }
-
-                    // Live Status Pill
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = if (isRunning) AccentEmeraldDim else DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isRunning) AccentEmeraldBorder else BorderSubtle
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (isRunning) {
-                                AnimatedPingDot(color = AccentEmerald, size = 6.dp)
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(Slate500, CircleShape)
-                                )
-                            }
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = if (isRunning) stringResource(R.string.server_status_listening) else stringResource(R.string.server_status_stopped),
-                                color = if (isRunning) AccentEmerald else Slate400,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
                     }
                 }
             }
 
-            // Server Status & IPv6 Gateway Card
+            // Hero: selected target + big wake button + power actions
             item {
                 GlassPanel(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        if (isRunning) AccentEmeraldDim else DarkSurfaceElevated,
-                                        RoundedCornerShape(10.dp)
-                                    )
-                                    .border(
-                                        1.dp,
-                                        if (isRunning) AccentEmeraldBorder else BorderSubtle,
-                                        RoundedCornerShape(10.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Dns,
-                                    contentDescription = null,
-                                    tint = if (isRunning) AccentEmerald else Slate400,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.server_tcp_service),
-                                    color = Slate50,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = if (isRunning) stringResource(R.string.server_tcp_running) else stringResource(R.string.server_tcp_stopped),
-                                    color = if (isRunning) AccentEmerald else Slate400,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-
-                        // Toggle Action Button
-                        Button(
-                            onClick = { if (isRunning) onStopService() else onStartService() },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isRunning) SemanticDangerDim else AccentEmeraldDim
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (isRunning) SemanticDangerBorder else AccentEmeraldBorder
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                    if (selectedDevice == null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = if (isRunning) stringResource(R.string.server_stop_service) else stringResource(R.string.server_start_service),
-                                color = if (isRunning) SemanticDanger else AccentEmerald,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
+                                text = stringResource(R.string.server_no_devices),
+                                style = FrostBody.copy(fontSize = 15.sp),
+                                color = FrostTextSecondary,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                onClick = { showAddDeviceDialog = true },
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = FrostAccent,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.content_add_target), style = FrostCallout)
+                            }
                         }
-                    }
-
-                    Spacer(Modifier.height(14.dp))
-                    HorizontalDivider(color = BorderSubtle)
-                    Spacer(Modifier.height(14.dp))
-
-                    // IPv6 Address Section
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.server_ipv6_title),
-                            color = Slate400,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = stringResource(R.string.server_tap_to_copy),
-                            color = Slate500,
-                            fontSize = 11.sp
-                        )
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    if (ipv6Addresses.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.server_no_ipv6),
-                            color = Slate500,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
                     } else {
-                        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            ipv6Addresses.forEach { ip ->
-                                Surface(
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(ip))
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                context.getString(R.string.toast_ip_copied, ip),
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
-                                        },
-                                    color = DarkSurfaceElevated,
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                                        .size(56.dp)
+                                        .background(FrostAccentDim, RoundedCornerShape(18.dp)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Computer,
+                                        contentDescription = null,
+                                        tint = FrostAccent,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
+                                Spacer(Modifier.width(14.dp))
+                                Column {
+                                    Text(
+                                        text = selectedDevice.name,
+                                        style = FrostHeadline.copy(fontSize = 20.sp),
+                                        color = FrostTextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = selectedDevice.mac.ifEmpty { noMacLabel },
+                                        style = FrostCaption.copy(fontFamily = FontFamily.Monospace),
+                                        color = FrostTextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (selectedDevice.ip.isNotBlank()) {
                                         Text(
-                                            text = ip,
-                                            color = Slate200,
-                                            fontSize = 12.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Icon(
-                                            imageVector = Icons.Default.Share,
-                                            contentDescription = stringResource(R.string.content_copy),
-                                            tint = Slate400,
-                                            modifier = Modifier.size(14.dp)
+                                            text = selectedDevice.ip,
+                                            style = FrostMicro.copy(fontFamily = FontFamily.Monospace),
+                                            color = FrostTextTertiary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
                             }
+                            Spacer(Modifier.width(8.dp))
+                            IconButton(
+                                onClick = { deviceToEdit = selectedDevice },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = stringResource(R.string.action_edit),
+                                    tint = FrostTextSecondary,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(24.dp))
+
+                        MasterWakeButton(
+                            enabled = selectedDevice.mac.isNotBlank(),
+                            deviceName = selectedDevice.name,
+                            deviceMac = selectedDevice.mac,
+                            onClick = { onWakeComputer?.invoke(selectedDevice) }
+                        )
+
+                        if (selectedDevice.ip.isNotBlank()) {
+                            Spacer(Modifier.height(20.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                PowerActionButton(
+                                    label = stringResource(R.string.power_sleep),
+                                    icon = Icons.Rounded.Bedtime,
+                                    tint = FrostWarning,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        confirmPowerAction = "sleep"
+                                        confirmPowerDevice = selectedDevice
+                                    }
+                                )
+                                PowerActionButton(
+                                    label = stringResource(R.string.power_reboot),
+                                    icon = Icons.Rounded.Refresh,
+                                    tint = FrostAccent,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        confirmPowerAction = "reboot"
+                                        confirmPowerDevice = selectedDevice
+                                    }
+                                )
+                                PowerActionButton(
+                                    label = stringResource(R.string.power_shutdown),
+                                    icon = Icons.Rounded.PowerSettingsNew,
+                                    tint = FrostDanger,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = {
+                                        confirmPowerAction = "shutdown"
+                                        confirmPowerDevice = selectedDevice
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
-            
-            // Target Computers Management Card
+
+            // Target selection
             item {
                 GlassPanel(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -293,33 +258,32 @@ fun ServerScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = stringResource(R.string.server_targets_title),
-                                color = Slate50,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
+                                style = FrostHeadline,
+                                color = FrostTextPrimary
                             )
                             Spacer(Modifier.width(8.dp))
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = DarkSurfaceElevated,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.5f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, FrostBorderSubtle)
                             ) {
                                 Text(
                                     text = stringResource(R.string.server_device_count, devices.size),
-                                    color = Slate400,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    color = FrostTextSecondary,
+                                    style = FrostMicro,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
                         }
 
                         IconButton(
                             onClick = { showAddDeviceDialog = true },
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = stringResource(R.string.content_add_target),
-                                tint = AccentEmerald,
+                                tint = FrostAccent,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -330,47 +294,48 @@ fun ServerScreen(
                     if (devices.isEmpty()) {
                         Text(
                             text = stringResource(R.string.server_no_devices),
-                            color = Slate500,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(vertical = 12.dp)
+                            color = FrostTextTertiary,
+                            style = FrostCaption,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     } else {
-                        // Device Selection Chips Row
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(devices) { device ->
                                 val isSelected = device.id == selectedDeviceId
-                                val borderColor = if (isSelected) AccentEmeraldBorder else BorderSubtle
-                                val bgColor = if (isSelected) AccentEmeraldDim else DarkSurfaceElevated
-
+                                val chipShape = RoundedCornerShape(16.dp)
                                 Surface(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                        .clip(chipShape)
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) FrostAccentBorder else FrostBorderSubtle,
+                                            chipShape
+                                        )
                                         .clickable {
                                             selectedDeviceId = device.id
                                             profileManager.setSelectedDeviceId(device.id)
                                             refreshDevices()
                                         },
-                                    color = bgColor,
-                                    shape = RoundedCornerShape(10.dp)
+                                    color = if (isSelected) FrostAccentDim else FrostSurfaceElevated,
+                                    shape = chipShape
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column {
                                             Text(
                                                 text = device.name,
-                                                color = if (isSelected) Slate50 else Slate300,
+                                                color = FrostTextPrimary,
                                                 fontSize = 13.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                                             )
                                             Text(
                                                 text = device.mac.ifEmpty { noMacLabel },
-                                                color = if (isSelected) AccentEmerald else Slate500,
+                                                color = FrostTextSecondary,
                                                 fontSize = 10.sp,
                                                 fontFamily = FontFamily.Monospace
                                             )
@@ -383,7 +348,7 @@ fun ServerScreen(
                                             Icon(
                                                 imageVector = Icons.Default.Edit,
                                                 contentDescription = stringResource(R.string.action_edit),
-                                                tint = if (isSelected) AccentEmerald else Slate500,
+                                                tint = if (isSelected) FrostAccent else FrostTextTertiary,
                                                 modifier = Modifier.size(13.dp)
                                             )
                                         }
@@ -391,64 +356,143 @@ fun ServerScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
 
-                        Spacer(Modifier.height(16.dp))
+            // TCP service + local addresses
+            item {
+                GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        if (isRunning) FrostSuccessDim else FrostSurfaceElevated,
+                                        RoundedCornerShape(12.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Dns,
+                                    contentDescription = null,
+                                    tint = if (isRunning) FrostSuccess else FrostTextSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.server_tcp_service),
+                                    style = FrostCallout,
+                                    color = FrostTextPrimary
+                                )
+                                Text(
+                                    text = if (isRunning) stringResource(R.string.server_tcp_running) else stringResource(R.string.server_tcp_stopped),
+                                    style = FrostCaption,
+                                    color = FrostTextSecondary
+                                )
+                            }
+                        }
 
-                        // Primary Action: Wake Selected Device
-                        val selectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
-                        if (selectedDevice != null) {
-                            MasterWakeButton(
-                                enabled = selectedDevice.mac.isNotBlank(),
-                                deviceName = selectedDevice.name,
-                                deviceMac = selectedDevice.mac,
-                                onClick = { onWakeComputer?.invoke(selectedDevice) }
+                        Spacer(Modifier.width(10.dp))
+                        Button(
+                            onClick = { if (isRunning) onStopService() else onStartService() },
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isRunning) FrostSurfaceElevated else FrostAccent,
+                                contentColor = if (isRunning) FrostDanger else Color.White
+                            ),
+                            border = if (isRunning) {
+                                androidx.compose.foundation.BorderStroke(1.dp, FrostBorderStandard)
+                            } else null,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                        ) {
+                            Text(
+                                text = if (isRunning) stringResource(R.string.server_stop_service) else stringResource(R.string.server_start_service),
+                                style = FrostCaption,
+                                fontWeight = FontWeight.SemiBold
                             )
+                        }
+                    }
 
-                            // Secondary Power Actions (if IP configured)
-                            if (selectedDevice.ip.isNotBlank()) {
-                                Spacer(Modifier.height(12.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider(color = FrostBorderSubtle)
+                    Spacer(Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.server_ipv6_title),
+                            color = FrostTextSecondary,
+                            style = FrostCaption
+                        )
+                        Text(
+                            text = stringResource(R.string.server_tap_to_copy),
+                            color = FrostTextTertiary,
+                            style = FrostMicro
+                        )
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    if (ipv6Addresses.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.server_no_ipv6),
+                            color = FrostTextTertiary,
+                            style = FrostCaption,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    } else {
+                        val clipboardManager = LocalClipboardManager.current
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ipv6Addresses.forEach { ip ->
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .clickable {
+                                            clipboardManager.setText(AnnotatedString(ip))
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                context.getString(R.string.toast_ip_copied, ip),
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                    color = FrostSurfaceElevated,
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, FrostBorderSubtle)
                                 ) {
-                                    Button(
-                                        onClick = {
-                                            confirmPowerAction = "sleep"
-                                            confirmPowerDevice = selectedDevice
-                                        },
-                                        modifier = Modifier.weight(1f).height(40.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = SemanticWarningDim),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, SemanticWarningDim),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(stringResource(R.string.power_sleep), color = SemanticWarning, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                    Button(
-                                        onClick = {
-                                            confirmPowerAction = "reboot"
-                                            confirmPowerDevice = selectedDevice
-                                        },
-                                        modifier = Modifier.weight(1f).height(40.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = SemanticInfoDim),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, SemanticInfo.copy(alpha = 0.35f)),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(stringResource(R.string.power_reboot), color = SemanticInfo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                    Button(
-                                        onClick = {
-                                            confirmPowerAction = "shutdown"
-                                            confirmPowerDevice = selectedDevice
-                                        },
-                                        modifier = Modifier.weight(1f).height(40.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = SemanticDangerDim),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, SemanticDangerBorder),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(stringResource(R.string.power_shutdown), color = SemanticDanger, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            text = ip,
+                                            color = FrostTextPrimary,
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = stringResource(R.string.content_copy),
+                                            tint = FrostTextTertiary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
                                     }
                                 }
                             }
@@ -457,57 +501,49 @@ fun ServerScreen(
                 }
             }
 
-            // Real-Time System Log Header (Terminal HUD)
+            // Recent activity
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                GlassPanel(modifier = Modifier.fillMaxWidth()) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.size(8.dp).background(SemanticDanger, CircleShape))
-                        Box(modifier = Modifier.size(8.dp).background(SemanticWarning, CircleShape))
-                        Box(modifier = Modifier.size(8.dp).background(AccentEmerald, CircleShape))
-                        Spacer(Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.server_logs_title),
-                            color = Slate300,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            letterSpacing = 0.5.sp
+                            style = FrostHeadline,
+                            color = FrostTextPrimary
+                        )
+                        Text(
+                            text = stringResource(R.string.server_logs_clear),
+                            color = FrostAccent,
+                            style = FrostCaption,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onClearLogs() }
+                                .padding(horizontal = 6.dp, vertical = 4.dp)
                         )
                     }
-                    Text(
-                        text = stringResource(R.string.server_logs_clear),
-                        color = AccentEmerald,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { onClearLogs() }
-                    )
-                }
-            }
-            
-            // Log Items
-            if (displayedLogs.isEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.server_logs_empty),
-                        color = Slate500,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-                }
-            } else {
-                itemsIndexed(
-                    items = displayedLogs,
-                    key = { index, log -> "$log-$index" }
-                ) { _, log ->
-                    LogItem(log = log)
+
+                    Spacer(Modifier.height(6.dp))
+
+                    if (displayedLogs.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.server_logs_empty),
+                            color = FrostTextTertiary,
+                            style = FrostCaption,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            displayedLogs.forEachIndexed { index, log ->
+                                LogItem(log = log)
+                                if (index != displayedLogs.lastIndex) {
+                                    HorizontalDivider(color = FrostBorderSubtle)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -576,6 +612,77 @@ fun ServerScreen(
 }
 
 @Composable
+private fun ServiceStatusChip(isRunning: Boolean) {
+    Surface(
+        shape = CircleShape,
+        color = if (isRunning) FrostSuccessDim else Color.White.copy(alpha = 0.46f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isRunning) FrostSuccess.copy(alpha = 0.24f) else FrostBorderSubtle
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isRunning) {
+                AnimatedPingDot(color = FrostSuccess, size = 7.dp)
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .background(FrostTextTertiary, CircleShape)
+                )
+            }
+            Spacer(Modifier.width(7.dp))
+            Text(
+                text = if (isRunning) stringResource(R.string.server_status_listening) else stringResource(R.string.server_status_stopped),
+                color = if (isRunning) FrostTextPrimary else FrostTextSecondary,
+                style = FrostMicro
+            )
+        }
+    }
+}
+
+@Composable
+private fun PowerActionButton(
+    label: String,
+    icon: ImageVector,
+    tint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = FrostSurfaceElevated,
+            contentColor = tint
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, FrostBorderSubtle),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(15.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = label,
+            color = FrostTextPrimary,
+            style = FrostCaption.copy(fontSize = 12.sp),
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 fun LogItem(log: String) {
     val systemSource = stringResource(R.string.log_source_system)
     val mqttConnectedLabel = stringResource(R.string.log_status_mqtt_connected)
@@ -600,7 +707,7 @@ fun LogItem(log: String) {
         } else {
             log
         }
-        
+
         val fromText = if (message.contains(":")) {
             message.substringBefore(":").trim()
         } else {
@@ -611,94 +718,88 @@ fun LogItem(log: String) {
         } else {
             message
         }
-        
+
         Triple(timestamp, fromText, detailText)
     }
-    
+
     val (timestamp, fromText, detailText) = parsed
-    
+
     val statusInfo = remember(fromText, detailText) {
         val lowerMessage = detailText.lowercase()
         val lowerFrom = fromText.lowercase()
-        
+
         when {
             lowerFrom.contains("mqtt") && lowerMessage.contains("connected") -> {
-                mqttConnectedLabel to AccentEmerald
+                mqttConnectedLabel to FrostSuccess
             }
             lowerFrom.contains("mqtt") && (lowerMessage.contains("disconnected") || lowerMessage.contains("closed")) -> {
-                mqttDisconnectedLabel to SemanticDanger
+                mqttDisconnectedLabel to FrostDanger
             }
             lowerFrom.contains("mqtt") && lowerMessage.contains("connecting") -> {
-                mqttConnectingLabel to SemanticWarning
+                mqttConnectingLabel to FrostWarning
             }
             lowerMessage.contains("error") || lowerMessage.contains("failed") -> {
-                connectionErrorLabel to SemanticDanger
+                connectionErrorLabel to FrostDanger
             }
             lowerMessage.contains("listening") || lowerMessage.contains("started") || lowerMessage.contains("connected") -> {
-                serviceReadyLabel to AccentEmerald
+                serviceReadyLabel to FrostSuccess
             }
             lowerMessage.contains("received") -> {
-                commandReceivedLabel to SemanticInfo
+                commandReceivedLabel to FrostInfo
             }
             lowerMessage.contains("action") || lowerMessage.contains("published") || lowerMessage.contains("sent") -> {
-                commandExecutedLabel to AccentEmerald
+                commandExecutedLabel to FrostSuccess
             }
             else -> {
-                systemMessageLabel to Slate400
+                systemMessageLabel to FrostTextSecondary
             }
         }
     }
     val (statusText, statusColor) = statusInfo
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = DarkSurface,
-        shape = RoundedCornerShape(10.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 11.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            // Left Status indicator line
-            Box(
-                modifier = Modifier
-                    .size(4.dp, 36.dp)
-                    .background(statusColor, RoundedCornerShape(2.dp))
-            )
-            Spacer(Modifier.width(10.dp))
+                .padding(top = 4.dp)
+                .size(8.dp)
+                .background(statusColor, CircleShape)
+        )
+        Spacer(Modifier.width(10.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = fromText,
-                        color = statusColor,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = timestamp,
-                        color = Slate500,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = detailText,
-                    color = Slate100,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp
+                    text = statusText,
+                    color = FrostTextSecondary,
+                    style = FrostMicro,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = timestamp,
+                    color = FrostTextTertiary,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
                 )
             }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = detailText,
+                color = FrostTextPrimary,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                lineHeight = 17.sp
+            )
         }
     }
 }
@@ -742,98 +843,56 @@ fun AddComputerDialog(
     val newHostName = stringResource(R.string.default_device_new_host)
 
     Dialog(onDismissRequest = onDismiss) {
+        val shape = RoundedCornerShape(28.dp)
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
-            color = DarkSurfaceElevated,
-            tonalElevation = 8.dp
+                .shadow(20.dp, shape, ambientColor = FrostShadow, spotColor = FrostShadow)
+                .border(1.dp, FrostBorderSubtle, shape)
+                .clip(shape),
+            color = FrostSurfaceSolid,
+            shape = shape,
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(24.dp)
             ) {
                 Text(
                     text = stringResource(R.string.dialog_add_target_title),
-                    color = Slate50,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
+                    style = FrostTitle.copy(fontSize = 20.sp),
+                    color = FrostTextPrimary
                 )
-                Spacer(modifier = Modifier.height(14.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(16.dp))
+                DialogTextField(
+                    label = stringResource(R.string.dialog_name_with_example),
                     value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.dialog_name_with_example)) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentEmerald,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedLabelColor = AccentEmerald,
-                        unfocusedLabelColor = Slate400,
-                        focusedTextColor = Slate50,
-                        unfocusedTextColor = Slate50
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { name = it }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(12.dp))
+                DialogTextField(
+                    label = stringResource(R.string.dialog_mac_with_example),
                     value = mac,
-                    onValueChange = { mac = it },
-                    label = { Text(stringResource(R.string.dialog_mac_with_example)) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentEmerald,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedLabelColor = AccentEmerald,
-                        unfocusedLabelColor = Slate400,
-                        focusedTextColor = Slate50,
-                        unfocusedTextColor = Slate50
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { mac = it }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(12.dp))
+                DialogTextField(
+                    label = stringResource(R.string.dialog_ip_optional_power),
                     value = ip,
-                    onValueChange = { ip = it },
-                    label = { Text(stringResource(R.string.dialog_ip_optional_power)) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentEmerald,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedLabelColor = AccentEmerald,
-                        unfocusedLabelColor = Slate400,
-                        focusedTextColor = Slate50,
-                        unfocusedTextColor = Slate50
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { ip = it }
                 )
-                Spacer(modifier = Modifier.height(18.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.action_cancel), color = Slate400)
+                Spacer(modifier = Modifier.height(20.dp))
+                DialogActions(
+                    onDismiss = onDismiss,
+                    confirmLabel = stringResource(R.string.action_add),
+                    confirmEnabled = mac.isNotBlank(),
+                    onConfirm = {
+                        if (mac.isNotBlank()) {
+                            onConfirm(name.ifBlank { newHostName }, mac.trim(), ip.trim())
+                        }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            if (mac.isNotBlank()) {
-                                onConfirm(name.ifBlank { newHostName }, mac.trim(), ip.trim())
-                            }
-                        },
-                        enabled = mac.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(stringResource(R.string.action_add), color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
-                }
+                )
             }
         }
     }
@@ -853,77 +912,46 @@ fun EditComputerDialog(
     val fallbackHostName = stringResource(R.string.default_device_host)
 
     Dialog(onDismissRequest = onDismiss) {
+        val shape = RoundedCornerShape(28.dp)
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
-            color = DarkSurfaceElevated,
-            tonalElevation = 8.dp
+                .shadow(20.dp, shape, ambientColor = FrostShadow, spotColor = FrostShadow)
+                .border(1.dp, FrostBorderSubtle, shape)
+                .clip(shape),
+            color = FrostSurfaceSolid,
+            shape = shape,
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(24.dp)
             ) {
                 Text(
                     text = stringResource(R.string.dialog_edit_target_title),
-                    color = Slate50,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold
+                    style = FrostTitle.copy(fontSize = 20.sp),
+                    color = FrostTextPrimary
                 )
-                Spacer(modifier = Modifier.height(14.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(16.dp))
+                DialogTextField(
+                    label = stringResource(R.string.dialog_name),
                     value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.dialog_name)) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentEmerald,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedLabelColor = AccentEmerald,
-                        unfocusedLabelColor = Slate400,
-                        focusedTextColor = Slate50,
-                        unfocusedTextColor = Slate50
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { name = it }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(12.dp))
+                DialogTextField(
+                    label = stringResource(R.string.dialog_mac),
                     value = mac,
-                    onValueChange = { mac = it },
-                    label = { Text(stringResource(R.string.dialog_mac)) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentEmerald,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedLabelColor = AccentEmerald,
-                        unfocusedLabelColor = Slate400,
-                        focusedTextColor = Slate50,
-                        unfocusedTextColor = Slate50
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { mac = it }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(12.dp))
+                DialogTextField(
+                    label = stringResource(R.string.dialog_ip_optional),
                     value = ip,
-                    onValueChange = { ip = it },
-                    label = { Text(stringResource(R.string.dialog_ip_optional)) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentEmerald,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedLabelColor = AccentEmerald,
-                        unfocusedLabelColor = Slate400,
-                        focusedTextColor = Slate50,
-                        unfocusedTextColor = Slate50
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { ip = it }
                 )
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -931,31 +959,92 @@ fun EditComputerDialog(
                 ) {
                     if (canDelete) {
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete), tint = SemanticDanger)
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = stringResource(R.string.action_delete),
+                                tint = FrostDanger
+                            )
                         }
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
                     }
-                    Row {
-                        TextButton(onClick = onDismiss) {
-                            Text(stringResource(R.string.action_cancel), color = Slate400)
+                    DialogActions(
+                        onDismiss = onDismiss,
+                        confirmLabel = stringResource(R.string.action_save),
+                        confirmEnabled = mac.isNotBlank(),
+                        onConfirm = {
+                            if (mac.isNotBlank()) {
+                                onSave(name.ifBlank { fallbackHostName }, mac.trim(), ip.trim())
+                            }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                if (mac.isNotBlank()) {
-                                    onSave(name.ifBlank { fallbackHostName }, mac.trim(), ip.trim())
-                                }
-                            },
-                            enabled = mac.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text(stringResource(R.string.action_save), color = Color.Black, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DialogTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, style = FrostCaption) },
+        singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = FrostAccentBorder,
+            unfocusedBorderColor = FrostBorderSubtle,
+            focusedLabelColor = FrostAccent,
+            unfocusedLabelColor = FrostTextSecondary,
+            focusedTextColor = FrostTextPrimary,
+            unfocusedTextColor = FrostTextPrimary,
+            focusedContainerColor = FrostSurfaceElevated,
+            unfocusedContainerColor = FrostSurfaceElevated,
+            cursorColor = FrostAccent
+        ),
+        shape = RoundedCornerShape(14.dp),
+        textStyle = FrostBody.copy(fontSize = 15.sp),
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun DialogActions(
+    onDismiss: () -> Unit,
+    confirmLabel: String,
+    confirmEnabled: Boolean,
+    onConfirm: () -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextButton(onClick = onDismiss) {
+            Text(
+                stringResource(R.string.action_cancel),
+                color = FrostTextSecondary,
+                style = FrostCallout
+            )
+        }
+        Button(
+            onClick = onConfirm,
+            enabled = confirmEnabled,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = FrostAccent,
+                contentColor = Color.White
+            ),
+            shape = CircleShape
+        ) {
+            Text(
+                confirmLabel,
+                style = FrostCallout,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
         }
     }
 }

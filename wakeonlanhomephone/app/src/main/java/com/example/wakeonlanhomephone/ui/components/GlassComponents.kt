@@ -1,120 +1,107 @@
 package com.example.wakeonlanhomephone.ui.components
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.window.Dialog
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.rounded.Bolt
 import com.example.wakeonlanhomephone.R
 import com.example.wakeonlanhomephone.ui.theme.*
 
 /**
- * Precision hardware surface panel with subtle hairline border and top highlight
+ * Frost background: a static vertical grey gradient with two or three very
+ * soft ambient blobs. Real backdrop blur is not available below Android 12,
+ * so the softness comes from radial gradients plus a gentle blur where the
+ * platform supports it.
  */
 @Composable
-fun GlassPanel(
+fun FrostBackground(
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable BoxScope.() -> Unit = {}
 ) {
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, BorderSubtle, RoundedCornerShape(16.dp)),
-        color = DarkSurface.copy(alpha = 0.85f),
-        tonalElevation = 0.dp
+    Box(
+        modifier = modifier.background(
+            Brush.verticalGradient(
+                colors = listOf(FrostBg, FrostBgSecondary)
+            )
+        )
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // Subtle 1px hairline highlight at top
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.08f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-            
-            Column(
-                modifier = Modifier.padding(16.dp),
-                content = content
-            )
-        }
+        AmbientBlob(
+            color = Color.White,
+            size = 320.dp,
+            alpha = 0.34f,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 60.dp, y = (-80).dp)
+        )
+        AmbientBlob(
+            color = Color(0xFFD9DEE8),
+            size = 280.dp,
+            alpha = 0.26f,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = (-90).dp, y = (-40).dp)
+        )
+        AmbientBlob(
+            color = Color(0xFFE7E3DD),
+            size = 260.dp,
+            alpha = 0.30f,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = 70.dp, y = 60.dp)
+        )
+        content()
     }
 }
 
-/**
- * Restrained subtle ambient glow for status indicators
- */
 @Composable
-fun PulsingGlow(
+private fun AmbientBlob(
     color: Color,
-    size: Dp = 160.dp,
+    size: Dp,
+    alpha: Float,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.98f,
-        targetValue = 1.04f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-    
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.45f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-    
     Box(
         modifier = modifier
             .size(size)
-            .scale(scale)
-            .blur(40.dp)
+            .blur(64.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
             .background(
                 Brush.radialGradient(
                     colors = listOf(
-                        color.copy(alpha = alpha * 0.35f),
+                        color.copy(alpha = alpha),
+                        color.copy(alpha = alpha * 0.45f),
                         Color.Transparent
                     )
                 ),
@@ -124,7 +111,106 @@ fun PulsingGlow(
 }
 
 /**
- * Subtle status ring with linear rotation
+ * Frosted card: translucent white fill, hairline border, one-pixel inner top
+ * highlight and a soft ambient shadow.
+ */
+@Composable
+fun GlassPanel(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(22.dp)
+    Surface(
+        modifier = modifier
+            .shadow(
+                elevation = 10.dp,
+                shape = shape,
+                ambientColor = FrostShadow,
+                spotColor = FrostShadow
+            )
+            .border(1.dp, FrostBorderStandard, shape)
+            .clip(shape),
+        color = FrostSurfaceGlass,
+        shape = shape,
+        tonalElevation = 0.dp
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Inner top highlight, like light catching a glass edge.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                FrostBorderStrong,
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Column(
+                modifier = Modifier.padding(18.dp),
+                content = content
+            )
+        }
+    }
+}
+
+/**
+ * Soft ambient blob for status emphasis. Kept extremely low-alpha; the glow is
+ * decoration, never the only signal.
+ */
+@Composable
+fun PulsingGlow(
+    color: Color,
+    size: Dp = 160.dp,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.03f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.08f,
+        targetValue = 0.16f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .scale(scale)
+            .blur(48.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        color.copy(alpha = alpha),
+                        Color.Transparent
+                    )
+                ),
+                CircleShape
+            )
+    )
+}
+
+/**
+ * Thin neutral progress ring with a restrained accent arc. Only used while a
+ * connection is being established.
  */
 @Composable
 fun SpinningBorderRing(
@@ -134,38 +220,46 @@ fun SpinningBorderRing(
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "spin")
-    
+
     val rotation by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
+            animation = tween(1800, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "rotation"
+        label = "spinRotation"
     )
-    
-    Box(
+
+    Canvas(
         modifier = modifier
             .size(size)
             .rotate(rotation)
-            .border(
-                width = strokeWidth,
-                brush = Brush.sweepGradient(
-                    colors = listOf(
-                        color.copy(alpha = 0.3f),
-                        Color.Transparent,
-                        Color.Transparent,
-                        color.copy(alpha = 0.1f)
-                    )
-                ),
-                shape = CircleShape
-            )
-    )
+    ) {
+        val strokePx = strokeWidth.toPx()
+        val radius = (this.size.minDimension - strokePx) / 2f
+        drawCircle(
+            color = FrostBorderStandard,
+            radius = radius,
+            style = Stroke(width = strokePx)
+        )
+        drawArc(
+            color = color.copy(alpha = 0.9f),
+            startAngle = -90f,
+            sweepAngle = 80f,
+            useCenter = false,
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+            topLeft = androidx.compose.ui.geometry.Offset(
+                center.x - radius,
+                center.y - radius
+            ),
+            size = androidx.compose.ui.geometry.Size(radius * 2f, radius * 2f)
+        )
+    }
 }
 
 /**
- * Animated ping dot for online/active status
+ * Status dot with a soft, slow halo.
  */
 @Composable
 fun AnimatedPingDot(
@@ -178,34 +272,32 @@ fun AnimatedPingDot(
         contentAlignment = Alignment.Center
     ) {
         val infiniteTransition = rememberInfiniteTransition(label = "ping")
+
         val scale by infiniteTransition.animateFloat(
             initialValue = 1f,
-            targetValue = 2.2f,
+            targetValue = 1.7f,
             animationSpec = infiniteRepeatable(
-                animation = tween(1400, easing = LinearOutSlowInEasing),
+                animation = tween(1800, easing = LinearOutSlowInEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "pingScale"
         )
         val alpha by infiniteTransition.animateFloat(
-            initialValue = 0.6f,
+            initialValue = 0.22f,
             targetValue = 0f,
             animationSpec = infiniteRepeatable(
-                animation = tween(1400, easing = LinearOutSlowInEasing),
+                animation = tween(1800, easing = LinearOutSlowInEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "pingAlpha"
         )
-        
-        // Ping expansion wave
+
         Box(
             modifier = Modifier
                 .size(size)
                 .scale(scale)
                 .background(color.copy(alpha = alpha), CircleShape)
         )
-        
-        // Solid center core
         Box(
             modifier = Modifier
                 .size(size)
@@ -215,28 +307,34 @@ fun AnimatedPingDot(
 }
 
 /**
- * Compact floating navigation bar
+ * Floating iOS-style capsule navigation bar.
  */
 @Composable
 fun GlassNavBar(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
+    val shape = RoundedCornerShape(32.dp)
     Box(
-        modifier = modifier
-            .padding(horizontal = 24.dp, vertical = 20.dp)
+        modifier = modifier.padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(68.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, BorderStandard, RoundedCornerShape(20.dp)),
-            color = DarkSurface.copy(alpha = 0.92f),
-            tonalElevation = 4.dp
+                .height(64.dp)
+                .shadow(
+                    elevation = 14.dp,
+                    shape = shape,
+                    ambientColor = FrostShadow,
+                    spotColor = FrostShadow
+                )
+                .border(1.dp, FrostBorderSubtle, shape)
+                .clip(shape),
+            color = FrostSurfaceSolid,
+            shape = shape,
+            tonalElevation = 0.dp
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Subtle top hairline accent
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -246,17 +344,17 @@ fun GlassNavBar(
                             Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    AccentEmerald.copy(alpha = 0.3f),
+                                    Color.White,
                                     Color.Transparent
                                 )
                             )
                         )
                 )
-                
+
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = 10.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically,
                     content = content
@@ -267,7 +365,8 @@ fun GlassNavBar(
 }
 
 /**
- * Refined Navigation bar item with tactile feedback
+ * Nav item: icon over an 11 sp label. The selected item gets a soft accent
+ * capsule and an accent glyph.
  */
 @Composable
 fun GlassNavItem(
@@ -275,50 +374,49 @@ fun GlassNavItem(
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
     label: String,
-    selectedColor: Color = AccentEmerald,
+    selectedColor: Color = FrostAccent,
     modifier: Modifier = Modifier
 ) {
-    val activeColor = if (selected) selectedColor else Slate400
-    
+    val activeColor = if (selected) selectedColor else FrostTextSecondary
+    val capsule = RoundedCornerShape(18.dp)
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(capsule)
+            .background(
+                if (selected) selectedColor.copy(alpha = 0.12f) else Color.Transparent,
+                capsule
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Box(
-            modifier = Modifier
-                .size(36.dp)
-                .then(
-                    if (selected) {
-                        Modifier
-                            .background(selectedColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-                            .border(1.dp, selectedColor.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                    } else Modifier
-                ),
+            modifier = Modifier.size(24.dp),
             contentAlignment = Alignment.Center
         ) {
             CompositionLocalProvider(LocalContentColor provides activeColor) {
                 icon()
             }
         }
-        
-        Spacer(Modifier.height(4.dp))
-        
+
+        Spacer(Modifier.height(3.dp))
+
         Text(
             text = label,
             fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) Slate50 else Slate400,
-            maxLines = 1
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            color = if (selected) FrostTextPrimary else FrostTextSecondary,
+            maxLines = 1,
+            letterSpacing = 0.1.sp
         )
     }
 }
 
 /**
- * Tactical Master Wake-On-Lan Trigger Button for Home Phone UI
+ * Large frosted wake circle with a label underneath. The circle is 148 dp with
+ * a white ring and a faint blue tint; the power glyph is the single accent.
  */
 @Composable
 fun MasterWakeButton(
@@ -332,117 +430,126 @@ fun MasterWakeButton(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
+        targetValue = if (isPressed) 0.97f else 1f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
         ),
-        label = "masterWakeScale"
+        label = "wakeScale"
     )
-
-    val infiniteTransition = rememberInfiniteTransition(label = "wakeGlow")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.15f,
-        targetValue = 0.38f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.9f else 1f,
+        animationSpec = tween(140),
+        label = "wakeAlpha"
     )
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale),
+        modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
-        if (enabled) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .blur(16.dp)
-                    .background(
-                        AccentEmerald.copy(alpha = glowAlpha),
-                        RoundedCornerShape(14.dp)
-                    )
-            )
-        }
-
-        Surface(
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .border(
-                    width = 1.dp,
-                    color = if (enabled) AccentEmeraldBorder else BorderSubtle,
-                    shape = RoundedCornerShape(14.dp)
-                )
-                .clickable(
-                    enabled = enabled,
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick
-                ),
-            color = if (enabled) AccentEmerald else DarkSurfaceElevated,
-            tonalElevation = 6.dp
+                .scale(scale)
+                .alpha(contentAlpha)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(contentAlignment = Alignment.Center) {
+                if (enabled) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(196.dp)
+                            .blur(34.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                             .background(
-                                if (enabled) Color.Black.copy(alpha = 0.18f) else DarkSurface,
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        FrostAccent.copy(alpha = 0.14f),
+                                        Color.Transparent
+                                    )
+                                ),
                                 CircleShape
+                            )
+                    )
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .size(148.dp)
+                        .shadow(
+                            elevation = 16.dp,
+                            shape = CircleShape,
+                            ambientColor = FrostShadow,
+                            spotColor = FrostShadow
+                        )
+                        .border(1.5.dp, Color.White.copy(alpha = 0.92f), CircleShape)
+                        .clickable(
+                            enabled = enabled,
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = onClick
+                        ),
+                    shape = CircleShape,
+                    color = FrostSurfaceElevated,
+                    tonalElevation = 0.dp
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.58f),
+                                        (if (enabled) FrostAccent else Color.White)
+                                            .copy(alpha = 0.08f)
+                                    )
+                                )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Bolt,
+                            imageVector = Icons.Default.PowerSettingsNew,
                             contentDescription = null,
-                            tint = if (enabled) Color.Black else Slate500,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = if (deviceName.isNotBlank()) stringResource(R.string.wake_button_named, deviceName) else stringResource(R.string.wake_button_default),
-                            color = if (enabled) Color.Black else Slate500,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (deviceMac.isNotBlank()) stringResource(R.string.wake_mac_configured, deviceMac) else stringResource(R.string.wake_mac_missing),
-                            color = if (enabled) Color.Black.copy(alpha = 0.75f) else Slate600,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
+                            tint = if (enabled) FrostAccent else FrostTextTertiary,
+                            modifier = Modifier.size(48.dp)
                         )
                     }
                 }
-
-                Icon(
-                    imageVector = Icons.Default.PowerSettingsNew,
-                    contentDescription = null,
-                    tint = if (enabled) Color.Black.copy(alpha = 0.8f) else Slate600,
-                    modifier = Modifier.size(20.dp)
-                )
             }
+
+            Spacer(Modifier.height(18.dp))
+
+            Text(
+                text = if (deviceName.isNotBlank()) {
+                    stringResource(R.string.wake_button_named, deviceName)
+                } else {
+                    stringResource(R.string.wake_button_default)
+                },
+                style = FrostHeadline,
+                color = if (enabled) FrostTextPrimary else FrostTextTertiary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = if (deviceMac.isNotBlank()) {
+                    stringResource(R.string.wake_mac_configured, deviceMac)
+                } else {
+                    stringResource(R.string.wake_mac_missing)
+                },
+                style = FrostCaption.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp
+                ),
+                color = FrostTextSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
 
 /**
- * Safeguard Confirmation Dialog for Home Gateway Computer Actions
+ * Confirmation sheet for power actions: white glass, 28 dp radius, capsule
+ * buttons. The confirm button keeps its instrumentation tag.
  */
 @Composable
 fun ConfirmPowerDialog(
@@ -454,79 +561,100 @@ fun ConfirmPowerDialog(
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
+        val shape = RoundedCornerShape(28.dp)
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
-            color = DarkSurfaceElevated,
-            tonalElevation = 8.dp
+                .shadow(
+                    elevation = 20.dp,
+                    shape = shape,
+                    ambientColor = FrostShadow,
+                    spotColor = FrostShadow
+                )
+                .border(1.dp, FrostBorderSubtle, shape)
+                .clip(shape),
+            color = FrostSurfaceSolid,
+            shape = shape,
+            tonalElevation = 0.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(24.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(44.dp)
                             .background(
-                                if (isDestructive) SemanticDangerDim else SemanticInfoDim,
-                                RoundedCornerShape(10.dp)
+                                if (isDestructive) FrostDangerDim else FrostAccentDim,
+                                RoundedCornerShape(14.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (isDestructive) Icons.Default.Warning else Icons.Default.Refresh,
                             contentDescription = null,
-                            tint = if (isDestructive) SemanticDanger else SemanticInfo,
-                            modifier = Modifier.size(20.dp)
+                            tint = if (isDestructive) FrostDanger else FrostAccent,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = stringResource(R.string.confirm_power_title, actionName),
-                        color = Slate50,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        style = FrostHeadline,
+                        color = FrostTextPrimary
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Text(
                     text = stringResource(R.string.confirm_power_body, targetName, targetIp),
-                    color = Slate300,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
+                    style = FrostBody.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                    color = FrostTextSecondary
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.action_cancel), color = Slate400, fontSize = 13.sp)
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        shape = CircleShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, FrostBorderStandard),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = FrostTextPrimary
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.action_cancel),
+                            style = FrostCallout
+                        )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         // onConfirm is responsible for executing the pending action and dismissing the dialog.
                         // Must not call onDismiss first, or the parent state will clear the action before execution.
                         onClick = onConfirm,
-                        modifier = Modifier.testTag("confirm_power_action"),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                            .testTag("confirm_power_action"),
+                        shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isDestructive) SemanticDanger else SemanticInfo
-                        ),
-                        shape = RoundedCornerShape(10.dp)
+                            containerColor = if (isDestructive) FrostDanger else FrostAccent,
+                            contentColor = Color.White
+                        )
                     ) {
                         Text(
                             text = stringResource(R.string.action_confirm),
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
+                            style = FrostCallout,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -534,4 +662,3 @@ fun ConfirmPowerDialog(
         }
     }
 }
-
