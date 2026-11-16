@@ -147,14 +147,21 @@ mod linux {
         fs::write(UNIT_PATH, unit_file(target))
             .map_err(|error| ServiceError::new(format!("cannot write {UNIT_PATH}: {error}")))?;
 
+        // Roll back the unit if systemd cannot take it, so user launches keep working.
+        if let Err(error) =
+            systemctl(&["daemon-reload"]).and_then(|()| systemctl(&["enable", UNIT_NAME]))
+        {
+            let _ = fs::remove_file(UNIT_PATH);
+            let _ = systemctl(&["daemon-reload"]);
+            return Err(error);
+        }
+
         // The user-level instance would otherwise keep UDP 9877 busy.
         let mut notes = Vec::new();
         if let Some(note) = remove_user_autostart(invoking_home.as_deref()) {
             notes.push(note);
         }
 
-        systemctl(&["daemon-reload"])?;
-        systemctl(&["enable", UNIT_NAME])?;
         systemctl(&["restart", UNIT_NAME])?;
 
         let mut message = format!(
@@ -297,6 +304,7 @@ mod linux {
         if let Some(pid) = fs::read_to_string(&lock)
             .ok()
             .and_then(|content| content.trim().parse::<u32>().ok())
+            .filter(|&pid| is_users_pc_onoff(pid, home))
         {
             let _ = platform::command("kill")
                 .args(["-TERM", &pid.to_string()])
@@ -311,6 +319,23 @@ mod linux {
         })
     }
 
+    /// The lock file is user-writable, so only signal a `pc_onoff` process owned by the
+    /// same user that owns `home`.
+    fn is_users_pc_onoff(pid: u32, home: &Path) -> bool {
+        use std::os::unix::fs::MetadataExt;
+        if pid <= 1 {
+            return false;
+        }
+        let proc_dir = PathBuf::from(format!("/proc/{pid}"));
+        let is_pc_onoff =
+            fs::read_to_string(proc_dir.join("comm")).is_ok_and(|comm| comm.trim() == "pc_onoff");
+        let same_owner = match (fs::metadata(&proc_dir), fs::metadata(home)) {
+            (Ok(process), Ok(home)) => process.uid() == home.uid() && process.uid() != 0,
+            _ => false,
+        };
+        is_pc_onoff && same_owner
+    }
+
     fn invoking_user_home() -> Option<PathBuf> {
         let user = std::env::var("SUDO_USER")
             .ok()
@@ -318,8 +343,19 @@ mod linux {
         if user == "root" {
             return None;
         }
-        let passwd = fs::read_to_string("/etc/passwd").ok()?;
-        home_from_passwd(&passwd, &user)
+        if let Some(home) = fs::read_to_string("/etc/passwd")
+            .ok()
+            .and_then(|passwd| home_from_passwd(&passwd, &user))
+        {
+            return Some(home);
+        }
+        // LDAP / SSSD / systemd-homed accounts are only visible through NSS.
+        let output = platform::command("getent")
+            .args(["passwd", &user])
+            .output()
+            .ok()
+            .filter(|output| output.status.success())?;
+        home_from_passwd(&String::from_utf8_lossy(&output.stdout), &user)
     }
 
     pub fn home_from_passwd(passwd: &str, user: &str) -> Option<PathBuf> {
