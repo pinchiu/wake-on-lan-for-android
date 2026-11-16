@@ -17,6 +17,7 @@ class PcActionDispatcherTest {
         assertEquals("WAKE" to "11:22:33:44:55:66", dispatcher.parseCommand("WAKE,11:22:33:44:55:66"))
         assertEquals("SHUTDOWN" to "192.168.1.50", dispatcher.parseCommand("SHUTDOWN:192.168.1.50"))
         assertEquals("REBOOT" to "192.168.1.50", dispatcher.parseCommand("REBOOT,192.168.1.50"))
+        assertEquals("LOCK" to "192.168.1.50", dispatcher.parseCommand("lock:192.168.1.50"))
         assertEquals("WAKE" to "11:22:33:44:55:66", dispatcher.parseCommand("11:22:33:44:55:66"))
         assertEquals("WAKE" to "", dispatcher.parseCommand("WAKE"))
         assertEquals("WAKE" to "", dispatcher.parseCommand("ON"))

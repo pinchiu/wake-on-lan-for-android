@@ -88,6 +88,13 @@ Double-click `pc_onoff-windows-x86_64.exe` (or `pc_onoff.exe`).
   ```
 - Automatically registers a `systemd --user` service and an XDG autostart entry for persistence across reboots.
 
+#### Working before anyone logs in (Linux)
+The default `systemd --user` / XDG autostart only starts **after you log in**, so a freshly booted PC sitting at the login screen ignores shutdown/reboot commands. Install the system-wide service once to fix this:
+```bash
+sudo ./pc_onoff-linux-x86_64.AppImage --install-system   # or: sudo ./pc_onoff --install-system
+```
+This copies the binary to `/usr/local/bin/pc_onoff`, installs `/etc/systemd/system/pc_onoff.service` (enabled for `multi-user.target`, runs as root), stores config/logs in `/var/lib/pc_onoff/`, and removes the per-user autostart so the two never compete for UDP 9877. Remove it with `sudo pc_onoff --uninstall-system`.
+
 #### Running on Apple macOS
 Download and extract `pc_onoff-macos-universal.zip`.
 ```bash

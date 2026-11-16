@@ -175,7 +175,7 @@ pub(crate) mod linux {
     use super::AutostartError;
     use crate::platform;
 
-    const SERVICE_NAME: &str = "pc_onoff.service";
+    pub(crate) const SERVICE_NAME: &str = "pc_onoff.service";
     const DESKTOP_NAME: &str = "pc_onoff.desktop";
 
     #[cfg_attr(target_os = "macos", allow(dead_code))]
@@ -199,7 +199,7 @@ pub(crate) mod linux {
     pub(super) fn set_enabled(enabled: bool) -> Result<(), AutostartError> {
         let home =
             home_dir().ok_or_else(|| AutostartError::new("HOME environment variable not found"))?;
-        let executable = env::current_exe()
+        let executable = platform::launcher_executable()
             .map_err(|error| AutostartError::new(format!("cannot get executable path: {error}")))?;
 
         let desktop = desktop_path(&home);
@@ -237,12 +237,18 @@ pub(crate) mod linux {
         env::var_os("HOME").map(PathBuf::from)
     }
 
-    fn desktop_path(home: &Path) -> PathBuf {
+    pub(crate) fn desktop_path(home: &Path) -> PathBuf {
         home.join(".config/autostart").join(DESKTOP_NAME)
     }
 
-    fn service_path(home: &Path) -> PathBuf {
+    pub(crate) fn service_path(home: &Path) -> PathBuf {
         home.join(".config/systemd/user").join(SERVICE_NAME)
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    pub(crate) fn service_wants_link(home: &Path) -> PathBuf {
+        home.join(".config/systemd/user/default.target.wants")
+            .join(SERVICE_NAME)
     }
 
     fn write_file(path: &Path, content: &str) -> Result<(), AutostartError> {
@@ -287,7 +293,8 @@ pub(crate) mod linux {
              [Service]\n\
              Type=simple\n\
              ExecStart={}\n\
-             Restart=always\n\
+             Restart=on-failure\n\
+             RestartSec=5\n\
              \n\
              [Install]\n\
              WantedBy=default.target\n",
@@ -315,7 +322,7 @@ pub(crate) mod linux {
     }
 
     /// systemd unit ExecStart also quotes paths; `%` is escaped as `%%`.
-    fn systemd_exec(executable: &Path) -> String {
+    pub(crate) fn systemd_exec(executable: &Path) -> String {
         let path = executable.to_string_lossy();
         let mut escaped = String::with_capacity(path.len() + 2);
         escaped.push('"');
@@ -353,7 +360,7 @@ pub(crate) mod linux {
         fn service_unit_escapes_specifiers_and_variables() {
             let unit = service_unit(Path::new("/opt/100%/pc_onoff"));
             assert!(unit.contains("ExecStart=\"/opt/100%%/pc_onoff\""));
-            assert!(unit.contains("Restart=always"));
+            assert!(unit.contains("Restart=on-failure"));
         }
 
         #[test]

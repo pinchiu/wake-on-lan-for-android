@@ -200,6 +200,8 @@
     <string name="mqtt_error_unknown">未知連線錯誤</string>
     <string name="mqtt_subscribe_failed">訂閱主題失敗: %1$s</string>
     <string name="mqtt_subscribe_rejected">Broker 拒絕訂閱主題 \'%1$s\' (若使用 Adafruit IO，主題格式需為: 使用者名稱/feeds/主題名稱)</string>
+    <string name="service_mqtt_reconnecting">MQTT 已中斷 (%1$s)，%2$d 秒後重新連線</string>
+    <string name="mqtt_error_invalid_topic">MQTT 主題格式錯誤：\'%1$s\' (+ 必須獨佔一層，# 只能放在最後一層)</string>
 
     <!-- WoL 監聽服務通知 -->
     <string name="service_wol_initializing">正在監聽喚醒指令 (TCP)...</string>

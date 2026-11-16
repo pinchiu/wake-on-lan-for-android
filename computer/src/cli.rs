@@ -14,6 +14,7 @@ use crate::logging::Logger;
 use crate::paths;
 use crate::power::SystemPower;
 use crate::server;
+use crate::system_service::{self, SERVICE_FLAG};
 
 const LOG_TAIL_LINES: usize = 25;
 
@@ -21,11 +22,15 @@ const LOG_TAIL_LINES: usize = 25;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CliCommand {
     Run,
+    /// Run from the system service unit: never touches per-user autostart.
+    RunService,
     Status,
     Logs,
     Stop,
     Install,
     Uninstall,
+    InstallSystem,
+    UninstallSystem,
     Help,
 }
 
@@ -64,6 +69,9 @@ impl CliCommand {
             "--stop" => Ok(Self::Stop),
             "--install" | "-i" => Ok(Self::Install),
             "--uninstall" | "-u" => Ok(Self::Uninstall),
+            "--install-system" => Ok(Self::InstallSystem),
+            "--uninstall-system" => Ok(Self::UninstallSystem),
+            SERVICE_FLAG => Ok(Self::RunService),
             "--help" | "-h" => Ok(Self::Help),
             other => Err(CliError::UnknownArgument(other.to_owned())),
         }
@@ -82,12 +90,34 @@ pub fn run(args: Vec<String>) -> i32 {
         Ok(CliCommand::Stop) => stop_service(),
         Ok(CliCommand::Install) => set_autostart(true),
         Ok(CliCommand::Uninstall) => set_autostart(false),
-        Ok(CliCommand::Run) => run_daemon(),
+        Ok(CliCommand::InstallSystem) => report(system_service::install()),
+        Ok(CliCommand::UninstallSystem) => report(system_service::uninstall()),
+        Ok(CliCommand::Run) => run_daemon(DaemonMode::User),
+        Ok(CliCommand::RunService) => run_daemon(DaemonMode::SystemService),
         Err(error) => {
             eprintln!("Argument error: {error}");
             eprintln!();
             print_help();
             2
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DaemonMode {
+    User,
+    SystemService,
+}
+
+fn report(result: Result<String, system_service::ServiceError>) -> i32 {
+    match result {
+        Ok(message) => {
+            println!("{message}");
+            0
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            1
         }
     }
 }
@@ -117,8 +147,18 @@ fn show_status() -> i32 {
             "disabled"
         }
     );
+    let service_state = system_service::state();
+    if service_state != system_service::ServiceState::Unsupported {
+        println!("  System Service:     {}", service_state.label());
+    }
     println!("  Config File:        {}", config_path.display());
     println!("  Log File:           {}", log_path.display());
+    if service_state.is_installed() {
+        println!(
+            "  (System service uses /var/lib/pc_onoff/config.ini and pc_onoff.log; manage with `sudo systemctl status {}`)",
+            system_service::UNIT_NAME
+        );
+    }
     0
 }
 
@@ -139,6 +179,12 @@ fn show_logs() -> i32 {
 }
 
 fn stop_service() -> i32 {
+    if system_service::state() == system_service::ServiceState::Active {
+        println!(
+            "Note: the system service is running; stop it with `sudo systemctl stop {}`.",
+            system_service::UNIT_NAME
+        );
+    }
     match instance::request_stop() {
         Ok(StopOutcome::Signaled) => {
             println!("Stop signal sent; background service will terminate.");
@@ -180,8 +226,19 @@ fn set_autostart(enabled: bool) -> i32 {
     0
 }
 
-fn run_daemon() -> i32 {
+fn run_daemon(mode: DaemonMode) -> i32 {
     let logger = Logger::new(paths::log_path());
+
+    if mode == DaemonMode::User && system_service::state().is_installed() {
+        logger.record(
+            "instance_check",
+            &format!(
+                "System service {} is installed and handles remote commands; exiting user instance.",
+                system_service::UNIT_NAME
+            ),
+        );
+        return 0;
+    }
 
     // Single-instance lock must remain in scope until function ends; quiet exit on duplicate launch.
     let _instance = match SingleInstance::acquire() {
@@ -214,7 +271,12 @@ fn run_daemon() -> i32 {
         );
     }
 
-    if config.autostart {
+    if mode == DaemonMode::SystemService {
+        logger.record(
+            "config",
+            "Running as system service; active at boot before any user logs in.",
+        );
+    } else if config.autostart {
         match autostart::set_enabled(true) {
             Ok(()) => logger.record("config", "Autostart on boot verified."),
             Err(error) => logger.record(
@@ -226,6 +288,21 @@ fn run_daemon() -> i32 {
         logger.record(
             "config",
             "Autostart disabled in configuration file; skipping registration.",
+        );
+    }
+
+    if mode == DaemonMode::User
+        && system_service::state() == system_service::ServiceState::NotInstalled
+    {
+        let exe = crate::platform::launcher_executable()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|_| "pc_onoff".to_owned());
+        logger.record(
+            "hint",
+            &format!(
+                "Per-user autostart only runs after you log in. To accept shutdown/reboot \
+                 commands right after boot (at the login screen), run once: sudo \"{exe}\" --install-system"
+            ),
         );
     }
 
@@ -270,6 +347,12 @@ fn print_help() {
     println!("  {exe} --stop       Stop running background daemon");
     println!("  {exe} --install    Enable autostart on boot");
     println!("  {exe} --uninstall  Disable autostart on boot");
+    if cfg!(all(unix, not(target_os = "macos"))) {
+        println!(
+            "  sudo {exe} --install-system    Install as a system service (works before login)"
+        );
+        println!("  sudo {exe} --uninstall-system  Remove the system service");
+    }
     println!("  {exe} --help       Show this help");
     println!();
     println!("Remote commands (UDP, case-insensitive):");
@@ -308,6 +391,9 @@ mod tests {
             ("-u", CliCommand::Uninstall),
             ("--help", CliCommand::Help),
             ("-h", CliCommand::Help),
+            ("--install-system", CliCommand::InstallSystem),
+            ("--uninstall-system", CliCommand::UninstallSystem),
+            ("--service", CliCommand::RunService),
         ];
 
         for (flag, expected) in cases {

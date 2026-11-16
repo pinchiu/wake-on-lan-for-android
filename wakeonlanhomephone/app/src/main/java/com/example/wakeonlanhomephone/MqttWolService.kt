@@ -6,29 +6,67 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.hivemq.client.mqtt.MqttClient
+import com.hivemq.client.mqtt.MqttGlobalPublishFilter
+import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
-import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAck
-import com.hivemq.client.mqtt.mqtt3.message.subscribe.suback.Mqtt3SubAckReturnCode
-import kotlinx.coroutines.runBlocking
+import com.hivemq.client.mqtt.mqtt3.exceptions.Mqtt3ConnAckException
+import com.hivemq.client.mqtt.mqtt3.message.connect.connack.Mqtt3ConnAckReturnCode
+import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
-import java.util.UUID
+import java.util.concurrent.TimeUnit
 
+/**
+ * MQTT transport adapter: keeps one broker connection alive and forwards command payloads
+ * to [PcActionDispatcher].
+ *
+ * Threading: all connection state is owned by the main thread. HiveMQ listeners hop onto it via
+ * [mainHandler]; each client carries a generation number so events from a replaced client are
+ * ignored. Commands run on [serviceScope] (IO) so the MQTT event loop is never blocked.
+ */
 class MqttWolService : Service() {
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private var mqttClient: Mqtt3AsyncClient? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var cachedConfig: MqttConfig? = null
+    private var activeConfig: MqttConfig? = null
+    private var activeDevices: List<MqttDevice> = emptyList()
+    private var generation = 0
+    private var isConnecting = false
+    private var wasConnected = false
+    private var reconnectAttempt = 0
+    private var reconnectPending = false
+    private var destroyed = false
+    private val pendingPublishes = ArrayDeque<Pair<String, String>>()
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var connectWakeLock: PowerManager.WakeLock? = null
+
+    // Read from the HiveMQ callback thread.
+    @Volatile private var commandTopic: String = ""
+    @Volatile private var deviceSubscriptions: List<MqttDevice> = emptyList()
+
+    private val reconnectRunnable = Runnable {
+        reconnectPending = false
+        activeConfig?.let { connect(it, activeDevices) }
+    }
 
     private val dispatcher by lazy {
-        PcActionDispatcher(
-            defaultMacProvider = { getMqttConfig().targetMac }
-        )
+        PcActionDispatcher(defaultMacProvider = { MqttConfigManager(this).getConfig().targetMac })
     }
 
     private fun localized(resId: Int, vararg args: Any): String {
@@ -39,202 +77,392 @@ class MqttWolService : Service() {
         const val TAG = "MqttWolService"
         const val NOTIFICATION_CHANNEL_ID = "MqttWolServiceChannel"
         const val NOTIFICATION_ID = 2
-        const val TOPIC = "home/pc/power"
         const val ACTION_PUBLISH = "com.example.wakeonlanhomephone.action.PUBLISH"
         const val EXTRA_TOPIC = "com.example.wakeonlanhomephone.extra.TOPIC"
         const val EXTRA_MESSAGE = "com.example.wakeonlanhomephone.extra.MESSAGE"
+
+        private const val CONNECT_WAKE_LOCK_MS = 30_000L
+        private const val COMMAND_WAKE_LOCK_MS = 10_000L
+        private const val MAX_PENDING_PUBLISHES = 20
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
-
-    private fun getMqttConfig(): MqttConfig {
-        var config = cachedConfig
-        if (config == null) {
-            config = MqttConfigManager(this).getConfig()
-            cachedConfig = config
-        }
-        return config
-    }
-
-    private fun acquireWakeLock(timeout: Long) {
-        try {
-            if (wakeLock == null) {
-                val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MqttWolService::WakeLock")
-            }
-            if (wakeLock?.isHeld == false) {
-                wakeLock?.acquire(timeout)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to acquire WakeLock", e)
-        }
-    }
-
-    private fun releaseWakeLock() {
-        try {
-            if (wakeLock?.isHeld == true) {
-                wakeLock?.release()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to release WakeLock", e)
-        }
-    }
+    override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service Created")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification(localized(R.string.service_mqtt_initializing)))
+        registerNetworkCallback()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_PUBLISH) {
-            val topic = intent.getStringExtra(EXTRA_TOPIC) ?: ""
-            val message = intent.getStringExtra(EXTRA_MESSAGE) ?: ""
-            if (topic.isNotEmpty()) {
-                publishMessage(topic, message)
-            }
+            val topic = intent.getStringExtra(EXTRA_TOPIC).orEmpty()
+            val message = intent.getStringExtra(EXTRA_MESSAGE).orEmpty()
+            ensureConnected()
+            if (topic.isNotEmpty()) publishMessage(topic, message)
             return START_STICKY
         }
 
         Log.d(TAG, "Service Started")
         AppLogger.log("MQTT Service Started")
-        connectMqtt()
+        ensureConnected()
         return START_STICKY
     }
 
-    private fun publishMessage(topic: String, message: String) {
-         val client = mqttClient ?: return
-         if (!client.state.isConnected) {
-             AppLogger.log("Cannot publish: MQTT Disconnected")
-             return
-         }
-         client.publishWith()
-             .topic(topic)
-             .payload(message.toByteArray(StandardCharsets.UTF_8))
-             .send()
-             .whenComplete { _, throwable ->
-                 if (throwable != null) {
-                     Log.e(TAG, "Publish failed", throwable)
-                     AppLogger.log("Publish Failed: ${throwable.message}")
-                 } else {
-                     Log.d(TAG, "Published to $topic: $message")
-                     AppLogger.log("Published to $topic: $message")
-                 }
-             }
+    /** Connects unless an identical, healthy (connected or connecting) client already exists. */
+    private fun ensureConnected() {
+        val config = MqttConfigManager(this).getConfig()
+        val devices = DeviceManager(this).getDevices()
+        AppGlobalState.updateDevices(devices)
+
+        val client = mqttClient
+        val sameSetup = config == activeConfig && devices == activeDevices
+        if (client != null && sameSetup && (client.state.isConnected || isConnecting)) {
+            if (client.state.isConnected) AppGlobalState.updateState(MqttConnectionState.CONNECTED)
+            Log.d(TAG, "Already connected/connecting with the current configuration")
+            return
+        }
+        reconnectAttempt = 0
+        connect(config, devices)
     }
-    private fun connectMqtt() {
-        cachedConfig = null
-        val currentClient = mqttClient
-        if (currentClient != null && currentClient.state.isConnected) {
-            Log.d(TAG, "Already connected")
-            AppGlobalState.updateState(MqttConnectionState.CONNECTED)
-            return
-        }
 
-        val config = getMqttConfig()
-        val cleanHost = config.host
-            .replace(Regex("^[a-zA-Z]+://"), "")
-            .substringBefore(":")
-            .substringBefore("/")
-            .trim()
-        val effectivePort = if (config.port > 0) config.port else if (config.useSsl) 8883 else 1883
+    private fun connect(config: MqttConfig, devices: List<MqttDevice>) {
+        cancelScheduledReconnect()
+        teardownClient()
+        activeConfig = config
+        activeDevices = devices
+        wasConnected = false
 
-        Log.d(TAG, "Connecting to $cleanHost:$effectivePort as ${config.username}")
-        
-        if (cleanHost.isEmpty()) {
+        val endpoint = MqttEndpoint.parse(config.host, config.port, config.useSsl, config.protocol)
+        if (endpoint == null) {
             Log.e(TAG, "Host is empty, skipping connection")
-            AppGlobalState.updateState(MqttConnectionState.FAILED, error = localized(R.string.mqtt_error_host_missing))
+            reportFailure(localized(R.string.mqtt_error_host_missing))
             return
         }
+        val topic = config.topic.trim()
+        if (!MqttTopics.isValidFilter(topic)) {
+            reportFailure(localized(R.string.mqtt_error_invalid_topic, topic))
+            return
+        }
+        commandTopic = topic
+        deviceSubscriptions = devices.filter { device ->
+            MqttTopics.isValidFilter(device.topic).also { valid ->
+                if (!valid) AppLogger.log("MQTT: Skipping device '${device.name}' (invalid topic '${device.topic}')")
+            }
+        }
 
-        AppLogger.log("MQTT: Connecting to $cleanHost:$effectivePort")
-        
-        // Report Connecting State
-        val protocolPrefix = if (config.useSsl) "ssl://" else "tcp://"
-        AppGlobalState.updateState(MqttConnectionState.CONNECTING, url = "$protocolPrefix$cleanHost:$effectivePort")
+        val clientGeneration = ++generation
+        isConnecting = true
+        AppLogger.log("MQTT: Connecting to ${endpoint.displayUrl}")
+        AppGlobalState.updateState(MqttConnectionState.CONNECTING, url = endpoint.displayUrl)
+        acquireConnectWakeLock()
 
-        // Acquire WakeLock during connection attempt (30 seconds timeout)
-        acquireWakeLock(30 * 1000L)
-
-        val builder = MqttClient.builder()
+        val timeoutSeconds = config.timeout.coerceIn(5, 120).toLong()
+        val clientHolder = arrayOfNulls<Mqtt3AsyncClient>(1)
+        val transport = MqttClient.builder()
             .useMqttVersion3()
-            .identifier(if (config.clientId.isNotEmpty()) config.clientId else UUID.randomUUID().toString())
-            .serverHost(cleanHost)
-            .serverPort(effectivePort)
-            .addConnectedListener { _ ->
-                Log.d(TAG, "MQTT Connection established")
-                AppLogger.log("MQTT: Connected to broker ($cleanHost:$effectivePort)")
-                AppGlobalState.updateState(MqttConnectionState.CONNECTED)
+            .identifier(config.clientId.trim().ifEmpty { MqttReconnectPolicy.generateClientId() })
+            .transportConfig()
+            .serverHost(endpoint.host)
+            .serverPort(endpoint.port)
+            .socketConnectTimeout(timeoutSeconds, TimeUnit.SECONDS)
+            .mqttConnectTimeout(timeoutSeconds, TimeUnit.SECONDS)
+        if (endpoint.useSsl) transport.sslWithDefaultConfig()
+        if (endpoint.useWebSocket) {
+            transport.webSocketConfig().serverPath(endpoint.webSocketPath).applyWebSocketConfig()
+        }
+        val client = transport.applyTransportConfig()
+            .addConnectedListener {
+                mainHandler.post {
+                    if (clientGeneration == generation) {
+                        onConnected(endpoint)
+                    } else {
+                        // A replaced client finished connecting late: close it so it cannot
+                        // fight the current one for the same client identifier.
+                        clientHolder[0]?.disconnect()
+                    }
+                }
             }
             .addDisconnectedListener { context ->
-                val cause = context.cause?.message ?: "Connection closed"
-                Log.w(TAG, "MQTT Disconnected: $cause")
-                AppLogger.log("MQTT: Disconnected ($cause)")
-                AppGlobalState.updateState(MqttConnectionState.DISCONNECTED, error = cause)
+                val cause = context.cause
+                mainHandler.post {
+                    if (clientGeneration == generation) onDisconnected(cause)
+                }
             }
+            .buildAsync()
+        clientHolder[0] = client
+        mqttClient = client
 
-        if (config.useSsl) {
-            builder.sslWithDefaultConfig()
-        }
+        // Registered before connecting so retained/early messages are never missed. Global
+        // routing (instead of per-subscribe callbacks) keeps working across re-subscriptions.
+        client.publishes(MqttGlobalPublishFilter.ALL) { publish -> handleIncoming(publish) }
 
-        if (config.protocol.equals("WebSocket", ignoreCase = true) || config.protocol.equals("WS", ignoreCase = true)) {
-            builder.webSocketWithDefaultConfig()
-            Log.d(TAG, "Using WebSocket Protocol")
-        } else {
-             Log.d(TAG, "Using TCP Protocol")
-        }
-        
-        if (config.autoConnect) {
-            builder.automaticReconnectWithDefaultConfig()
-        }
-
-        mqttClient = builder.buildAsync()
-
-        val client = mqttClient ?: return
-
-        val connectBuilder = client.connectWith()
+        val connect = client.connectWith()
+            .cleanSession(true)
+            .keepAlive(config.keepAlive.coerceIn(10, 3600))
         if (config.username.isNotEmpty()) {
-            val authBuilder = connectBuilder.simpleAuth().username(config.username)
+            val auth = connect.simpleAuth().username(config.username)
             if (config.password.isNotEmpty()) {
-                authBuilder.password(config.password.toByteArray(StandardCharsets.UTF_8))
+                auth.password(config.password.toByteArray(StandardCharsets.UTF_8))
             }
-            authBuilder.applySimpleAuth()
+            auth.applySimpleAuth()
         }
-        connectBuilder.keepAlive(config.keepAlive)
+        // Failures are reported once, by the disconnected listener.
+        connect.send().whenComplete { _, _ -> mainHandler.post { releaseConnectWakeLock() } }
+    }
+
+    private fun onConnected(endpoint: MqttEndpoint) {
+        isConnecting = false
+        wasConnected = true
+        reconnectAttempt = 0
+        releaseConnectWakeLock()
+        Log.d(TAG, "Connected to ${endpoint.displayUrl}")
+        AppLogger.log("MQTT: Connected to broker (${endpoint.displayUrl})")
+        AppLogger.log("MQTT: Listening on topic '$commandTopic'")
+        AppGlobalState.updateState(MqttConnectionState.CONNECTED, url = endpoint.displayUrl)
+        updateNotification(localized(R.string.service_mqtt_connected_listening, commandTopic))
+
+        // Clean session: the broker forgets subscriptions on every disconnect, so subscribe on
+        // every (re)connect.
+        subscribe(commandTopic, isCommandTopic = true)
+        deviceSubscriptions.map { it.topic }.distinct()
+            .filter { it != commandTopic }
+            .forEach { subscribe(it, isCommandTopic = false) }
+
+        flushPendingPublishes()
+    }
+
+    private fun onDisconnected(cause: Throwable?) {
+        val connectAttemptFailed = isConnecting && !wasConnected
+        isConnecting = false
+        releaseConnectWakeLock()
+        val message = cause?.let(::formatErrorMessage) ?: "Connection closed"
+        Log.w(TAG, "MQTT Disconnected: $message", cause)
+        AppLogger.log(if (connectAttemptFailed) "MQTT: Connection Failed ($message)" else "MQTT: Disconnected ($message)")
+
+        val config = activeConfig
+        if (destroyed || config == null || !config.autoConnect || isFatal(cause)) {
+            reportFailure(message, connectAttemptFailed)
+            return
+        }
+
+        val delaySeconds = MqttReconnectPolicy.delaySeconds(reconnectAttempt++)
+        val status = localized(R.string.service_mqtt_reconnecting, message, delaySeconds.toInt())
+        AppLogger.log("MQTT: Reconnecting in ${delaySeconds}s")
+        AppGlobalState.updateState(
+            if (connectAttemptFailed) MqttConnectionState.FAILED else MqttConnectionState.DISCONNECTED,
+            error = status
+        )
+        updateNotification(status)
+        reconnectPending = true
+        mainHandler.postDelayed(reconnectRunnable, TimeUnit.SECONDS.toMillis(delaySeconds))
+    }
+
+    /** Credential / identifier rejections will not fix themselves by retrying. */
+    private fun isFatal(cause: Throwable?): Boolean {
+        val connAck = cause as? Mqtt3ConnAckException ?: return false
+        return connAck.mqttMessage.returnCode in setOf(
+            Mqtt3ConnAckReturnCode.BAD_USER_NAME_OR_PASSWORD,
+            Mqtt3ConnAckReturnCode.NOT_AUTHORIZED,
+            Mqtt3ConnAckReturnCode.IDENTIFIER_REJECTED,
+            Mqtt3ConnAckReturnCode.UNSUPPORTED_PROTOCOL_VERSION
+        )
+    }
+
+    private fun reportFailure(message: String, failed: Boolean = true) {
+        AppGlobalState.updateState(
+            if (failed) MqttConnectionState.FAILED else MqttConnectionState.DISCONNECTED,
+            error = message
+        )
+        updateNotification(localized(R.string.service_mqtt_connection_failed, message))
+    }
+
+    private fun subscribe(topic: String, isCommandTopic: Boolean) {
+        val client = mqttClient ?: return
+        client.subscribeWith()
+            .topicFilter(topic)
+            .qos(MqttQos.AT_LEAST_ONCE)
             .send()
-            .whenComplete { connAck: Mqtt3ConnAck?, throwable: Throwable? ->
-                releaseWakeLock()
-                if (throwable != null) {
-                    val errorMsg = formatErrorMessage(throwable)
-                    Log.e(TAG, "Connection failed: $errorMsg", throwable)
-                    updateNotification(localized(R.string.service_mqtt_connection_failed, errorMsg))
-                    AppLogger.log("MQTT: Connection Failed ($errorMsg)")
-                    AppGlobalState.updateState(MqttConnectionState.FAILED, error = errorMsg)
-                } else {
-                    Log.d(TAG, "Connected to MQTT")
-                    updateNotification(localized(R.string.service_mqtt_connected_listening, config.topic))
-                    AppLogger.log("MQTT: Listening on topic '${config.topic}'")
-                    AppGlobalState.updateState(MqttConnectionState.CONNECTED)
-                    subscribeToTopic(config.topic)
-                    
-                    // Subscribe to Devices
-                    val deviceManager = DeviceManager(this)
-                    val devices = deviceManager.getDevices()
-                    AppGlobalState.updateDevices(devices) // Sync state
-                    devices.forEach { device ->
-                        subscribeToDevice(device)
+            .whenComplete { subAck, throwable ->
+                mainHandler.post {
+                    when {
+                        throwable != null -> {
+                            val errorMsg = formatErrorMessage(throwable)
+                            Log.e(TAG, "Subscription to $topic failed: $errorMsg", throwable)
+                            AppLogger.log("MQTT: Subscription to '$topic' failed ($errorMsg)")
+                            if (isCommandTopic) {
+                                AppGlobalState.updateState(
+                                    MqttConnectionState.FAILED,
+                                    error = localized(R.string.mqtt_subscribe_failed, errorMsg)
+                                )
+                            }
+                        }
+                        subAck != null && subAck.returnCodes.any { it.isError } -> {
+                            val reason = localized(R.string.mqtt_subscribe_rejected, topic)
+                            Log.e(TAG, reason)
+                            AppLogger.log("MQTT: $reason")
+                            if (isCommandTopic) {
+                                AppGlobalState.updateState(MqttConnectionState.FAILED, error = reason)
+                                updateNotification(reason)
+                            }
+                        }
+                        else -> Log.d(TAG, "Subscribed to $topic")
                     }
                 }
             }
     }
 
+    /** Runs on the HiveMQ callback thread; must not block. */
+    private fun handleIncoming(publish: Mqtt3Publish) {
+        val topic = publish.topic.toString()
+        val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
+
+        if (MqttTopics.matches(commandTopic, topic)) {
+            handleCommand(topic, payload, publish.isRetain)
+        }
+        deviceSubscriptions.filter { MqttTopics.matches(it.topic, topic) }.forEach { device ->
+            Log.d(TAG, "Device ${device.name} status: $payload")
+            when (payload) {
+                device.onlinePayload -> AppGlobalState.updateDeviceStatus(device.id, true)
+                device.offlinePayload -> AppGlobalState.updateDeviceStatus(device.id, false)
+            }
+        }
+    }
+
+    private fun handleCommand(topic: String, payload: String, retained: Boolean) {
+        if (retained) {
+            // A retained command is replayed on every (re)connect; executing it would e.g.
+            // shut the PC down again each time the phone reconnects.
+            AppLogger.log("MQTT: Ignored retained message on '$topic' (publish commands with retain=false)")
+            return
+        }
+        if (payload.isEmpty()) {
+            AppLogger.log("MQTT: Ignored empty message on '$topic'")
+            return
+        }
+        Log.d(TAG, "Received command on $topic: $payload")
+        serviceScope.launch {
+            val wakeLock = newWakeLock("MqttWolService::Command")
+            wakeLock?.acquire(COMMAND_WAKE_LOCK_MS)
+            try {
+                val result = dispatcher.dispatch(payload, "MQTT")
+                val text = when (result) {
+                    is PcActionResult.Success -> result.message
+                    is PcActionResult.Failure -> result.error
+                }
+                mainHandler.post { if (!destroyed) updateNotification(text) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to handle MQTT command", e)
+                AppLogger.log("MQTT: Command '$payload' failed (${e.message})")
+            } finally {
+                if (wakeLock?.isHeld == true) wakeLock.release()
+            }
+        }
+    }
+
+    private fun publishMessage(topic: String, message: String) {
+        val client = mqttClient
+        if (client == null || !client.state.isConnected) {
+            if (pendingPublishes.size >= MAX_PENDING_PUBLISHES) pendingPublishes.removeFirst()
+            pendingPublishes.addLast(topic to message)
+            AppLogger.log("MQTT not connected; queued message for $topic")
+            return
+        }
+        client.publishWith()
+            .topic(topic)
+            .qos(MqttQos.AT_LEAST_ONCE)
+            .payload(message.toByteArray(StandardCharsets.UTF_8))
+            .send()
+            .whenComplete { _, throwable ->
+                if (throwable != null) {
+                    Log.e(TAG, "Publish failed", throwable)
+                    AppLogger.log("Publish Failed: ${throwable.message}")
+                } else {
+                    Log.d(TAG, "Published to $topic: $message")
+                    AppLogger.log("Published to $topic: $message")
+                }
+            }
+    }
+
+    private fun flushPendingPublishes() {
+        while (pendingPublishes.isNotEmpty()) {
+            val (topic, message) = pendingPublishes.removeFirst()
+            publishMessage(topic, message)
+        }
+    }
+
+    private fun cancelScheduledReconnect() {
+        mainHandler.removeCallbacks(reconnectRunnable)
+        reconnectPending = false
+    }
+
+    private fun teardownClient() {
+        val client = mqttClient ?: return
+        mqttClient = null
+        generation++ // Ignore all further events from the old client.
+        isConnecting = false
+        try {
+            client.disconnect().whenComplete { _, _ -> }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error disconnecting MQTT", e)
+        }
+    }
+
+    /** Retry immediately when connectivity returns instead of waiting out the back-off. */
+    private fun registerNetworkCallback() {
+        val connectivityManager = getSystemService(ConnectivityManager::class.java) ?: return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                mainHandler.post {
+                    if (!destroyed && reconnectPending) {
+                        AppLogger.log("MQTT: Network available, reconnecting now")
+                        reconnectAttempt = 0
+                        cancelScheduledReconnect()
+                        activeConfig?.let { connect(it, activeDevices) }
+                    }
+                }
+            }
+        }
+        try {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+            networkCallback = callback
+        } catch (e: Exception) {
+            Log.w(TAG, "Cannot register network callback", e)
+        }
+    }
+
+    private fun newWakeLock(tag: String): PowerManager.WakeLock? = try {
+        (getSystemService(POWER_SERVICE) as PowerManager)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, tag)
+            .apply { setReferenceCounted(false) }
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to create WakeLock", e)
+        null
+    }
+
+    private fun acquireConnectWakeLock() {
+        val wakeLock = connectWakeLock ?: newWakeLock("MqttWolService::Connect").also { connectWakeLock = it }
+        try {
+            wakeLock?.acquire(CONNECT_WAKE_LOCK_MS)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to acquire WakeLock", e)
+        }
+    }
+
+    private fun releaseConnectWakeLock() {
+        try {
+            if (connectWakeLock?.isHeld == true) connectWakeLock?.release()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to release WakeLock", e)
+        }
+    }
+
     private fun formatErrorMessage(throwable: Throwable): String {
         val raw = throwable.message ?: ""
         val causeMsg = throwable.cause?.message ?: ""
-        val full = "$raw $causeMsg".trim()
+        val full = "$raw $causeMsg ${throwable.javaClass.simpleName} ${throwable.cause?.javaClass?.simpleName.orEmpty()}".trim()
         return when {
             full.contains("BAD_USER_NAME_OR_PASSWORD", ignoreCase = true) ->
                 localized(R.string.mqtt_error_auth)
@@ -246,7 +474,7 @@ class MqttWolService : Service() {
                 localized(R.string.mqtt_error_ssl)
             full.contains("UnknownHost", ignoreCase = true) ->
                 localized(R.string.mqtt_error_unknown_host)
-            full.contains("Connection refused", ignoreCase = true) ->
+            full.contains("Connection refused", ignoreCase = true) || full.contains("ConnectException", ignoreCase = true) ->
                 localized(R.string.mqtt_error_refused)
             full.contains("timeout", ignoreCase = true) || full.contains("timed out", ignoreCase = true) ->
                 localized(R.string.mqtt_error_timeout)
@@ -256,43 +484,6 @@ class MqttWolService : Service() {
         }
     }
 
-    private fun subscribeToTopic(topic: String) {
-        val client = mqttClient ?: return
-        client.subscribeWith()
-            .topicFilter(topic)
-            .callback { publish ->
-                // Hold WakeLock for 5 seconds to ensure CPU and network stack remain awake while sending WOL packet
-                acquireWakeLock(5000L)
-                val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
-                Log.d(TAG, "Received message: $payload")
-                
-                val actionResult = runBlocking {
-                    dispatcher.dispatch(payload, "MQTT")
-                }
-                if (actionResult is PcActionResult.Success) {
-                    updateNotification(actionResult.message)
-                } else if (actionResult is PcActionResult.Failure) {
-                    Log.w(TAG, "MQTT Command failed: ${actionResult.error}")
-                }
-            }
-            .send()
-            .whenComplete { subAck, throwable ->
-                 if (throwable != null) {
-                     val errorMsg = formatErrorMessage(throwable)
-                     Log.e(TAG, "Subscription failed: $errorMsg", throwable)
-                     AppLogger.log("MQTT: Subscription failed ($errorMsg)")
-                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = localized(R.string.mqtt_subscribe_failed, errorMsg))
-                 } else if (subAck != null && subAck.returnCodes.any { it.isError }) {
-                     val reason = localized(R.string.mqtt_subscribe_rejected, topic)
-                     Log.e(TAG, reason)
-                     AppLogger.log("MQTT: $reason")
-                     AppGlobalState.updateState(MqttConnectionState.FAILED, error = reason)
-                 } else {
-                     Log.d(TAG, "Subscribed to $topic")
-                 }
-            }
-    }
-
     private fun createNotification(text: String): Notification {
         val notificationIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
@@ -300,9 +491,11 @@ class MqttWolService : Service() {
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(localized(R.string.service_mqtt_notification_title))
             .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 
@@ -322,40 +515,22 @@ class MqttWolService : Service() {
         }
     }
 
-    private fun subscribeToDevice(device: MqttDevice) {
-        val client = mqttClient ?: return
-        client.subscribeWith()
-            .topicFilter(device.topic)
-            .callback { publish ->
-                val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
-                Log.d(TAG, "Device ${device.name} status: $payload")
-                
-                if (payload == device.onlinePayload) {
-                    AppGlobalState.updateDeviceStatus(device.id, true)
-                } else if (payload == device.offlinePayload) {
-                    AppGlobalState.updateDeviceStatus(device.id, false)
-                }
-            }
-            .send()
-            .whenComplete { _, throwable ->
-                if (throwable != null) {
-                    Log.e(TAG, "Failed to subscribe to device: ${device.name}", throwable)
-                } else {
-                    Log.d(TAG, "Subscribed to device: ${device.name}")
-                }
-            }
-    }
-
     @Suppress("DEPRECATION")
     override fun onDestroy() {
-        try {
-            mqttClient?.disconnect()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error disconnecting MQTT", e)
+        destroyed = true
+        cancelScheduledReconnect()
+        networkCallback?.let { callback ->
+            try {
+                getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(callback)
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot unregister network callback", e)
+            }
         }
-        releaseWakeLock()
+        networkCallback = null
+        teardownClient()
+        serviceScope.cancel()
+        releaseConnectWakeLock()
         AppGlobalState.updateState(MqttConnectionState.DISCONNECTED)
-        cachedConfig = null
         try {
             stopForeground(true)
         } catch (e: Exception) {
