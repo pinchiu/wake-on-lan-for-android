@@ -8,9 +8,17 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.*
+import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 class WolListenerService : Service() {
 
@@ -24,9 +32,26 @@ class WolListenerService : Service() {
 
     private val dispatcher by lazy {
         PcActionDispatcher(
-            defaultMacProvider = { MqttConfigManager(this).getConfig().targetMac }
+            defaultMacProvider = { MqttConfigManager(this).getConfig().targetMac },
+            pcSecretProvider = { MqttConfigManager(this).getConfig().pcSecret }
         )
     }
+
+    private val replayGuard = ReplayGuard()
+
+    private val activeClientSockets: MutableSet<Socket> = ConcurrentHashMap.newKeySet()
+
+    private val workerPool = ThreadPoolExecutor(
+        WORKER_THREADS,
+        WORKER_THREADS,
+        0L,
+        TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue(WORKER_QUEUE_CAPACITY),
+        { runnable ->
+            Thread(runnable, "WolTcpWorker").apply { isDaemon = true }
+        },
+        ThreadPoolExecutor.AbortPolicy()
+    )
 
     private fun localized(resId: Int, vararg args: Any): String {
         return AppLocale.wrap(this).getString(resId, *args)
@@ -44,6 +69,9 @@ class WolListenerService : Service() {
         const val NOTIFICATION_ID = 1
         const val LISTENING_PORT = 9876
         private const val SOCKET_TIMEOUT_MS = 1000
+        private const val CLIENT_TIMEOUT_MS = 5000
+        private const val WORKER_THREADS = 4
+        private const val WORKER_QUEUE_CAPACITY = 16
         private const val PC_COMMAND_PORT = 9877
         const val TAG = "WolListenerService"
     }
@@ -87,9 +115,17 @@ class WolListenerService : Service() {
             while (_isRunning.value && serverSocket != null && !serverSocket!!.isClosed) {
                 try {
                     val clientSocket = serverSocket?.accept() ?: break
-                    Thread {
-                        handleClientConnection(clientSocket)
-                    }.start()
+                    activeClientSockets.add(clientSocket)
+                    try {
+                        workerPool.execute {
+                            handleClientConnection(clientSocket)
+                        }
+                    } catch (rejected: RejectedExecutionException) {
+                        activeClientSockets.remove(clientSocket)
+                        closeQuietly(clientSocket)
+                        Log.w(TAG, "Rejected TCP connection: worker pool and queue are full")
+                        AppLogger.log("TCP: connection rejected (server busy)")
+                    }
                 } catch (timeout: SocketTimeoutException) {
                     // Normal timeout to check _isRunning condition
                 } catch (e: Exception) {
@@ -111,30 +147,102 @@ class WolListenerService : Service() {
         }
     }
 
+    private sealed class LineRead {
+        data class Line(val text: String) : LineRead()
+        object Empty : LineRead()
+        object TooLong : LineRead()
+    }
+
+    /**
+     * Reads one line without buffering more than [maxBytes]. Returns [LineRead.TooLong] as soon
+     * as the limit is crossed; the caller closes the socket, so an attacker cannot grow memory.
+     */
+    private fun readLimitedLine(input: InputStream, maxBytes: Int): LineRead {
+        val buffer = ByteArrayOutputStream()
+        while (true) {
+            val value = input.read()
+            if (value == -1) {
+                return if (buffer.size() == 0) {
+                    LineRead.Empty
+                } else {
+                    LineRead.Line(String(buffer.toByteArray(), StandardCharsets.UTF_8))
+                }
+            }
+            if (value == '\n'.code || value == '\r'.code) {
+                return if (buffer.size() == 0) {
+                    LineRead.Empty
+                } else {
+                    LineRead.Line(String(buffer.toByteArray(), StandardCharsets.UTF_8))
+                }
+            }
+            if (buffer.size() >= maxBytes) return LineRead.TooLong
+            buffer.write(value)
+        }
+    }
+
     private fun handleClientConnection(clientSocket: Socket) {
         try {
-            clientSocket.soTimeout = 5000
-            val senderAddress = clientSocket.inetAddress?.hostAddress ?: localized(R.string.service_wol_unknown_source)
-            val reader = clientSocket.getInputStream().bufferedReader()
-            val commandData = reader.readLine()?.trim() ?: ""
+            clientSocket.soTimeout = CLIENT_TIMEOUT_MS
+            val senderAddress = try {
+                clientSocket.inetAddress?.hostAddress
+            } catch (_: Exception) {
+                null
+            } ?: localized(R.string.service_wol_unknown_source)
 
-            if (commandData.isNotEmpty()) {
-                val actionResult = runBlocking {
-                    dispatcher.dispatch(commandData, "TCP:$senderAddress")
+            val read = readLimitedLine(clientSocket.getInputStream(), CommandAuth.MAX_ENVELOPE_BYTES)
+            val response = when (read) {
+                is LineRead.TooLong -> {
+                    AppLogger.log("TCP: auth rejected (envelope too long) from $senderAddress")
+                    Log.w(TAG, "Auth rejected from $senderAddress: envelope too long")
+                    CommandAuth.WIRE_ERROR_AUTH_REQUIRED
                 }
-                val response = actionResult.toProtocolString()
-                updateNotification(localized(R.string.service_wol_last_command, response, senderAddress))
-
-                val writer = clientSocket.getOutputStream().bufferedWriter()
-                writer.write(response + "\n")
-                writer.flush()
+                is LineRead.Empty -> {
+                    AppLogger.log("TCP: auth rejected (missing envelope) from $senderAddress")
+                    Log.w(TAG, "Auth rejected from $senderAddress: missing envelope")
+                    CommandAuth.WIRE_ERROR_AUTH_REQUIRED
+                }
+                is LineRead.Line -> handleAuthenticatedLine(read.text, senderAddress)
             }
+
+            updateNotification(localized(R.string.service_wol_last_command, response, senderAddress))
+
+            val writer = clientSocket.getOutputStream().bufferedWriter()
+            writer.write(response + "\n")
+            writer.flush()
+        } catch (e: SocketTimeoutException) {
+            Log.w(TAG, "TCP client timed out after ${CLIENT_TIMEOUT_MS}ms")
         } catch (e: Exception) {
             Log.e(TAG, "Error handling TCP client connection: ${e.message}", e)
         } finally {
-            try {
-                clientSocket.close()
-            } catch (_: Exception) {}
+            activeClientSockets.remove(clientSocket)
+            closeQuietly(clientSocket)
+        }
+    }
+
+    private fun handleAuthenticatedLine(envelope: String, senderAddress: String): String {
+        val secret = MqttConfigManager(this).getConfig().helperSecret
+        val auth = CommandAuth.verify(envelope, secret, replayGuard = replayGuard)
+        if (auth != AuthResult.Ok) {
+            AppLogger.log("TCP: auth rejected (${CommandAuth.reasonFor(auth)}) from $senderAddress")
+            Log.w(TAG, "Auth rejected from $senderAddress: ${CommandAuth.reasonFor(auth)}")
+            return CommandAuth.errorFor(auth) ?: CommandAuth.WIRE_ERROR_AUTH_REQUIRED
+        }
+
+        // Envelope already verified; dispatch only the legacy command inside it.
+        val command = CommandAuth.commandOf(envelope)
+        if (command == null) {
+            AppLogger.log("TCP: auth rejected (missing command) from $senderAddress")
+            return CommandAuth.WIRE_ERROR_AUTH_REQUIRED
+        }
+        return runBlocking {
+            dispatcher.dispatch(command, "TCP:$senderAddress").toProtocolString()
+        }
+    }
+
+    private fun closeQuietly(socket: Socket) {
+        try {
+            socket.close()
+        } catch (_: Exception) {
         }
     }
 
@@ -169,7 +277,18 @@ class WolListenerService : Service() {
         }
         if (::serverThread.isInitialized) {
             serverThread.interrupt()
+            try {
+                serverThread.join(500)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
         }
+
+        // Stop workers, then close every socket that is still queued or in flight.
+        workerPool.shutdownNow()
+        activeClientSockets.forEach { closeQuietly(it) }
+        activeClientSockets.clear()
+
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }

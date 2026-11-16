@@ -16,17 +16,15 @@ class VoiceWakeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val intentMac = intent?.getStringExtra("EXTRA_MAC")
+        // Exported for Assistant / shortcuts, but never trust a caller-supplied MAC.
+        // Always wake the MAC configured locally in Settings.
         val dispatcher = PcActionDispatcher(
-            defaultMacProvider = {
-                if (!intentMac.isNullOrBlank()) intentMac
-                else MqttConfigManager(this).getConfig().targetMac
-            }
+            defaultMacProvider = { MqttConfigManager(this).getConfig().targetMac },
+            pcSecretProvider = { MqttConfigManager(this).getConfig().pcSecret }
         )
 
         lifecycleScope.launch {
-            val command = if (!intentMac.isNullOrBlank()) "WAKE:$intentMac" else "WAKE"
-            val result = dispatcher.dispatch(command, "Voice/Shortcut")
+            val result = dispatcher.dispatch("WAKE", "Voice/Shortcut")
 
             when (result) {
                 is PcActionResult.Success -> {

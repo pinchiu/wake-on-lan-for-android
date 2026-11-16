@@ -16,7 +16,10 @@ data class MqttConfig(
     val protocol: String,
     val timeout: Int,
     val keepAlive: Int,
-    val autoConnect: Boolean
+    val autoConnect: Boolean,
+    // Security. Defaults keep old positional constructions source-compatible.
+    val helperSecret: String = "",
+    val pcSecret: String = ""
 )
 
 class MqttConfigManager(private val context: Context) {
@@ -36,6 +39,8 @@ class MqttConfigManager(private val context: Context) {
         private const val KEY_TIMEOUT = "timeout"
         private const val KEY_KEEP_ALIVE = "keep_alive"
         private const val KEY_AUTO_CONNECT = "auto_connect"
+        private const val KEY_HELPER_SECRET = "helper_secret"
+        private const val KEY_PC_SECRET = "pc_secret"
 
         // Defaults
         const val DEFAULT_BROKER_NAME = "My Broker"
@@ -51,6 +56,12 @@ class MqttConfigManager(private val context: Context) {
         const val DEFAULT_TIMEOUT = 30
         const val DEFAULT_KEEP_ALIVE = 60
         const val DEFAULT_AUTO_CONNECT = true
+        const val DEFAULT_HELPER_SECRET = ""
+        const val DEFAULT_PC_SECRET = ""
+
+        // Process-wide: MqttConfigManager is instantiated per call site, so an instance lock
+        // would let two threads generate different first-run secrets.
+        private val SECRET_LOCK = Any()
     }
 
     fun getConfig(): MqttConfig {
@@ -67,11 +78,36 @@ class MqttConfigManager(private val context: Context) {
             protocol = prefs.getString(KEY_PROTOCOL, DEFAULT_PROTOCOL) ?: DEFAULT_PROTOCOL,
             timeout = prefs.getInt(KEY_TIMEOUT, DEFAULT_TIMEOUT),
             keepAlive = prefs.getInt(KEY_KEEP_ALIVE, DEFAULT_KEEP_ALIVE),
-            autoConnect = prefs.getBoolean(KEY_AUTO_CONNECT, DEFAULT_AUTO_CONNECT)
+            autoConnect = prefs.getBoolean(KEY_AUTO_CONNECT, DEFAULT_AUTO_CONNECT),
+            helperSecret = loadOrCreateHelperSecret(),
+            pcSecret = (prefs.getString(KEY_PC_SECRET, DEFAULT_PC_SECRET) ?: DEFAULT_PC_SECRET).trim()
         )
     }
 
+    /**
+     * Loads the helper secret, generating and persisting one on first use (or after an upgrade
+     * from a config that predates command authentication).
+     */
+    private fun loadOrCreateHelperSecret(): String {
+        val existing = (prefs.getString(KEY_HELPER_SECRET, DEFAULT_HELPER_SECRET)
+            ?: DEFAULT_HELPER_SECRET).trim()
+        if (existing.isNotEmpty()) return existing
+
+        synchronized(SECRET_LOCK) {
+            val current = (prefs.getString(KEY_HELPER_SECRET, DEFAULT_HELPER_SECRET)
+                ?: DEFAULT_HELPER_SECRET).trim()
+            if (current.isNotEmpty()) return current
+
+            val generated = CommandAuth.generateSecret()
+            prefs.edit().putString(KEY_HELPER_SECRET, generated).apply()
+            return generated
+        }
+    }
+
     fun saveConfig(config: MqttConfig) {
+        // An empty helper secret from a legacy caller must not erase the generated one.
+        val helperSecret = config.helperSecret.trim().ifEmpty { loadOrCreateHelperSecret() }
+
         prefs.edit().apply {
             putString(KEY_BROKER_NAME, config.brokerName)
             putString(KEY_HOST, config.host)
@@ -86,6 +122,8 @@ class MqttConfigManager(private val context: Context) {
             putInt(KEY_TIMEOUT, config.timeout)
             putInt(KEY_KEEP_ALIVE, config.keepAlive)
             putBoolean(KEY_AUTO_CONNECT, config.autoConnect)
+            putString(KEY_HELPER_SECRET, helperSecret)
+            putString(KEY_PC_SECRET, config.pcSecret.trim())
             apply()
         }
 
