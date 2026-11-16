@@ -241,7 +241,8 @@ mod linux {
             .map_err(|error| ServiceError::new(format!("cannot chmod {}: {error}", path.display())))
     }
 
-    /// Carry over a custom `udp_port` from the invoking user's config on first install.
+    /// Carry over a custom `udp_port` and the command secret from the invoking user's config
+    /// on first install.
     fn migrate_user_config(home: Option<&Path>, current_exe: &Path) {
         let target = Path::new(DATA_DIR).join("config.ini");
         if target.exists() {
@@ -262,6 +263,7 @@ mod linux {
         let config = AppConfig {
             udp_port: user_config.udp_port,
             autostart: false,
+            secret: user_config.secret,
         };
         let _ = config.save(&target);
     }

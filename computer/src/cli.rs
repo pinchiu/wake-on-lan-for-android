@@ -125,12 +125,21 @@ fn report(result: Result<String, system_service::ServiceError>) -> i32 {
 fn show_status() -> i32 {
     let config_path = paths::config_path();
     let log_path = paths::log_path();
-    let config = AppConfig::load(&config_path);
+    let mut config = AppConfig::load(&config_path);
+    let secret_result = config.ensure_secret(&config_path);
     let autostart_enabled = autostart::is_enabled();
 
     println!("Wake-on-LAN Computer Power Control Status:");
     println!("  Local IP:           {}", server::local_ipv4());
     println!("  Listening Port:     {} (UDP)", config.udp_port);
+    println!(
+        "  Command Secret: {}",
+        if config.secret.is_empty() {
+            "(not configured)"
+        } else {
+            config.secret.as_str()
+        }
+    );
     println!(
         "  Background Service: {}",
         if instance::is_running() {
@@ -157,6 +166,12 @@ fn show_status() -> i32 {
         println!(
             "  (System service uses /var/lib/pc_onoff/config.ini and pc_onoff.log; manage with `sudo systemctl status {}`)",
             system_service::UNIT_NAME
+        );
+    }
+    if let Err(error) = secret_result {
+        eprintln!(
+            "Warning: failed to save the command secret to {}: {error}",
+            config_path.display()
         );
     }
     0
@@ -279,14 +294,15 @@ fn run_daemon(mode: DaemonMode) -> i32 {
     };
 
     let config_path = paths::config_path();
-    let config = AppConfig::load(&config_path);
+    let mut config = AppConfig::load(&config_path);
 
-    if !config_path.exists()
-        && let Err(error) = config.save(&config_path)
-    {
+    if let Err(error) = config.ensure_secret(&config_path) {
         logger.record(
             "warning",
-            &format!("cannot create default config file: {error}"),
+            &format!(
+                "cannot save command secret to {}: {error}",
+                config_path.display()
+            ),
         );
     }
 
@@ -338,7 +354,7 @@ fn run_daemon(mode: DaemonMode) -> i32 {
     );
 
     let dispatcher = Dispatcher::new(SystemPower);
-    match server::serve(&dispatcher, config.udp_port, &logger) {
+    match server::serve(&dispatcher, config.udp_port, &config.secret, &logger) {
         Ok(()) => {
             logger.record("service_stop", "UDP listener service terminated.");
             0
@@ -378,8 +394,14 @@ fn print_help() {
     println!("  shutdown | reboot | sleep | hibernate | lock");
     println!("  Also accepts SHUTDOWN:<IP> format; the :<IP> part is ignored.");
     println!();
+    println!("Command authentication:");
+    println!("  Every command must carry a signed envelope:");
+    println!("  <command>|ts=<unix>|nonce=<16 hex>|sig=<64 hex>");
+    println!("  Run `{exe} --status` to show the shared command secret to paste into the apps.");
+    println!("  Unsigned commands are rejected; clocks must agree within 5 minutes.");
+    println!();
     println!(
-        "Config file: {} (udp_port, autostart)",
+        "Config file: {} (udp_port, autostart, secret)",
         paths::config_path().display()
     );
     println!("Log file:    {}", paths::log_path().display());
