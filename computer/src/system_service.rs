@@ -156,13 +156,23 @@ mod linux {
             return Err(error);
         }
 
-        // The user-level instance would otherwise keep UDP 9877 busy.
-        let mut notes = Vec::new();
-        if let Some(note) = remove_user_autostart(invoking_home.as_deref()) {
-            notes.push(note);
+        // The user-level instance would otherwise keep UDP 9877 busy. Keep its unit files
+        // until the system service is proven healthy, so a failed install can roll back.
+        let user_stopped = stop_user_instance(invoking_home.as_deref());
+
+        if let Err(error) = systemctl(&["restart", UNIT_NAME]) {
+            rollback_install(invoking_home.as_deref(), user_stopped);
+            return Err(error);
+        }
+        if let Err(error) = wait_until_healthy() {
+            rollback_install(invoking_home.as_deref(), user_stopped);
+            return Err(error);
         }
 
-        systemctl(&["restart", UNIT_NAME])?;
+        let mut notes = Vec::new();
+        if let Some(note) = remove_user_autostart_files(invoking_home.as_deref()) {
+            notes.push(note);
+        }
 
         let mut message = format!(
             "System service installed: {UNIT_PATH}\n\
@@ -217,28 +227,70 @@ mod linux {
     /// Copy the real ELF binary (also works from inside an AppImage mount) to a
     /// root-owned location that exists before any home directory is mounted.
     fn install_binary(source: &Path, target: &Path) -> Result<(), ServiceError> {
+        use std::io::Write;
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+        // Never follow a symlink at the installed path: `rename` would replace it, but the
+        // canonicalize shortcut below could otherwise accept a user-controlled target.
+        if fs::symlink_metadata(target).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+            return Err(ServiceError::new(format!(
+                "refusing to install over symlink {}",
+                target.display()
+            )));
+        }
         if source.canonicalize().ok() == target.canonicalize().ok() {
             return Ok(());
         }
-        let temporary = target.with_extension("new");
-        fs::copy(source, &temporary).map_err(|error| {
-            ServiceError::new(format!(
-                "cannot copy {} to {}: {error}",
-                source.display(),
-                temporary.display()
-            ))
-        })?;
-        set_executable(&temporary)?;
-        fs::rename(&temporary, target).map_err(|error| {
-            let _ = fs::remove_file(&temporary);
-            ServiceError::new(format!("cannot install {}: {error}", target.display()))
-        })
-    }
 
-    fn set_executable(path: &Path) -> Result<(), ServiceError> {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o755))
-            .map_err(|error| ServiceError::new(format!("cannot chmod {}: {error}", path.display())))
+        // Unique, create_new file in the target directory: no predictable path to pre-create,
+        // no symlink following, and the rename stays atomic on the same filesystem.
+        let file_name = target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("pc_onoff");
+        let temporary = target.with_file_name(format!(
+            ".{file_name}.new.{}.{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0)
+        ));
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o700)
+            .open(&temporary)
+            .map_err(|error| {
+                ServiceError::new(format!(
+                    "cannot create temporary install file {}: {error}",
+                    temporary.display()
+                ))
+            })?;
+
+        let result = (|| -> Result<(), ServiceError> {
+            let bytes = fs::read(source).map_err(|error| {
+                ServiceError::new(format!("cannot read {}: {error}", source.display()))
+            })?;
+            file.write_all(&bytes).map_err(|error| {
+                ServiceError::new(format!("cannot write {}: {error}", temporary.display()))
+            })?;
+            file.sync_all().map_err(|error| {
+                ServiceError::new(format!("cannot sync {}: {error}", temporary.display()))
+            })?;
+            drop(file);
+            fs::set_permissions(&temporary, fs::Permissions::from_mode(0o755)).map_err(
+                |error| ServiceError::new(format!("cannot chmod {}: {error}", temporary.display())),
+            )?;
+            fs::rename(&temporary, target).map_err(|error| {
+                ServiceError::new(format!("cannot install {}: {error}", target.display()))
+            })
+        })();
+
+        if result.is_err() {
+            let _ = fs::remove_file(&temporary);
+        }
+        result
     }
 
     /// Carry over a custom `udp_port` and the command secret from the invoking user's config
@@ -268,9 +320,12 @@ mod linux {
         let _ = config.save(&target);
     }
 
-    /// Disable the invoking user's `systemd --user` / XDG autostart and stop their instance.
-    fn remove_user_autostart(home: Option<&Path>) -> Option<String> {
-        let home = home?;
+    /// Stop the invoking user's `systemd --user` instance (and any manual daemon) without
+    /// deleting its unit files, so a failed install can start it again.
+    fn stop_user_instance(home: Option<&Path>) -> bool {
+        let Some(home) = home else {
+            return false;
+        };
         let user = std::env::var("SUDO_USER")
             .ok()
             .filter(|user| !user.is_empty());
@@ -288,17 +343,6 @@ mod linux {
                     user_autostart::SERVICE_NAME,
                 ])
                 .output();
-        }
-
-        let mut removed = false;
-        for path in [
-            user_autostart::desktop_path(home),
-            user_autostart::service_path(home),
-            user_autostart::service_wants_link(home),
-        ] {
-            if fs::symlink_metadata(&path).is_ok() && fs::remove_file(&path).is_ok() {
-                removed = true;
-            }
         }
 
         let lock = home.join(".config/pc_onoff/pc_onoff.lock");
@@ -319,13 +363,81 @@ mod linux {
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
         }
+        true
+    }
 
+    /// Delete the invoking user's autostart entries after the system service is healthy.
+    fn remove_user_autostart_files(home: Option<&Path>) -> Option<String> {
+        let home = home?;
+        let mut removed = false;
+        for path in [
+            user_autostart::desktop_path(home),
+            user_autostart::service_path(home),
+            user_autostart::service_wants_link(home),
+        ] {
+            if fs::symlink_metadata(&path).is_ok() && fs::remove_file(&path).is_ok() {
+                removed = true;
+            }
+        }
         removed.then(|| {
             format!(
                 "Removed per-user autostart in {} (the system service replaces it).",
                 home.display()
             )
         })
+    }
+
+    /// `systemctl restart` succeeds as soon as the unit is queued for a `Type=simple`
+    /// service, so verify the daemon actually stayed up with a live MainPID.
+    fn wait_until_healthy() -> Result<(), ServiceError> {
+        for _ in 0..25 {
+            if state() == ServiceState::Active && main_pid_running() {
+                return Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+        Err(ServiceError::new(format!(
+            "{UNIT_NAME} did not stay running after installation; check `sudo systemctl status {UNIT_NAME}` \
+             and `sudo journalctl -u {UNIT_NAME}`"
+        )))
+    }
+
+    fn main_pid_running() -> bool {
+        let output = platform::command("systemctl")
+            .args(["show", "-p", "MainPID", "--value", UNIT_NAME])
+            .output();
+        let Some(output) = output.ok().filter(|output| output.status.success()) else {
+            return false;
+        };
+        let pid = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse::<u32>();
+        pid.is_ok_and(|pid| pid > 0 && Path::new(&format!("/proc/{pid}")).exists())
+    }
+
+    /// Remove the unit and restart the user instance if the system service could not stay up.
+    fn rollback_install(home: Option<&Path>, user_stopped: bool) {
+        let _ = fs::remove_file(UNIT_PATH);
+        let _ = systemctl(&["disable", "--now", UNIT_NAME]);
+        let _ = systemctl(&["daemon-reload"]);
+        if user_stopped && home.is_some() {
+            let user = std::env::var("SUDO_USER")
+                .ok()
+                .filter(|user| !user.is_empty());
+            if let Some(user) = user {
+                let machine = format!("{user}@.host");
+                let _ = platform::command("systemctl")
+                    .args([
+                        "--user",
+                        "--machine",
+                        &machine,
+                        "enable",
+                        "--now",
+                        user_autostart::SERVICE_NAME,
+                    ])
+                    .output();
+            }
+        }
     }
 
     /// The lock file is user-writable, so only signal a `pc_onoff` process owned by the
@@ -482,6 +594,35 @@ mod linux {
             assert!(is_pc_onoff_executable("pc_onoff-linux-x"));
             assert!(!is_pc_onoff_executable("pc_onoffd"));
             assert!(!is_pc_onoff_executable("bash"));
+        }
+
+        #[test]
+        fn install_binary_replaces_file_and_rejects_symlink() {
+            use std::os::unix::fs::{PermissionsExt, symlink};
+
+            use crate::test_support::TempDir;
+
+            let dir = TempDir::new("install-binary");
+            let source = dir.path().join("source");
+            fs::write(&source, b"new-binary").expect("write source");
+            let target = dir.path().join("pc_onoff");
+            fs::write(&target, b"old").expect("write target");
+
+            install_binary(&source, &target).expect("install binary");
+            assert_eq!(fs::read(&target).expect("read target"), b"new-binary");
+            let mode = fs::metadata(&target)
+                .expect("metadata")
+                .permissions()
+                .mode()
+                & 0o777;
+            assert_eq!(mode, 0o755);
+
+            let link = dir.path().join("link");
+            symlink(&source, &link).expect("create symlink");
+            assert!(
+                install_binary(&source, &link).is_err(),
+                "must refuse to install over a symlink"
+            );
         }
     }
 }
