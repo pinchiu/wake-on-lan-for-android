@@ -16,8 +16,11 @@ A complete cross-platform remote control system that turns an Android phone into
 - **Voice Assistant Integration**: Hands-free voice trigger via Google Assistant / Gemini routines using the static app shortcut (`wake_pc_shortcut`).
 - **Bilingual Interface**: Seamlessly switch between English and Traditional Chinese in the app settings.
 - **Authenticated Commands**: TCP 9876, MQTT command topics and UDP 9877 use HMAC-SHA256 envelopes with a timestamp and replay guard. No unsigned power commands are accepted.
+- **Frost Interface**: Both Android apps share a calm, Apple-inspired light-grey glass design — translucent cards, hairline borders, system typography and one iOS-blue accent. The Rust daemon adds an optional local dashboard with the same design language.
 - **Cross-Platform PC Daemon (`pc_onoff`)**: High-performance, zero-dependency standalone daemon written in Rust for Windows, Linux, and Apple macOS.
   - Automatic zero-admin autostart (Windows Registry `HKCU Run`, Linux `systemd --user` / XDG Autostart, macOS `LaunchAgent`).
+  - Optional Linux system-wide service (`sudo pc_onoff --install-system`) that works before anyone logs in.
+  - Local Web dashboard (`pc_onoff --web-ui`) for status, logs and power actions.
   - Automatic 5 MB log rotation (`pc_onoff.log`).
   - Rich command-line management interface.
 
@@ -58,6 +61,20 @@ The daemon generates its secret on first run and stores it as `secret=` in `conf
 Home Phone generates its helper secret on first launch. Changing a secret requires updating
 every peer. TCP returns `ERROR: authentication required` / `ERROR: authentication failed`;
 MQTT and UDP drop and log `auth rejected (<reason>)` without logging secrets or payloads.
+
+## Frost Interface
+
+Both Android apps and the Rust daemon's optional dashboard use the same **Frost** design system:
+
+- Warm neutral greys (`#F2F2F7` → `#E9E9EF`) instead of pure black or neon.
+- Translucent frosted cards with hairline borders, 22–28 dp radii and soft ambient shadows.
+- System (SF-like) typography, sentence-case labels and generous spacing.
+- A single iOS-blue (`#0A84FF`) accent plus iOS green / orange / red for status only.
+- Calm 180–320 ms motion; no HUD chrome, scan lines or glow.
+
+The Android apps adapt automatically and stay readable in both layouts. The dashboard also honours
+`prefers-color-scheme` (light frosted grey / dark graphite glass). See
+[`docs/frost-ui.md`](docs/frost-ui.md) for tokens and component rules.
 
 ## System Architecture & Protocols
 
@@ -141,8 +158,20 @@ pc_onoff --install               # Enable autostart on boot
 pc_onoff --uninstall             # Disable autostart on boot
 sudo pc_onoff --install-system   # Linux: boot-time system service (works before login)
 sudo pc_onoff --uninstall-system # Linux: remove the system service
+pc_onoff --web-ui                # Local Frost dashboard (http://127.0.0.1:9878)
 pc_onoff --help                  # Show usage
 ```
+
+#### Local Frost Dashboard (optional)
+```bash
+pc_onoff --web-ui
+# Dashboard: http://127.0.0.1:9878
+```
+The dashboard runs as a separate foreground process (it does not start a second daemon), binds
+loopback only, and shows daemon state, local IPs, autostart/system-service status and recent logs.
+It sends the five power actions through the normal UDP 9877 protocol and asks for confirmation
+before shutdown/reboot. The page supports light and dark `prefers-color-scheme` and uses the same
+Frost design system as the Android apps.
 
 ### 2. Android Apps Setup
 
