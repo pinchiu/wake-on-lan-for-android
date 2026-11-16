@@ -44,7 +44,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.wakeonwanremotephone.ACTION_REMOTE_WAKE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

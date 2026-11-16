@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.lazy.LazyRow
@@ -86,6 +87,7 @@ fun UltimateTheme(content: @Composable () -> Unit) {
 fun RemoteWakeMainScreen() {
     val context = LocalContext.current
     val deviceManager = remember { DeviceProfileManager(context) }
+    val securitySettings = remember { SecuritySettings(context) }
     var devices by remember { mutableStateOf(deviceManager.getDevices()) }
     var selectedDeviceId by remember { mutableStateOf(deviceManager.getSelectedDeviceId()) }
     val currentSelectedDevice = devices.find { it.id == selectedDeviceId } ?: devices.firstOrNull()
@@ -100,6 +102,7 @@ fun RemoteWakeMainScreen() {
     var isStatusError by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showSecurityDialog by remember { mutableStateOf(false) }
     var showAddDeviceDialog by remember { mutableStateOf(false) }
     var showEditDeviceDialog by remember { mutableStateOf(false) }
     var deviceToEdit by remember { mutableStateOf<DeviceProfile?>(null) }
@@ -134,14 +137,23 @@ fun RemoteWakeMainScreen() {
                 } else {
                     val action = command.substringBefore(":")
                     val ip = command.substringAfter(":")
-                    RemoteNetworkUtil.sendDirectCommandToPC(ip, action.lowercase(Locale.ROOT))
+                    RemoteNetworkUtil.sendDirectCommandToPC(
+                        ip,
+                        action.lowercase(Locale.ROOT),
+                        securitySettings.getPcSecret()
+                    )
                 }
             } else {
-                RemoteNetworkUtil.sendTcpCommand(helperIpv6Address, command)
+                RemoteNetworkUtil.sendTcpCommand(
+                    helperIpv6Address,
+                    command,
+                    securitySettings.getHelperSecret()
+                )
             }
             statusMessage = result
             isStatusError = result.startsWith("Send failed") || result.startsWith("Address") ||
                     result.startsWith("LAN WoL failed") || result.startsWith("Direct send failed") ||
+                    result.startsWith("Shared ") || result.startsWith("Failed to sign") ||
                     result.startsWith("ERROR:")
             isLoading = false
         }
@@ -214,6 +226,24 @@ fun RemoteWakeMainScreen() {
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                     }
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = DarkSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSubtle)
+                    ) {
+                        IconButton(
+                            onClick = { showSecurityDialog = true },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = stringResource(R.string.security_title),
+                                tint = Slate300,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = DarkSurfaceElevated,
@@ -782,6 +812,11 @@ fun RemoteWakeMainScreen() {
                     }
                 }
             }
+        }
+
+        // Shared secrets setup (helper + PC daemon)
+        if (showSecurityDialog) {
+            SecuritySettingsDialog(onDismiss = { showSecurityDialog = false })
         }
 
         // Add Device Dialog

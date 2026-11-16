@@ -7,14 +7,31 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.nio.charset.StandardCharsets
+import java.util.Locale
 
 object RemoteNetworkUtil {
 
-    suspend fun sendTcpCommand(host: String, command: String): String {
+    const val ERROR_HELPER_SECRET_MISSING = "Shared helper secret is not configured"
+    const val ERROR_PC_SECRET_MISSING = "Shared PC secret is not configured"
+
+    /**
+     * Sends [command] to the Home Phone helper over TCP 9876.
+     *
+     * The command is always wrapped in a signed envelope using [helperSecret].
+     * There is intentionally no unsigned fallback: a blank secret is a local
+     * configuration error, reported before any connection is attempted.
+     */
+    suspend fun sendTcpCommand(host: String, command: String, helperSecret: String): String {
         return withContext(Dispatchers.IO) {
+            if (helperSecret.isBlank()) {
+                return@withContext ERROR_HELPER_SECRET_MISSING
+            }
             if (host.isBlank() || command.isBlank()) {
                 return@withContext "Address or command cannot be empty!"
             }
+            val envelope = CommandAuth.sign(command.trim(), helperSecret)
+                ?: return@withContext "Failed to sign command"
             try {
                 val targetAddr = InetAddress.getByName(host.trim())
                 val socket = Socket()
@@ -23,7 +40,7 @@ object RemoteNetworkUtil {
                 socket.soTimeout = 5000
                 socket.use { s ->
                     val writer = s.getOutputStream().bufferedWriter()
-                    writer.write(command.trim() + "\n")
+                    writer.write(envelope + "\n")
                     writer.flush()
 
                     val reader = s.getInputStream().bufferedReader()
@@ -36,6 +53,12 @@ object RemoteNetworkUtil {
         }
     }
 
+    /**
+     * Sends a local LAN Wake-on-LAN magic packet.
+     *
+     * This stays an unsigned UDP broadcast on purpose: local WoL has no
+     * verifier and no secret.
+     */
     suspend fun sendLocalMagicPacket(macAddress: String): String {
         return withContext(Dispatchers.IO) {
             try {
@@ -74,14 +97,32 @@ object RemoteNetworkUtil {
         return bytes
     }
 
-    suspend fun sendDirectCommandToPC(pcIp: String, command: String): String {
+    /**
+     * Sends a power action directly to the PC daemon over UDP 9877.
+     *
+     * The signed command is the legacy `ACTION:IP` string, wrapped in a signed
+     * envelope using [pcSecret] (the daemon's Command Secret). A blank secret
+     * is rejected locally before any datagram is sent.
+     */
+    suspend fun sendDirectCommandToPC(pcIp: String, action: String, pcSecret: String): String {
         return withContext(Dispatchers.IO) {
-            if (pcIp.isBlank() || command.isBlank()) {
+            if (pcSecret.isBlank()) {
+                return@withContext ERROR_PC_SECRET_MISSING
+            }
+            if (pcIp.isBlank() || action.isBlank()) {
                 return@withContext "PC IP or command cannot be empty!"
             }
+            val command = "${action.trim().uppercase(Locale.ROOT)}:${pcIp.trim()}"
+            val envelope = CommandAuth.sign(command, pcSecret)
+                ?: return@withContext "Failed to sign command"
             try {
-                val commandBytes = command.toByteArray()
-                val packet = DatagramPacket(commandBytes, commandBytes.size, InetAddress.getByName(pcIp), 9877)
+                val commandBytes = envelope.toByteArray(StandardCharsets.UTF_8)
+                val packet = DatagramPacket(
+                    commandBytes,
+                    commandBytes.size,
+                    InetAddress.getByName(pcIp.trim()),
+                    9877
+                )
                 DatagramSocket().use { socket -> socket.send(packet) }
                 "Direct command '$command' sent to PC"
             } catch (e: Exception) {

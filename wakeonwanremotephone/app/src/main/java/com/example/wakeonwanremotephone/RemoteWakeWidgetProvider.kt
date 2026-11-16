@@ -24,10 +24,13 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_REMOTE_WAKE = "com.example.wakeonwanremotephone.ACTION_REMOTE_WAKE"
+        const val EXTRA_WIDGET_TOKEN = "com.example.wakeonwanremotephone.EXTRA_WIDGET_TOKEN"
+        private const val KEY_WIDGET_TOKEN = "remote_widget_token"
 
         fun createPendingIntent(context: Context): PendingIntent {
             val intent = Intent(context, RemoteWakeWidgetProvider::class.java).apply {
                 action = ACTION_REMOTE_WAKE
+                putExtra(EXTRA_WIDGET_TOKEN, widgetToken(context))
             }
             return PendingIntent.getBroadcast(
                 context,
@@ -35,6 +38,26 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+        }
+
+        /**
+         * Per-install token that lets only the widget's own PendingIntent trigger
+         * a wake. The receiver stays exported for APPWIDGET_UPDATE, but a custom
+         * ACTION_REMOTE_WAKE broadcast without this token is ignored.
+         */
+        @Synchronized
+        private fun widgetToken(context: Context): String {
+            val prefs = context.getSharedPreferences(
+                DeviceProfileManager.PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            val existing = prefs.getString(KEY_WIDGET_TOKEN, "").orEmpty().trim()
+            if (existing.length == 32 && existing.all { it in "0123456789abcdef" }) {
+                return existing
+            }
+            val token = CommandAuth.generateSecret()
+            prefs.edit().putString(KEY_WIDGET_TOKEN, token).apply()
+            return token
         }
 
         fun updateWidgetViews(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
@@ -77,6 +100,11 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         if (intent.action == ACTION_REMOTE_WAKE) {
+            // Reject broadcasts from other apps: only our PendingIntent carries
+            // the private per-install token.
+            if (intent.getStringExtra(EXTRA_WIDGET_TOKEN) != widgetToken(context)) {
+                return
+            }
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
@@ -112,7 +140,21 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
                             }
                             return@launch
                         }
-                        resultMsg = RemoteNetworkUtil.sendTcpCommand(helperIpv6, "WAKE:${device.mac}")
+                        val helperSecret = SecuritySettings(context).getHelperSecret()
+                        if (helperSecret.isBlank()) {
+                            val missing = localized.getString(R.string.widget_helper_secret_missing)
+                            views.setTextViewText(R.id.widget_remote_status, missing)
+                            appWidgetManager.updateAppWidget(componentName, views)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(localized, missing, Toast.LENGTH_LONG).show()
+                            }
+                            return@launch
+                        }
+                        resultMsg = RemoteNetworkUtil.sendTcpCommand(
+                            helperIpv6,
+                            "WAKE:${device.mac}",
+                            helperSecret
+                        )
                     }
 
                     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
