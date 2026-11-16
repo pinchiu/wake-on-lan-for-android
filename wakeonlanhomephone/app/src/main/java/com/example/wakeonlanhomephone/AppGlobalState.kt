@@ -2,6 +2,7 @@ package com.example.wakeonlanhomephone
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 enum class MqttConnectionState {
     DISCONNECTED,
@@ -37,9 +38,8 @@ object AppGlobalState {
     }
 
     fun updateDeviceStatus(deviceId: String, isOnline: Boolean) {
-        val current = _deviceStatuses.value.toMutableMap()
-        current[deviceId] = isOnline
-        _deviceStatuses.value = current
+        // Called from HiveMQ/Netty threads; atomic update prevents concurrent status loss.
+        _deviceStatuses.update { current -> current + (deviceId to isOnline) }
     }
 
     fun resetError() {
