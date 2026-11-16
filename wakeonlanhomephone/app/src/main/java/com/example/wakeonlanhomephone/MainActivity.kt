@@ -955,11 +955,8 @@ fun NewSettingsScreen(
                         Button(
                             onClick = {
                                 val parsedPort = brokerPort.toIntOrNull() ?: if (useSsl) 8883 else 1883
-                                val cleanHost = brokerHost
-                                    .replace(Regex("^[a-zA-Z]+://"), "")
-                                    .substringBefore(":")
-                                    .substringBefore("/")
-                                    .trim()
+                                // Keep scheme/port/path/IPv6; MqttEndpoint parses it.
+                                val cleanHost = brokerHost.trim()
 
                                 configManager.saveConfig(
                                     currentConfig.copy(
