@@ -10,7 +10,7 @@ The system consists of three core subsystems:
 
 * [`wakeonlanhomephone/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/): **Home Phone Helper Android Application**. Stationed at home and permanently connected to the local Wi-Fi network, serving as the gateway/bridge from WAN into the local LAN. Broadcasts Wake-on-LAN UDP Magic Packets (port 9), listens for incoming WAN TCP connections (port 9876), subscribes to MQTT brokers, receives voice shortcuts / routines, and handles home screen widgets, converging all commands through `PcActionDispatcher`.
 * [`wakeonwanremotephone/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/): **Remote Phone Controller Android Application**. Carried by the user to send control commands to the Home Phone helper or directly to target computers via TCP (IPv6/IPv4), MQTT, or local LAN broadcast. Supports multi-host profile management and a 1-tap desktop wake-up widget.
-* [`computer/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/): **Target Computer Daemon (Rust Cross-Platform Service)**. Runs in the background on Windows, Linux, and Apple macOS listening on UDP port 9877. Receives power commands (`shutdown`, `reboot`, `sleep`, `hibernate`, `lock`) and executes safe OS transitions via native system calls (Win32 API / Linux systemd-logind / macOS AppleScript & pmset). Includes zero-admin per-user autostart (Windows Registry HKCU Run / Linux systemd user & XDG / macOS LaunchAgent), an opt-in Linux **system-wide service** (`sudo pc_onoff --install-system`) that works before anyone logs in, and automatic 5 MB log rotation.
+* [`computer/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/): **Target Computer Daemon (Rust Cross-Platform Service)**. Runs in the background on Windows, Linux, and Apple macOS listening on UDP port 9877. Receives power commands (`shutdown`, `reboot`, `sleep`, `hibernate`, `lock`) and executes safe OS transitions via native system calls (Win32 API / Linux systemd-logind / macOS AppleScript & pmset). Includes zero-admin per-user autostart (Windows Registry HKCU Run / Linux systemd user & XDG / macOS LaunchAgent), an opt-in Linux **system-wide service** (`sudo pc_onoff --install-system`) that works before anyone logs in, an optional local **Frost dashboard** (`pc_onoff --web-ui`), and automatic 5 MB log rotation.
 
 ### 1.1 Linux System Service vs. Per-User Autostart
 
@@ -173,11 +173,16 @@ Every network command is signed; there is **no unsigned fallback** for power com
 | **Remote Profile Manager** | [`wakeonwanremotephone/.../DeviceProfileManager.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/DeviceProfileManager.kt) | Manages multi-host configuration (name, MAC, IP) and active target selection on the remote controller. |
 | **Remote Wake Widget** | [`wakeonwanremotephone/.../RemoteWakeWidgetProvider.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteWakeWidgetProvider.kt) | Desktop widget for 1-tap remote waking of the selected PC. |
 | **Remote Network Utilities** | [`wakeonwanremotephone/.../RemoteNetworkUtil.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt) | Network command wrappers (TCP 9876, LAN WoL broadcast, UDP 9877 direct). |
+| **Frost Theme (Home Phone)** | [`wakeonlanhomephone/.../ui/theme/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/ui/theme/) | Light-grey glass palette, SF-like type scale and edge-to-edge status bar. |
+| **Frost Components (Home Phone)** | [`wakeonlanhomephone/.../ui/components/GlassComponents.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/ui/components/GlassComponents.kt) | Frosted panel, ambient background blobs, floating glass nav, wake button and confirm sheet. |
+| **Frost Theme (Remote Phone)** | [`wakeonwanremotephone/.../ui/theme/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/ui/theme/) | Same Frost palette/type scale for the remote controller. |
+| **Frost Components (Remote Phone)** | [`wakeonwanremotephone/.../ui/components/RemoteUiComponents.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/ui/components/RemoteUiComponents.kt) | Glass cards, iOS segmented control, wake trigger, power tiles and confirm sheet. |
 | **PC Daemon Dispatcher (Rust Deep Module)** | [`computer/src/dispatch.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/dispatch.rs) | `Dispatcher<P: PowerController>::dispatch(raw)`: Parse → execute → structured `DispatchError`; completely testable with mock controller. |
 | **PC Daemon Command Syntax** | [`computer/src/action.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/action.rs) | `PowerAction` enum and fault-tolerant parsing (casing, whitespace, delimiters, aliases). |
 | **PC Daemon Power Seam** | [`computer/src/power.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/power.rs) | `PowerController` trait; Win32 API on Windows, `systemctl`/`loginctl` on Linux, AppleScript `osascript`/`pmset`/`CGSession` on macOS. |
 | **PC Daemon Autostart** | [`computer/src/autostart.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/autostart.rs) | Zero-admin autostart management (Windows HKCU Run, Linux systemd user & XDG, macOS `~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`). Uses `$APPIMAGE` (not the temporary mount path) and `Restart=on-failure`. |
 | **PC Daemon System Service** | [`computer/src/system_service.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/system_service.rs) | Root `--install-system` / `--uninstall-system`: copies the ELF out of the AppImage, writes `/etc/systemd/system/pc_onoff.service`, migrates config, removes conflicting user autostart, and rolls the unit back on failure. |
+| **PC Daemon Frost Dashboard** | [`computer/src/web.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/web.rs) | Optional `--web-ui` loopback dashboard: embedded HTML/CSS/JS, `/api/status`, `/api/log`, `/api/action`; signed UDP actions; no external crates. |
 | **PC Daemon Path Resolution** | [`computer/src/paths.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/paths.rs) | Cross-platform config/log path resolution (Windows `%LOCALAPPDATA%`, Linux `~/.config`, macOS `~/Library/Application Support`); `PC_ONOFF_DATA_DIR` pins all files to one directory (used by the system service). |
 | **PC Daemon Crypto** | [`computer/src/crypto.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/crypto.rs) | Dependency-free SHA-256, HMAC-SHA256, hex and constant-time comparison. FIPS/RFC 4231 test vectors. |
 | **PC Daemon Auth** | [`computer/src/auth.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/auth.rs) | Command envelope sign/verify, ±300 s timestamp window, 600 s bounded replay guard, typed errors. |
@@ -309,3 +314,39 @@ Every network command is signed; there is **no unsigned fallback** for power com
 ### 8.2 Subnet Broadcast & Multi-PC Wake-up
 * `PcActionDispatcher.dispatch("WAKE:<MAC>")` dynamically supports passing target MAC addresses.
 * Subnet-directed broadcasts can be configured by passing custom broadcast IP addresses to `sendUdpPacket()`.
+
+---
+
+## 9. Frost UI Design System
+
+Both Android apps and the Rust daemon's local dashboard share **Frost**, an Apple-inspired
+light-grey glass design language. The full token list lives in
+[`docs/frost-ui.md`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/docs/frost-ui.md).
+
+### 9.1 Rules
+* **Grey first**: `#F2F2F7` background, translucent white cards, hairline black/white borders.
+* **One accent**: iOS blue `#0A84FF`; status colours iOS green `#34C759`, orange `#FF9F0A`,
+  red `#FF3B30`.
+* **No HUD/neon**: no scan lines, glowing outlines, emerald-on-black, or ALL-CAPS section headers.
+* **Type**: `FontFamily.SansSerif`, large title 34 sp bold, body 16 sp, caption 13 sp.
+  Monospace only for logs, MAC addresses and IP addresses.
+* **Glass**: 22–26 dp cards, 1 dp hairline, inner top highlight, soft ambient shadow. Simulate
+  backdrop blur with layered alpha and blurred background blobs; do not add a blur dependency.
+* **Motion**: 180–320 ms fades/springs; press scale 0.97; no decorative infinite animations.
+
+### 9.2 Implementation map
+| Area | Entry point |
+| :--- | :--- |
+| Home Phone palette/type | `wakeonlanhomephone/.../ui/theme/{Color,Theme,Type}.kt` |
+| Home Phone components | `wakeonlanhomephone/.../ui/components/GlassComponents.kt` |
+| Remote Phone palette/type | `wakeonwanremotephone/.../ui/theme/{Color,Theme,Type}.kt` |
+| Remote Phone components | `wakeonwanremotephone/.../ui/components/RemoteUiComponents.kt` |
+| Rust dashboard | `computer/src/web.rs` (embedded HTML/CSS/JS) |
+
+### 9.3 Change checklist
+1. Update the token in `docs/frost-ui.md` first if the system changes.
+2. Keep all composable signatures and `testTag`s stable.
+3. Verify contrast on both glass and plain surfaces.
+4. Build: `./gradlew testDebugUnitTest assembleDebug` for each app; `cargo test` for the daemon.
+5. Run the dashboard and check `/api/status`, `/api/log`, `/api/action`, and the rendered page in
+   a browser (light and dark `prefers-color-scheme`).

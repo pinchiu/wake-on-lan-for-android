@@ -16,8 +16,11 @@
 - **語音助理整合**：支援 Google 助理 / Gemini 日常安排 (Routine) 語音捷徑 (`wake_pc_shortcut`)，說句語音指令立即喚醒。
 - **雙語介面支援**：手機 App 設定內建即時切換繁體中文與英文介面。
 - **指令簽章驗證**：TCP 9876、MQTT 指令主題與 UDP 9877 均使用 HMAC-SHA256 信封、時間戳與重放保護；不再接受未簽章的電源指令。
+- **Frost 介面設計**：兩款 Android App 採用 Apple 風格的淺灰玻璃質感 — 半透明卡片、細緻描邊、系統字體與單一 iOS 藍色強調色；Rust 守護程式也提供相同風格的區域網頁儀表板。
 - **跨平台電腦端常駐守護程式 (`pc_onoff`)**：使用 Rust 開發之高效獨立執行檔，支援 Windows、Linux 與 Apple macOS。
   - 無需管理員權限之開機自啟動（Windows 註冊表 `HKCU Run`、Linux `systemd --user` / XDG Autostart、macOS `LaunchAgent`）。
+  - 選用 Linux 系統層服務（`sudo pc_onoff --install-system`），開機後、登入前即可接收指令。
+  - 區域網頁儀表板（`pc_onoff --web-ui`），可查看狀態、日誌並執行電源操作。
   - 自動 5 MB 日誌滾動輪替 (`pc_onoff.log`)。
   - 豐富的命令列 (CLI) 管理指令。
 
@@ -58,6 +61,19 @@ SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677|sig=<hmac-sha256-hex>
 helper 密鑰。變更密鑰後必須同步更新所有對端。TCP 會回傳 `ERROR: authentication required`／
 `ERROR: authentication failed`；MQTT 與 UDP 會記錄 `auth rejected (<reason>)` 並丟棄，且不會記錄
 密鑰或完整封包內容。
+
+## Frost 介面設計
+
+兩款 Android App 與 Rust 守護程式的區域儀表板共用同一套 **Frost** 設計語言：
+
+- 以溫暖中性灰 (`#F2F2F7` → `#E9E9EF`) 為基底，不使用純黑或霓虹色。
+- 半透明磨砂卡片、細緻描邊、22–28 dp 圓角與柔和陰影。
+- 系統 (SF 風格) 字體、語句式標籤與充足留白。
+- 單一 iOS 藍 (`#0A84FF`) 強調色，搭配 iOS 綠／橘／紅作為狀態提示。
+- 180–320 ms 的平穩動態；沒有 HUD 掃描線、霓虹光暈或全大寫標題。
+
+Android App 以淺色玻璃為主；網頁儀表板同時支援淺色與深色 (`prefers-color-scheme`)。完整設計
+權杖與元件規範請見 [`docs/frost-ui.md`](docs/frost-ui.md)。
 
 ## 通訊架構與協定說明
 
@@ -140,8 +156,19 @@ pc_onoff --install               # 啟用開機自啟動
 pc_onoff --uninstall             # 解除開機自啟動
 sudo pc_onoff --install-system   # Linux：安裝開機即啟動的系統服務（登入前可用）
 sudo pc_onoff --uninstall-system # Linux：移除系統服務
+pc_onoff --web-ui                # 區域 Frost 儀表板（http://127.0.0.1:9878）
 pc_onoff --help                  # 顯示使用說明
 ```
+
+#### 區域 Frost 儀表板（選用）
+```bash
+pc_onoff --web-ui
+# Dashboard: http://127.0.0.1:9878
+```
+儀表板是一個獨立的前景程序（不會再啟動第二個守護程式），僅綁定 loopback，顯示守護程式狀態、
+本機 IP、自啟動／系統服務狀態與最近日誌，並透過標準 UDP 9877 協定送出五種電源指令；關機與
+重新啟動前會顯示確認視窗。頁面支援淺色與深色 `prefers-color-scheme`，並與 Android App 共用
+Frost 設計系統。
 
 ### 2. 安裝 Android 應用程式
 
