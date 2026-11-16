@@ -108,17 +108,14 @@ chmod +x pc_onoff
 #### Daemon CLI Commands
 The `pc_onoff` executable provides built-in management options:
 ```bash
-pc_onoff --status             # Check daemon running state and PID
-pc_onoff --stop               # Stop running background instance
-pc_onoff --restart            # Restart background instance
-pc_onoff --test <action>      # Test action locally (shutdown, reboot, sleep, hibernate, lock)
-pc_onoff --show-ip            # Display current local IP addresses
-pc_onoff --show-log [N]       # View recent N log entries
-pc_onoff --autostart-status   # Inspect autostart registration state
-pc_onoff --install-autostart  # Re-register login autostart
-pc_onoff --uninstall-autostart# Remove login autostart
-pc_onoff --foreground         # Run in foreground for debugging
-pc_onoff --port <PORT>        # Listen on custom UDP port (default: 9877)
+pc_onoff --status                # Runtime, IP, port, autostart and system-service state
+pc_onoff --log                   # View the latest 25 log lines
+pc_onoff --stop                  # Stop the running background daemon
+pc_onoff --install               # Enable autostart on boot
+pc_onoff --uninstall             # Disable autostart on boot
+sudo pc_onoff --install-system   # Linux: boot-time system service (works before login)
+sudo pc_onoff --uninstall-system # Linux: remove the system service
+pc_onoff --help                  # Show usage
 ```
 
 ### 2. Android Apps Setup
