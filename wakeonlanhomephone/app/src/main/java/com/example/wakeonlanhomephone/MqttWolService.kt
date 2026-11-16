@@ -46,7 +46,7 @@ class MqttWolService : Service() {
     private var mqttClient: Mqtt3AsyncClient? = null
     private var activeConfig: MqttConfig? = null
     private var activeDevices: List<MqttDevice> = emptyList()
-    private var generation = 0
+    @Volatile private var generation = 0
     private var isConnecting = false
     private var wasConnected = false
     private var reconnectAttempt = 0
@@ -197,7 +197,10 @@ class MqttWolService : Service() {
 
         // Registered before connecting so retained/early messages are never missed. Global
         // routing (instead of per-subscribe callbacks) keeps working across re-subscriptions.
-        client.publishes(MqttGlobalPublishFilter.ALL) { publish -> handleIncoming(publish) }
+        // The generation check drops in-flight messages from a client we already replaced.
+        client.publishes(MqttGlobalPublishFilter.ALL) { publish ->
+            if (clientGeneration == generation) handleIncoming(publish)
+        }
 
         val connect = client.connectWith()
             .cleanSession(true)
@@ -281,12 +284,14 @@ class MqttWolService : Service() {
 
     private fun subscribe(topic: String, isCommandTopic: Boolean) {
         val client = mqttClient ?: return
+        val clientGeneration = generation
         client.subscribeWith()
             .topicFilter(topic)
             .qos(MqttQos.AT_LEAST_ONCE)
             .send()
             .whenComplete { subAck, throwable ->
                 mainHandler.post {
+                    if (clientGeneration != generation) return@post
                     when {
                         throwable != null -> {
                             val errorMsg = formatErrorMessage(throwable)
@@ -319,15 +324,23 @@ class MqttWolService : Service() {
         val topic = publish.topic.toString()
         val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
 
+        // Device status filters win over the command filter. A wildcard command topic can
+        // overlap a status topic (e.g. home/# and home/pc/status); treating "online"/"ON"
+        // as a command would wake the PC every time it reports its state.
+        val statusDevices = deviceSubscriptions.filter { MqttTopics.matches(it.topic, topic) }
+        if (statusDevices.isNotEmpty()) {
+            statusDevices.forEach { device ->
+                Log.d(TAG, "Device ${device.name} status: $payload")
+                when (payload) {
+                    device.onlinePayload -> AppGlobalState.updateDeviceStatus(device.id, true)
+                    device.offlinePayload -> AppGlobalState.updateDeviceStatus(device.id, false)
+                }
+            }
+            return
+        }
+
         if (MqttTopics.matches(commandTopic, topic)) {
             handleCommand(topic, payload, publish.isRetain)
-        }
-        deviceSubscriptions.filter { MqttTopics.matches(it.topic, topic) }.forEach { device ->
-            Log.d(TAG, "Device ${device.name} status: $payload")
-            when (payload) {
-                device.onlinePayload -> AppGlobalState.updateDeviceStatus(device.id, true)
-                device.offlinePayload -> AppGlobalState.updateDeviceStatus(device.id, false)
-            }
         }
     }
 

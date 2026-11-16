@@ -99,7 +99,9 @@ data class MqttEndpoint(
 object MqttTopics {
     /** MQTT 3.1.1 §4.7 topic filter rules: `+` fills a whole level, `#` only as the last level. */
     fun isValidFilter(filter: String): Boolean {
-        if (filter.isEmpty() || filter.length > 65535 || filter.contains('\u0000')) return false
+        // MQTT 3.1.1 §1.5.3 limit is 65535 *bytes* of UTF-8, not UTF-16 code units.
+        val bytes = filter.toByteArray(Charsets.UTF_8)
+        if (bytes.isEmpty() || bytes.size > 65535 || filter.contains('\u0000')) return false
         val levels = filter.split('/')
         levels.forEachIndexed { index, level ->
             if (level.contains('#') && (level != "#" || index != levels.lastIndex)) return false

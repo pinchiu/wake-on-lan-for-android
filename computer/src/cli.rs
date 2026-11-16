@@ -229,15 +229,34 @@ fn set_autostart(enabled: bool) -> i32 {
 fn run_daemon(mode: DaemonMode) -> i32 {
     let logger = Logger::new(paths::log_path());
 
-    if mode == DaemonMode::User && system_service::state().is_installed() {
-        logger.record(
-            "instance_check",
-            &format!(
-                "System service {} is installed and handles remote commands; exiting user instance.",
-                system_service::UNIT_NAME
-            ),
-        );
-        return 0;
+    if mode == DaemonMode::User {
+        match system_service::state() {
+            system_service::ServiceState::Active => {
+                logger.record(
+                    "instance_check",
+                    &format!(
+                        "System service {} is active and handles remote commands; exiting user instance.",
+                        system_service::UNIT_NAME
+                    ),
+                );
+                return 0;
+            }
+            system_service::ServiceState::Inactive => {
+                // Installed but stopped/crash-looping: let the user start a manual instance so
+                // remote control is not lost; the unit would otherwise fight for UDP 9877.
+                logger.record(
+                    "instance_check",
+                    &format!(
+                        "System service {} is installed but not running; starting a user instance. \
+                         Check `sudo systemctl status {}`.",
+                        system_service::UNIT_NAME,
+                        system_service::UNIT_NAME
+                    ),
+                );
+            }
+            system_service::ServiceState::NotInstalled
+            | system_service::ServiceState::Unsupported => {}
+        }
     }
 
     // Single-instance lock must remain in scope until function ends; quiet exit on duplicate launch.
