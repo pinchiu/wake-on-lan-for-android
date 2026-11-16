@@ -118,7 +118,12 @@ class PcActionDispatcher(
             return PcActionResult.Failure("Invalid target IP '$targetIp'")
         }
 
-        val secret = pcSecretProvider().trim()
+        val secret = try {
+            pcSecretProvider().trim()
+        } catch (_: Exception) {
+            // A broken provider must fail closed, exactly like an unconfigured secret.
+            ""
+        }
         if (secret.isEmpty()) {
             return PcActionResult.Failure(PC_SECRET_MISSING_ERROR)
         }
