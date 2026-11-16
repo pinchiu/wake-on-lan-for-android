@@ -40,6 +40,15 @@ class MqttSupportTest {
     }
 
     @Test
+    fun webSocketPathIsKeptVerbatim() {
+        val root = MqttEndpoint.parse("ws://broker/", 0, useSsl = false, protocol = "TCP")!!
+        assertEquals("", root.webSocketPath)
+        assertEquals("ws://broker:80/", root.displayUrl)
+        val trailing = MqttEndpoint.parse("ws://broker/ws/", 0, useSsl = false, protocol = "TCP")!!
+        assertEquals("ws/", trailing.webSocketPath)
+    }
+
+    @Test
     fun webSocketProtocolUsesDefaultPath() {
         val endpoint = MqttEndpoint.parse("broker", 8083, useSsl = false, protocol = "WebSocket")!!
         assertTrue(endpoint.useWebSocket)
@@ -95,6 +104,7 @@ class MqttSupportTest {
         assertTrue(MqttTopics.matches("home/#", "home/a/b/c"))
         assertFalse(MqttTopics.matches("#", "\$SYS/broker/uptime"))
         assertFalse(MqttTopics.matches("home/#/x", "home/a/x"))
+        assertTrue(MqttTopics.matches("\$share/phones/home/pc/wake", "home/pc/wake"))
     }
 
     @Test

@@ -55,7 +55,8 @@ data class MqttEndpoint(
 
             val slash = rest.indexOf('/')
             val authority = if (slash >= 0) rest.substring(0, slash) else rest
-            val path = if (slash >= 0) rest.substring(slash + 1).trim('/') else ""
+            // null = no path given (use the default); "" = explicit root "/".
+            val path = if (slash >= 0) rest.substring(slash + 1) else null
             val credentialsFree = authority.substringAfterLast('@')
 
             val host: String
@@ -82,7 +83,7 @@ data class MqttEndpoint(
                 port = port,
                 useSsl = ssl,
                 useWebSocket = webSocket,
-                webSocketPath = path.ifEmpty { DEFAULT_WEBSOCKET_PATH }
+                webSocketPath = path ?: DEFAULT_WEBSOCKET_PATH
             )
         }
 
@@ -107,7 +108,11 @@ object MqttTopics {
         return true
     }
 
-    fun matches(filter: String, topic: String): Boolean {
+    private val SHARED_PREFIX = Regex("^\\\$share/[^/+#]+/")
+
+    fun matches(subscriptionFilter: String, topic: String): Boolean {
+        // Brokers deliver `$share/<group>/a/b` publications on topic `a/b`.
+        val filter = subscriptionFilter.replaceFirst(SHARED_PREFIX, "")
         if (!isValidFilter(filter) || topic.isEmpty()) return false
         val filterLevels = filter.split('/')
         val topicLevels = topic.split('/')
