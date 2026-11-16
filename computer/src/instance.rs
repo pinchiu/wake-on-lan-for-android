@@ -116,6 +116,23 @@ pub fn is_running() -> bool {
     }
 }
 
+/// PID of the running daemon when the platform exposes one.
+///
+/// Unix keeps the owning PID in the lock file. The Windows named mutex has no owner
+/// PID, so the local dashboard reports `null` there and shows "not available" instead.
+pub fn running_pid() -> Option<u32> {
+    #[cfg(windows)]
+    {
+        None
+    }
+    #[cfg(not(windows))]
+    {
+        let path = lock_path();
+        let pid = unix::read_pid(&path)?;
+        unix::process_alive(pid).then_some(pid)
+    }
+}
+
 #[cfg(not(windows))]
 fn lock_path() -> std::path::PathBuf {
     paths::app_data_dir().join(LOCK_FILE_NAME)
@@ -379,11 +396,11 @@ mod unix {
         }
     }
 
-    fn read_pid(path: &Path) -> Option<u32> {
+    pub(super) fn read_pid(path: &Path) -> Option<u32> {
         fs::read_to_string(path).ok()?.trim().parse().ok()
     }
 
-    fn process_alive(pid: u32) -> bool {
+    pub(super) fn process_alive(pid: u32) -> bool {
         platform::command("kill")
             .args(["-0", &pid.to_string()])
             .output()

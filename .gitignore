@@ -30,3 +30,6 @@ config.ini
 # Local development scripts
 scripts/
 
+
+# Kotlin incremental session data
+.kotlin/
