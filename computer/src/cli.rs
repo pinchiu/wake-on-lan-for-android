@@ -17,6 +17,7 @@ use crate::platform;
 use crate::power::SystemPower;
 use crate::server;
 use crate::system_service::{self, SERVICE_FLAG};
+use crate::web;
 
 const LOG_TAIL_LINES: usize = 25;
 const SYSTEM_DATA_DIR: &str = "/var/lib/pc_onoff";
@@ -34,6 +35,8 @@ pub enum CliCommand {
     Uninstall,
     InstallSystem,
     UninstallSystem,
+    /// Foreground local dashboard; never starts or acquires the daemon.
+    WebUi,
     Help,
 }
 
@@ -74,6 +77,7 @@ impl CliCommand {
             "--uninstall" | "-u" => Ok(Self::Uninstall),
             "--install-system" => Ok(Self::InstallSystem),
             "--uninstall-system" => Ok(Self::UninstallSystem),
+            "--web-ui" => Ok(Self::WebUi),
             SERVICE_FLAG => Ok(Self::RunService),
             "--help" | "-h" => Ok(Self::Help),
             other => Err(CliError::UnknownArgument(other.to_owned())),
@@ -95,6 +99,7 @@ pub fn run(args: Vec<String>) -> i32 {
         Ok(CliCommand::Uninstall) => set_autostart(false),
         Ok(CliCommand::InstallSystem) => report(system_service::install()),
         Ok(CliCommand::UninstallSystem) => report(system_service::uninstall()),
+        Ok(CliCommand::WebUi) => run_web_ui(),
         Ok(CliCommand::Run) => run_daemon(DaemonMode::User),
         Ok(CliCommand::RunService) => run_daemon(DaemonMode::SystemService),
         Err(error) => {
@@ -277,6 +282,16 @@ fn set_autostart(enabled: bool) -> i32 {
     0
 }
 
+fn run_web_ui() -> i32 {
+    match web::serve() {
+        Ok(()) => 0,
+        Err(error) => {
+            eprintln!("{error}");
+            1
+        }
+    }
+}
+
 fn run_daemon(mode: DaemonMode) -> i32 {
     let logger = Logger::new(paths::log_path());
 
@@ -423,6 +438,7 @@ fn print_help() {
     println!("  {exe} --stop       Stop running background daemon");
     println!("  {exe} --install    Enable autostart on boot");
     println!("  {exe} --uninstall  Disable autostart on boot");
+    println!("  {exe} --web-ui     Open the local dashboard (foreground, port 9878)");
     if cfg!(all(unix, not(target_os = "macos"))) {
         println!(
             "  sudo {exe} --install-system    Install as a system service (works before login)"
@@ -475,6 +491,7 @@ mod tests {
             ("-h", CliCommand::Help),
             ("--install-system", CliCommand::InstallSystem),
             ("--uninstall-system", CliCommand::UninstallSystem),
+            ("--web-ui", CliCommand::WebUi),
             ("--service", CliCommand::RunService),
         ];
 

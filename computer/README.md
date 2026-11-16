@@ -112,7 +112,20 @@ Unknown keys and formatting errors are safely ignored; older configs (including 
 * `sudo pc_onoff --install-system` (Linux): Install/update the system service that works before login
 * `sudo pc_onoff --uninstall-system` (Linux): Remove the system service
 * `pc_onoff --service`: Internal flag used by the system service unit
+* `pc_onoff --web-ui`: Open the local Frost dashboard at `http://127.0.0.1:9878`
 * `pc_onoff --help`: Show command usage
+
+### Local Frost Dashboard (optional)
+```bash
+pc_onoff --web-ui
+# Dashboard: http://127.0.0.1:9878
+```
+The dashboard is a separate foreground process. It does **not** start a second daemon, so it is
+safe to use while the per-user or system service is running. It binds loopback only, shows the
+daemon state, local IPs, autostart/system-service status and the latest log lines, and sends the
+five power actions through the normal UDP 9877 protocol. Destructive actions ask for confirmation.
+The page follows `prefers-color-scheme` and uses the same Frost design tokens as the Android apps
+(see `docs/frost-ui.md`).
 
 ---
 
@@ -130,6 +143,7 @@ The core business logic converges in `dispatch`: callers only need `Dispatcher::
 | `src/logging.rs` | Console + file logging, 5 MB size rotation, control character sanitization. |
 | `src/autostart.rs` | Windows HKCU Run / macOS launchd / Linux systemd & XDG autostart. |
 | `src/system_service.rs` | Linux root system service (`--install-system`) so commands work before login. |
+| `src/web.rs` | Optional `--web-ui` loopback dashboard (embedded HTML/CSS/JS, `/api/*`, zero crates). |
 | `src/instance.rs` | Single-instance mutual exclusion and `--stop` implementation. |
 | `src/paths.rs` | Config / log path resolution without side-effect probes. |
 | `src/cli.rs` | Command line argument parsing and process lifecycle. |
