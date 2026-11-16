@@ -327,13 +327,28 @@ mod linux {
             return false;
         }
         let proc_dir = PathBuf::from(format!("/proc/{pid}"));
-        let is_pc_onoff =
-            fs::read_to_string(proc_dir.join("comm")).is_ok_and(|comm| comm.trim() == "pc_onoff");
+        // `comm` is truncated to 15 bytes, so the published standalone binary
+        // (`pc_onoff-linux-x86_64`) shows up as `pc_onoff-linux-x`. Resolve the
+        // executable instead and fall back to `comm` only when /proc/exe is unreadable.
+        let is_pc_onoff = fs::read_link(proc_dir.join("exe"))
+            .ok()
+            .as_deref()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .is_some_and(is_pc_onoff_executable)
+            || fs::read_to_string(proc_dir.join("comm"))
+                .is_ok_and(|comm| is_pc_onoff_executable(comm.trim()));
         let same_owner = match (fs::metadata(&proc_dir), fs::metadata(home)) {
             (Ok(process), Ok(home)) => process.uid() == home.uid() && process.uid() != 0,
             _ => false,
         };
         is_pc_onoff && same_owner
+    }
+
+    /// Executable names shipped by this project: `pc_onoff` (AppImage / installed copy)
+    /// and `pc_onoff-linux-x86_64` (standalone release). Nothing else may be signalled.
+    fn is_pc_onoff_executable(name: &str) -> bool {
+        name == "pc_onoff" || name.starts_with("pc_onoff-")
     }
 
     fn invoking_user_home() -> Option<PathBuf> {
@@ -426,6 +441,15 @@ mod linux {
                 Some(PathBuf::from("/home/scott"))
             );
             assert_eq!(home_from_passwd(passwd, "nobody"), None);
+        }
+
+        #[test]
+        fn recognises_published_executable_names_only() {
+            assert!(is_pc_onoff_executable("pc_onoff"));
+            assert!(is_pc_onoff_executable("pc_onoff-linux-x86_64"));
+            assert!(is_pc_onoff_executable("pc_onoff-linux-x"));
+            assert!(!is_pc_onoff_executable("pc_onoffd"));
+            assert!(!is_pc_onoff_executable("bash"));
         }
     }
 }
