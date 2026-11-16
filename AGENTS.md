@@ -113,6 +113,29 @@ impl<P: PowerController> Dispatcher<P> {
 * **Testability**: `PowerController` is the single system seam, allowing unit tests to inject mock controllers without triggering actual shutdowns.
 * **Unidirectional Dependency**: `power → action`, `dispatch → {action, power}`, `server → dispatch`, `cli → all`.
 
+### 2.4 Command Authentication (v1)
+
+Every network command is signed; there is **no unsigned fallback** for power commands.
+
+```text
+<command>|ts=<unix-seconds>|nonce=<16 lowercase hex>|sig=<64 lowercase hex>
+```
+
+* `command` is the legacy payload (`WAKE`, `SHUTDOWN:192.168.1.10`, …).
+* `sig` = lowercase hex HMAC-SHA256(secret UTF-8, `<command>|ts=<ts>|nonce=<nonce>`).
+* Timestamp window ±300 s; nonces are remembered for 600 s (max 1024) to reject replays.
+* Two secrets:
+  * `helperSecret` — Remote Phone → Home Phone (TCP 9876 and MQTT command topic).
+  * `pcSecret` — phones → `pc_onoff` (UDP 9877).
+* The daemon generates `secret=` on first use and prints it with `pc_onoff --status`; paste it
+  into both apps. The Home Phone generates `helperSecret` on first launch; paste it into the
+  Remote Phone. Secret changes require updating every peer.
+* TCP failures return `ERROR: authentication required`, `ERROR: authentication failed`, or
+  `ERROR: authentication not configured`. MQTT/UDP log `auth rejected (<reason>)` and drop.
+* Kotlin: `CommandAuth.kt` (both apps) + `ReplayGuard`. Rust: `crypto.rs` (SHA-256/HMAC,
+  dependency-free) + `auth.rs`.
+* Never log secrets or signatures; log only the stable reason.
+
 ---
 
 ## 3. Remote Phone Multi-Host Profile Management & Widgets
@@ -140,6 +163,7 @@ impl<P: PowerController> Dispatcher<P> {
 | **TCP Service Adapter** | [`wakeonlanhomephone/.../WolListenerService.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt) | Listens on TCP 9876, directs stream input to `dispatcher.dispatch()`, and writes back `toProtocolString()`. |
 | **MQTT Service Adapter** | [`wakeonlanhomephone/.../MqttWolService.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt) | Keeps one HiveMQ client (generation-tagged listeners), exponential back-off reconnect (1–120 s) with immediate retry on network return, re-subscribes after every clean-session connect, ignores retained command messages, and forwards payloads to `dispatcher.dispatch()`. |
 | **MQTT Pure Helpers** | [`wakeonlanhomephone/.../MqttSupport.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttSupport.kt) | Android-free `MqttEndpoint.parse` (schemes, ports, IPv6, WebSocket path), MQTT topic-filter validation/matching (incl. `$share/`), and reconnect/client-id policy. Covered by `MqttSupportTest.kt`. |
+| **Command Auth (Android)** | [`wakeonlanhomephone/.../CommandAuth.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt) and [`wakeonwanremotephone/.../CommandAuth.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/CommandAuth.kt) | Pure-JVM HMAC-SHA256 envelope sign/verify, bounded `ReplayGuard`, secret generation and exact wire errors. Duplicated because the apps are separate Gradle projects. |
 | **Voice / Shortcut Adapter** | [`wakeonlanhomephone/.../VoiceWakeActivity.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/VoiceWakeActivity.kt) | Invisible entry activity for Google Assistant / App Shortcuts; invokes `dispatcher.dispatch("WAKE")` asynchronously and exits immediately. |
 | **Home Phone Widget** | [`wakeonlanhomephone/.../WakePcWidgetProvider.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WakePcWidgetProvider.kt) | Android desktop widget for 1-tap local WoL packet broadcasting. |
 | **Low-Level WoL Broadcaster** | [`wakeonlanhomephone/.../WolUtil.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolUtil.kt) | Constructs 102-byte Magic Packet binary frames and sends UDP datagrams. |
@@ -155,7 +179,9 @@ impl<P: PowerController> Dispatcher<P> {
 | **PC Daemon Autostart** | [`computer/src/autostart.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/autostart.rs) | Zero-admin autostart management (Windows HKCU Run, Linux systemd user & XDG, macOS `~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`). Uses `$APPIMAGE` (not the temporary mount path) and `Restart=on-failure`. |
 | **PC Daemon System Service** | [`computer/src/system_service.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/system_service.rs) | Root `--install-system` / `--uninstall-system`: copies the ELF out of the AppImage, writes `/etc/systemd/system/pc_onoff.service`, migrates config, removes conflicting user autostart, and rolls the unit back on failure. |
 | **PC Daemon Path Resolution** | [`computer/src/paths.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/paths.rs) | Cross-platform config/log path resolution (Windows `%LOCALAPPDATA%`, Linux `~/.config`, macOS `~/Library/Application Support`); `PC_ONOFF_DATA_DIR` pins all files to one directory (used by the system service). |
-| **PC Daemon UDP Server** | [`computer/src/server.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/server.rs) | Listens on UDP 9877, passes datagrams to dispatcher, logs events, resolves local IPv4. |
+| **PC Daemon Crypto** | [`computer/src/crypto.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/crypto.rs) | Dependency-free SHA-256, HMAC-SHA256, hex and constant-time comparison. FIPS/RFC 4231 test vectors. |
+| **PC Daemon Auth** | [`computer/src/auth.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/auth.rs) | Command envelope sign/verify, ±300 s timestamp window, 600 s bounded replay guard, typed errors. |
+| **PC Daemon UDP Server** | [`computer/src/server.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/server.rs) | Listens on UDP 9877, verifies the auth envelope, passes authenticated datagrams to dispatcher, logs `auth_rejected`, resolves local IPv4. |
 | **PC Daemon Support Modules** | [`computer/src/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/) | `config` (atomic INI persistence), `logging` (5 MB rotation), `instance` (single-instance mutex & stop), `cli` (CLI args & status). |
 | **PC Daemon Python Reference** | [`computer/pc_onoff.py`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/pc_onoff.py) | Reference implementation supporting Windows, Linux, and macOS; checked for syntax in CI. |
 
