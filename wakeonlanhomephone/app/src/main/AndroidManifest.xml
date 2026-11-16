@@ -75,13 +75,13 @@
             </intent-filter>
         </receiver>
 
-        <!-- Home Screen Wake Widget (App Widget) -->
+        <!-- Home Screen Wake Widget (App Widget). Exported only for the system
+             APPWIDGET_UPDATE broadcast; the custom wake action requires our private token. -->
         <receiver
             android:name=".WakePcWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.wakeonlanhomephone.ACTION_WAKE_PC" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

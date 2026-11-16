@@ -23,10 +23,16 @@ class PcActionDispatcher(
     private val defaultMacProvider: () -> String = { "" },
     private val defaultBroadcastIp: String = "255.255.255.255",
     private val pcCommandPort: Int = 9877,
-    private val wolPort: Int = 9
+    private val wolPort: Int = 9,
+    /**
+     * Supplies the shared PC secret used to sign UDP 9877 power commands. Android callers wire
+     * this to [MqttConfigManager]; the default is fail-closed for pure-JVM use and tests.
+     */
+    private val pcSecretProvider: () -> String = { "" }
 ) {
     companion object {
         private const val TAG = "PcActionDispatcher"
+        const val PC_SECRET_MISSING_ERROR = "Shared PC secret is not configured"
         private val MAC_REGEX = Regex("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
         private val IPV4_REGEX = Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
         private val KNOWN_POWER_ACTIONS = setOf("SHUTDOWN", "REBOOT", "SLEEP", "HIBERNATE", "LOCK")
@@ -112,8 +118,15 @@ class PcActionDispatcher(
             return PcActionResult.Failure("Invalid target IP '$targetIp'")
         }
 
+        val secret = pcSecretProvider().trim()
+        if (secret.isEmpty()) {
+            return PcActionResult.Failure(PC_SECRET_MISSING_ERROR)
+        }
+        val envelope = CommandAuth.sign(command, secret)
+            ?: return PcActionResult.Failure(PC_SECRET_MISSING_ERROR)
+
         return try {
-            val commandBytes = command.toByteArray()
+            val commandBytes = envelope.toByteArray()
             val address = InetAddress.getByName(targetIp)
             val packet = DatagramPacket(commandBytes, commandBytes.size, address, pcCommandPort)
             DatagramSocket().use { socket ->

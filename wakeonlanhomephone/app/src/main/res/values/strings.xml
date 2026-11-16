@@ -52,6 +52,17 @@
     <string name="settings_save_reconnect">儲存設定並重新連線</string>
     <string name="toast_mqtt_saved">MQTT 設定已儲存並重新連線</string>
 
+    <!-- 安全性與共用密鑰 -->
+    <string name="settings_security_title">安全性與共用密鑰</string>
+    <string name="settings_security_description">用於簽署 TCP / MQTT 指令與電腦電源指令</string>
+    <string name="settings_helper_secret_label">Helper Secret (TCP / MQTT)</string>
+    <string name="settings_pc_secret_label">PC Secret (UDP 9877)</string>
+    <string name="security_generate">產生</string>
+    <string name="security_copy">複製</string>
+    <string name="security_paste">貼上</string>
+    <string name="toast_secret_copied">密鑰已複製</string>
+    <string name="security_pc_secret_missing_hint">尚未設定 PC secret，關機/重啟指令將被拒絕</string>
+
     <!-- 關於與更新 -->
     <string name="about_title">關於與軟體更新</string>
     <string name="about_app_title">家用喚醒助手 (Wake On LAN Home Gateway)</string>

@@ -66,8 +66,13 @@ class MqttWolService : Service() {
     }
 
     private val dispatcher by lazy {
-        PcActionDispatcher(defaultMacProvider = { MqttConfigManager(this).getConfig().targetMac })
+        PcActionDispatcher(
+            defaultMacProvider = { MqttConfigManager(this).getConfig().targetMac },
+            pcSecretProvider = { MqttConfigManager(this).getConfig().pcSecret }
+        )
     }
+
+    private val replayGuard = ReplayGuard()
 
     private fun localized(resId: Int, vararg args: Any): String {
         return AppLocale.wrap(this).getString(resId, *args)
@@ -355,12 +360,28 @@ class MqttWolService : Service() {
             AppLogger.log("MQTT: Ignored empty message on '$topic'")
             return
         }
-        Log.d(TAG, "Received command on $topic: $payload")
+
         serviceScope.launch {
+            val secret = MqttConfigManager(this@MqttWolService).getConfig().helperSecret
+            val auth = CommandAuth.verify(payload, secret, replayGuard = replayGuard)
+            if (auth != AuthResult.Ok) {
+                // Never log the payload: it contains a signature (and could contain anything).
+                Log.w(TAG, "MQTT auth rejected on $topic: ${CommandAuth.reasonFor(auth)}")
+                AppLogger.log("MQTT: auth rejected (${CommandAuth.reasonFor(auth)}) on '$topic'")
+                return@launch
+            }
+            val command = CommandAuth.commandOf(payload)
+            if (command == null) {
+                Log.w(TAG, "MQTT auth rejected on $topic: missing command")
+                AppLogger.log("MQTT: auth rejected (missing command) on '$topic'")
+                return@launch
+            }
+
+            Log.d(TAG, "Received authenticated command on $topic")
             val wakeLock = newWakeLock("MqttWolService::Command")
             wakeLock?.acquire(COMMAND_WAKE_LOCK_MS)
             try {
-                val result = dispatcher.dispatch(payload, "MQTT")
+                val result = dispatcher.dispatch(command, "MQTT")
                 val text = when (result) {
                     is PcActionResult.Success -> result.message
                     is PcActionResult.Failure -> result.error
@@ -368,7 +389,7 @@ class MqttWolService : Service() {
                 mainHandler.post { if (!destroyed) updateNotification(text) }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to handle MQTT command", e)
-                AppLogger.log("MQTT: Command '$payload' failed (${e.message})")
+                AppLogger.log("MQTT: Command failed (${e.message})")
             } finally {
                 if (wakeLock?.isHeld == true) wakeLock.release()
             }

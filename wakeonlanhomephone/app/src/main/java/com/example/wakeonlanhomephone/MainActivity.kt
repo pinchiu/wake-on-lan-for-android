@@ -265,7 +265,9 @@ fun MainScreen(
                                 deviceProfileManager = deviceProfileManager,
                                 onWakeComputer = { device ->
                                     coroutineScope.launch {
-                                        val dispatcher = PcActionDispatcher()
+                                        val dispatcher = PcActionDispatcher(
+                                            pcSecretProvider = { MqttConfigManager(context).getConfig().pcSecret }
+                                        )
                                         val result = dispatcher.dispatch("WAKE:${device.mac}", "HomePhoneUI")
                                         if (result.isSuccess) {
                                             Toast.makeText(
@@ -287,7 +289,9 @@ fun MainScreen(
                                 },
                                 onPowerCommand = { device, action ->
                                     coroutineScope.launch {
-                                        val dispatcher = PcActionDispatcher()
+                                        val dispatcher = PcActionDispatcher(
+                                            pcSecretProvider = { MqttConfigManager(context).getConfig().pcSecret }
+                                        )
                                         val result = dispatcher.dispatch("${action.uppercase()}:${device.ip}", "HomePhoneUI")
                                         if (result.isSuccess) {
                                             Toast.makeText(
@@ -640,6 +644,10 @@ fun NewSettingsScreen(
     var useSsl by remember { mutableStateOf(currentConfig.useSsl) }
     var autoConnect by remember { mutableStateOf(currentConfig.autoConnect) }
     var isPasswordVisible by remember { mutableStateOf(false) }
+    var helperSecret by remember { mutableStateOf(currentConfig.helperSecret) }
+    var pcSecret by remember { mutableStateOf(currentConfig.pcSecret) }
+    var helperSecretVisible by remember { mutableStateOf(false) }
+    var pcSecretVisible by remember { mutableStateOf(false) }
     val lastError by AppGlobalState.lastErrorMessage.collectAsState()
     
     Box(
@@ -966,7 +974,9 @@ fun NewSettingsScreen(
                                         password = brokerPass.trim(),
                                         useSsl = useSsl,
                                         topic = brokerTopic.trim().ifEmpty { currentConfig.topic },
-                                        autoConnect = autoConnect
+                                        autoConnect = autoConnect,
+                                        helperSecret = helperSecret.trim(),
+                                        pcSecret = pcSecret.trim()
                                     )
                                 )
                                 onSave()
@@ -979,6 +989,153 @@ fun NewSettingsScreen(
                             Icon(Icons.Default.Done, null, tint = Color.Black, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.settings_save_reconnect), color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                    }
+                }
+
+                // Security / shared secrets
+                item {
+                    GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = stringResource(R.string.settings_security_title),
+                                color = Slate50,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.settings_security_description),
+                                color = Slate400,
+                                fontSize = 12.sp
+                            )
+                            Spacer(Modifier.height(12.dp))
+
+                            Text(
+                                text = stringResource(R.string.settings_helper_secret_label),
+                                color = Slate400,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = helperSecret,
+                                onValueChange = { helperSecret = it },
+                                singleLine = true,
+                                visualTransformation = if (helperSecretVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { helperSecretVisible = !helperSecretVisible }) {
+                                        Icon(
+                                            imageVector = if (helperSecretVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                            contentDescription = if (helperSecretVisible) stringResource(R.string.password_hide) else stringResource(R.string.password_show),
+                                            tint = if (helperSecretVisible) AccentEmerald else Slate400,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Slate50,
+                                    unfocusedTextColor = Slate50,
+                                    focusedBorderColor = AccentEmerald,
+                                    unfocusedBorderColor = BorderSubtle,
+                                    focusedContainerColor = DarkSurfaceElevated,
+                                    unfocusedContainerColor = DarkSurfaceElevated
+                                ),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        helperSecret = CommandAuth.generateSecret()
+                                        helperSecretVisible = true
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.security_generate), color = AccentEmerald, fontSize = 12.sp)
+                                }
+                                TextButton(
+                                    enabled = helperSecret.isNotBlank(),
+                                    onClick = {
+                                        clipboard?.setPrimaryClip(
+                                            android.content.ClipData.newPlainText(
+                                                context.getString(R.string.settings_helper_secret_label),
+                                                helperSecret
+                                            )
+                                        )
+                                        Toast.makeText(context, context.getString(R.string.toast_secret_copied), Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.security_copy), color = Slate300, fontSize = 12.sp)
+                                }
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Text(
+                                text = stringResource(R.string.settings_pc_secret_label),
+                                color = Slate400,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = pcSecret,
+                                onValueChange = { pcSecret = it },
+                                singleLine = true,
+                                visualTransformation = if (pcSecretVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { pcSecretVisible = !pcSecretVisible }) {
+                                        Icon(
+                                            imageVector = if (pcSecretVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                            contentDescription = if (pcSecretVisible) stringResource(R.string.password_hide) else stringResource(R.string.password_show),
+                                            tint = if (pcSecretVisible) AccentEmerald else Slate400,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Slate50,
+                                    unfocusedTextColor = Slate50,
+                                    focusedBorderColor = AccentEmerald,
+                                    unfocusedBorderColor = BorderSubtle,
+                                    focusedContainerColor = DarkSurfaceElevated,
+                                    unfocusedContainerColor = DarkSurfaceElevated
+                                ),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        val clip = clipboard?.primaryClip
+                                        val pasted = if (clip != null && clip.itemCount > 0) {
+                                            clip.getItemAt(0).coerceToText(context)?.toString().orEmpty()
+                                        } else {
+                                            ""
+                                        }
+                                        if (pasted.isNotBlank()) pcSecret = pasted.trim()
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.security_paste), color = Slate300, fontSize = 12.sp)
+                                }
+                            }
+                            if (pcSecret.isBlank()) {
+                                Text(
+                                    text = stringResource(R.string.security_pc_secret_missing_hint),
+                                    color = SemanticWarning,
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
                     }
                 }

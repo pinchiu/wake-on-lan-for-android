@@ -12,22 +12,57 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 /**
  * Home screen widget (App Widget) provider.
  * Allows users to trigger Wake-on-LAN packets with a single tap on the Android home screen for the currently active target PC.
+ *
+ * The receiver stays exported for the system APPWIDGET_UPDATE broadcast, but the wake action is
+ * guarded by a private per-install token carried in our own explicit PendingIntent. A third-party
+ * broadcast with the custom action (or without the token) is ignored.
  */
 class WakePcWidgetProvider : AppWidgetProvider() {
 
     companion object {
-        const val ACTION_WAKE_PC = "com.example.wakeonlanhomephone.ACTION_WAKE_PC"
+        private const val ACTION_WAKE_PC = "com.example.wakeonlanhomephone.ACTION_WAKE_PC"
+        private const val EXTRA_WAKE_TOKEN = "com.example.wakeonlanhomephone.extra.WAKE_TOKEN"
+        private const val PREFS_NAME = "widget_security"
+        private const val KEY_WAKE_TOKEN = "wake_token"
+
+        private val tokenLock = Any()
+
+        private fun getOrCreateWakeToken(context: Context): String {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val existing = prefs.getString(KEY_WAKE_TOKEN, null)
+            if (!existing.isNullOrBlank()) return existing
+
+            synchronized(tokenLock) {
+                val current = prefs.getString(KEY_WAKE_TOKEN, null)
+                if (!current.isNullOrBlank()) return current
+                val generated = UUID.randomUUID().toString() + UUID.randomUUID().toString()
+                prefs.edit().putString(KEY_WAKE_TOKEN, generated).apply()
+                return generated
+            }
+        }
+
+        private fun hasValidWakeToken(context: Context, intent: Intent): Boolean {
+            val provided = intent.getStringExtra(EXTRA_WAKE_TOKEN) ?: return false
+            val expected = getOrCreateWakeToken(context)
+            return MessageDigest.isEqual(
+                provided.toByteArray(Charsets.UTF_8),
+                expected.toByteArray(Charsets.UTF_8)
+            )
+        }
 
         fun createUpdatePendingIntent(context: Context): PendingIntent {
             val intent = Intent(context, WakePcWidgetProvider::class.java).apply {
                 action = ACTION_WAKE_PC
+                putExtra(EXTRA_WAKE_TOKEN, getOrCreateWakeToken(context))
             }
             return PendingIntent.getBroadcast(
                 context,
@@ -77,6 +112,10 @@ class WakePcWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
 
         if (intent.action == ACTION_WAKE_PC) {
+            if (!hasValidWakeToken(context, intent)) {
+                AppLogger.log("[WIDGET] Ignored wake action without a valid private token")
+                return
+            }
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
@@ -107,7 +146,8 @@ class WakePcWidgetProvider : AppWidgetProvider() {
 
                     // Dispatch wake command via the deep module PcActionDispatcher
                     val dispatcher = PcActionDispatcher(
-                        defaultMacProvider = { targetMac }
+                        defaultMacProvider = { targetMac },
+                        pcSecretProvider = { MqttConfigManager(context).getConfig().pcSecret }
                     )
                     val result = dispatcher.dispatch("WAKE:$targetMac", "Widget")
 
