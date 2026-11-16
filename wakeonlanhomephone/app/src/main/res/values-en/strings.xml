@@ -200,6 +200,8 @@
     <string name="mqtt_error_unknown">Unknown connection error</string>
     <string name="mqtt_subscribe_failed">Failed to subscribe to topic: %1$s</string>
     <string name="mqtt_subscribe_rejected">Broker rejected subscription topic \'%1$s\' (for Adafruit IO the topic must be username/feeds/feed-name)</string>
+    <string name="service_mqtt_reconnecting">MQTT disconnected (%1$s), reconnecting in %2$d s</string>
+    <string name="mqtt_error_invalid_topic">Invalid MQTT topic \'%1$s\' (+ must fill a whole level, # only as the last level)</string>
 
     <!-- WoL listener service notifications -->
     <string name="service_wol_initializing">Listening for wake-up commands (TCP)...</string>

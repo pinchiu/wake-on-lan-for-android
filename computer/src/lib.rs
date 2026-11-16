@@ -27,6 +27,7 @@ pub mod paths;
 pub mod platform;
 pub mod power;
 pub mod server;
+pub mod system_service;
 
 /// Application name, also used as part of data directory and mutex names.
 pub const APP_NAME: &str = "pc_onoff";

@@ -29,7 +29,7 @@ class PcActionDispatcher(
         private const val TAG = "PcActionDispatcher"
         private val MAC_REGEX = Regex("^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
         private val IPV4_REGEX = Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
-        private val KNOWN_POWER_ACTIONS = setOf("SHUTDOWN", "REBOOT", "SLEEP", "HIBERNATE")
+        private val KNOWN_POWER_ACTIONS = setOf("SHUTDOWN", "REBOOT", "SLEEP", "HIBERNATE", "LOCK")
     }
 
     suspend fun dispatch(rawCommand: String, source: String = "local"): PcActionResult = withContext(Dispatchers.IO) {

@@ -3,6 +3,7 @@
 //! The interface here is intentionally minimal so other modules don't need scattered `#[cfg(windows)]`.
 
 use std::ffi::OsStr;
+use std::path::PathBuf;
 use std::process::Command;
 
 #[cfg(windows)]
@@ -54,6 +55,38 @@ pub fn command(program: impl AsRef<OsStr>) -> Command {
     }
 }
 
+/// Path that autostart entries should launch.
+///
+/// Inside an AppImage, [`std::env::current_exe`] points into a temporary FUSE mount
+/// (`/tmp/.mount_*`) that disappears when the process exits, so the persistent
+/// `$APPIMAGE` path is used instead.
+pub fn launcher_executable() -> std::io::Result<PathBuf> {
+    if let Some(appimage) = appimage_path(std::env::var_os("APPIMAGE")) {
+        return Ok(appimage);
+    }
+    std::env::current_exe()
+}
+
+fn appimage_path(value: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    let path = PathBuf::from(value.filter(|value| !value.is_empty())?);
+    path.is_file().then_some(path)
+}
+
+/// Whether the current process runs with root privileges (always `false` on Windows).
+pub fn is_root() -> bool {
+    #[cfg(unix)]
+    {
+        unsafe extern "C" {
+            fn geteuid() -> u32;
+        }
+        unsafe { geteuid() == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        false
+    }
+}
+
 /// If the parent process has a console, attach output to it (convenient for CLI commands like `--status`).
 ///
 /// Windows GUI subsystem binaries don't automatically receive stdout/stderr, so `CONOUT$` is assigned
@@ -100,6 +133,24 @@ pub fn wide(value: &str) -> Vec<u16> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn appimage_path_requires_an_existing_file() {
+        assert_eq!(appimage_path(None), None);
+        assert_eq!(appimage_path(Some("".into())), None);
+        assert_eq!(
+            appimage_path(Some("/definitely/not/here.AppImage".into())),
+            None
+        );
+
+        let current = std::env::current_exe().expect("current exe");
+        assert_eq!(
+            appimage_path(Some(current.clone().into_os_string())),
+            Some(current)
+        );
+    }
+
     #[cfg(windows)]
     #[test]
     fn wide_strings_are_nul_terminated() {

@@ -13,25 +13,42 @@ use crate::APP_NAME;
 const CONFIG_FILE_NAME: &str = "config.ini";
 const LOG_FILE_NAME: &str = "pc_onoff.log";
 
+/// Environment variable that pins config, log and lock files to one directory.
+/// Set by the Linux system service unit (`/var/lib/pc_onoff`).
+pub const DATA_DIR_ENV: &str = "PC_ONOFF_DATA_DIR";
+
 static PROBE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// Configuration file path.
 pub fn config_path() -> PathBuf {
-    choose_file(
-        CONFIG_FILE_NAME,
-        executable_dir().as_deref(),
-        &app_data_dir(),
-    )
+    resolve_file(CONFIG_FILE_NAME)
 }
 
 /// Log file path.
 pub fn log_path() -> PathBuf {
-    choose_file(LOG_FILE_NAME, executable_dir().as_deref(), &app_data_dir())
+    resolve_file(LOG_FILE_NAME)
+}
+
+fn resolve_file(file_name: &str) -> PathBuf {
+    if let Some(directory) = data_dir_override() {
+        return directory.join(file_name);
+    }
+    choose_file(file_name, executable_dir().as_deref(), &app_data_dir())
+}
+
+fn data_dir_override() -> Option<PathBuf> {
+    env::var_os(DATA_DIR_ENV)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
 }
 
 /// User application data directory
 /// (Windows: `%LOCALAPPDATA%\pc_onoff`; macOS: `~/Library/Application Support/pc_onoff`; Linux/Unix: `~/.config/pc_onoff`).
 pub fn app_data_dir() -> PathBuf {
+    if let Some(directory) = data_dir_override() {
+        return directory;
+    }
+
     #[cfg(windows)]
     if let Some(local_app_data) = env::var_os("LOCALAPPDATA") {
         return PathBuf::from(local_app_data).join(APP_NAME);

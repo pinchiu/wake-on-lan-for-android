@@ -82,11 +82,8 @@ fun AddDeviceScreen(
                 Button(
                     onClick = { 
                         val parsedPort = port.toIntOrNull() ?: if (useSsl) 8883 else 1883
-                        val cleanHost = brokerUrl
-                            .replace(Regex("^[a-zA-Z]+://"), "")
-                            .substringBefore(":")
-                            .substringBefore("/")
-                            .trim()
+                        // Keep scheme/port/path (e.g. wss://host:443/mqtt); MqttEndpoint parses it.
+                        val cleanHost = brokerUrl.trim()
 
                         configManager.saveConfig(
                             currentConfig.copy(

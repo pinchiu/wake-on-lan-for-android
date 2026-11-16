@@ -31,7 +31,8 @@ A cross-platform background daemon designed to pair with the Android Wake-on-LAN
 | :--- | :--- | :--- | :--- |
 | **Windows** | User registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | No admin required | Auto-registers on double-click; automatically runs in background after reboot |
 | **macOS (Apple)** | `launchd` LaunchAgent (`~/Library/LaunchAgents/com.wakeonlan.pc_onoff.plist`) | No root required | Managed by launchd upon user login; controllable via `launchctl` |
-| **Linux** | `systemd --user` service unit + XDG Autostart (`~/.config/autostart/`) | No sudo required | Supports both mainstream desktop environments (GNOME/KDE) and headless user sessions |
+| **Linux** | `systemd --user` service unit + XDG Autostart (`~/.config/autostart/`) | No sudo required | Supports both mainstream desktop environments (GNOME/KDE) and headless user sessions; starts only after login |
+| **Linux (system)** | `/etc/systemd/system/pc_onoff.service` via `sudo pc_onoff --install-system` | Root (once) | Starts at boot, works at the login screen before any user logs in |
 
 ---
 
@@ -43,7 +44,7 @@ A cross-platform background daemon designed to pair with the Android Wake-on-LAN
 | `reboot` | Restart | `shutdown /r /f /t 0` (silent) | `osascript` (System Events) / `shutdown -r now` | `systemctl reboot` |
 | `sleep` | Suspend to RAM | Locks workstation, calls native `SetSuspendState(0, 0, 0)` (preserves WoL) | `pmset sleepnow` / `osascript` (System Events) | `systemctl suspend` |
 | `hibernate` | Suspend to Disk | Locks workstation, triggers hibernation | `pmset sleepnow` (follows system sleepmode) | `systemctl hibernate` |
-| `lock` | Lock screen | Native `LockWorkStation` | `CGSession -suspend` / `pmset displaysleepnow` | `loginctl lock-session` |
+| `lock` | Lock screen | Native `LockWorkStation` | `CGSession -suspend` / `pmset displaysleepnow` | `loginctl lock-session` / `loginctl lock-sessions` |
 
 * Case-insensitive (`SHUTDOWN`, `Shutdown`, etc.).
 * Tolerates `SHUTDOWN:<IP>` or `SLEEP,<IP>` wire formats sent by Android apps; the `:<IP>` segment is safely ignored.
@@ -55,6 +56,7 @@ A cross-platform background daemon designed to pair with the Android Wake-on-LAN
 
 The daemon resolves `config.ini` in the following order:
 
+0. `$PC_ONOFF_DATA_DIR/config.ini` when the variable is set (the Linux system service uses `/var/lib/pc_onoff`).
 1. Directory containing the executable (if file exists or directory is writable).
 2. Windows: `%LOCALAPPDATA%\pc_onoff\config.ini`
 3. macOS: `~/Library/Application Support/pc_onoff/config.ini`
@@ -92,6 +94,13 @@ Unknown keys and formatting errors are safely ignored; older configs (including 
   ./pc_onoff-linux-x86_64.AppImage
   ```
 * Or run standalone binary: `./pc_onoff`. Automatically registers `systemd --user` service and XDG Autostart.
+* **Accept commands before login (recommended for shutdown/reboot at the login screen):**
+  ```bash
+  sudo ./pc_onoff --install-system
+  ```
+  User-level autostart only runs after a user logs in. `--install-system` installs a root system service
+  (`/etc/systemd/system/pc_onoff.service`, binary `/usr/local/bin/pc_onoff`, data `/var/lib/pc_onoff/`)
+  that starts at boot, and disables the per-user autostart. Undo with `sudo pc_onoff --uninstall-system`.
 
 ### CLI Options
 * `pc_onoff` (Windows: `pc_onoff.exe`): Run as background daemon and register autostart (default)
@@ -100,6 +109,9 @@ Unknown keys and formatting errors are safely ignored; older configs (including 
 * `pc_onoff --stop`: Stop running background daemon
 * `pc_onoff --install`: Enable autostart on boot (and persist to `config.ini`)
 * `pc_onoff --uninstall`: Disable autostart on boot (and persist to `config.ini`)
+* `sudo pc_onoff --install-system` (Linux): Install/update the system service that works before login
+* `sudo pc_onoff --uninstall-system` (Linux): Remove the system service
+* `pc_onoff --service`: Internal flag used by the system service unit
 * `pc_onoff --help`: Show command usage
 
 ---
@@ -117,6 +129,7 @@ The core business logic converges in `dispatch`: callers only need `Dispatcher::
 | `src/config.rs` | `config.ini` pure parsing and atomic persistence. |
 | `src/logging.rs` | Console + file logging, 5 MB size rotation, control character sanitization. |
 | `src/autostart.rs` | Windows HKCU Run / macOS launchd / Linux systemd & XDG autostart. |
+| `src/system_service.rs` | Linux root system service (`--install-system`) so commands work before login. |
 | `src/instance.rs` | Single-instance mutual exclusion and `--stop` implementation. |
 | `src/paths.rs` | Config / log path resolution without side-effect probes. |
 | `src/cli.rs` | Command line argument parsing and process lifecycle. |

@@ -172,8 +172,11 @@ mod unix {
             PowerAction::Reboot => &[("systemctl", &["reboot"]), ("reboot", &[])],
             PowerAction::Sleep => &[("systemctl", &["suspend"]), ("pm-suspend", &[])],
             PowerAction::Hibernate => &[("systemctl", &["hibernate"]), ("pm-hibernate", &[])],
+            // `lock-session` needs the caller's own session; the system service (root,
+            // no session) falls through to `lock-sessions`, which locks every session.
             PowerAction::Lock => &[
                 ("loginctl", &["lock-session"]),
+                ("loginctl", &["lock-sessions"]),
                 ("xdg-screensaver", &["lock"]),
             ],
         }
