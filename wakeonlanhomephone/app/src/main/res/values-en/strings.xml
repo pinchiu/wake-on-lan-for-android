@@ -101,7 +101,7 @@
     <string name="power_action_sleep">Sleep computer</string>
     <string name="power_action_reboot">Restart computer</string>
     <string name="power_action_shutdown">Shut down computer</string>
-    <string name="server_logs_title">Live log TERMINAL</string>
+    <string name="server_logs_title">Recent activity</string>
     <string name="server_logs_clear">Clear log</string>
     <string name="server_logs_empty">No log entries yet</string>
     <string name="log_source_system">System</string>

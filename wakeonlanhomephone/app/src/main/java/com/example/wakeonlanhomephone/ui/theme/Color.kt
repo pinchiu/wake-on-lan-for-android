@@ -2,74 +2,131 @@ package com.example.wakeonlanhomephone.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Obsidian & Zinc Base (Dark Precision Hardware Aesthetic)
-val DarkBgPrimary = Color(0xFF090B10)
-val DarkBgSecondary = Color(0xFF10131B)
-val DarkSurface = Color(0xFF151924)
-val DarkSurfaceElevated = Color(0xFF1D2232)
-val DarkSurfaceHighlight = Color(0xFF262C3F)
+// ---------------------------------------------------------------------------
+// Frost UI tokens (light, Apple-like grey glass)
+// ---------------------------------------------------------------------------
+// The app historically used a dark "precision hardware" palette. The constant
+// names are kept as legacy aliases so existing call sites keep compiling, but
+// every value now resolves to a Frost token. New UI code should prefer the
+// Frost* names directly.
 
-// Precision Hairline Borders
-val BorderSubtle = Color(0x1AFFFFFF) // 10% white
-val BorderStandard = Color(0x28FFFFFF) // 16% white
-val BorderHover = Color(0x40FFFFFF) // 25% white
+// Backgrounds
+val FrostBg = Color(0xFFF2F2F7)
+val FrostBgSecondary = Color(0xFFE9E9EF)
 
-// Precision Single Core Accent: Emerald (#10B981)
-val AccentEmerald = Color(0xFF10B981)
-val AccentEmeraldDim = Color(0x1F10B981) // 12% alpha
-val AccentEmeraldBorder = Color(0x4D10B981) // 30% alpha
-val AccentEmeraldGlow = Color(0x3310B981) // 20% alpha
+// Translucent white surfaces
+val FrostSurfaceGlass = Color(0x94FFFFFF)      // #FFFFFF @ 58%
+val FrostSurfaceElevated = Color(0xC2FFFFFF)   // #FFFFFF @ 76%
+val FrostSurfaceSolid = Color(0xEBFFFFFF)      // #FFFFFF @ 92%
 
-// Semantic Palette
-val SemanticDanger = Color(0xFFF43F5E) // Rose/Crimson
-val SemanticDangerDim = Color(0x1FF43F5E)
-val SemanticDangerBorder = Color(0x4DF43F5E)
+// Hairlines
+val FrostBorderSubtle = Color(0x0F000000)      // #000000 @ 6%
+val FrostBorderStandard = Color(0x1A000000)    // #000000 @ 10%
+val FrostBorderStrong = Color(0xE6FFFFFF)      // #FFFFFF @ 90%
 
-val SemanticWarning = Color(0xFFF59E0B) // Amber
-val SemanticWarningDim = Color(0x1FF59E0B)
+// Text
+val FrostTextPrimary = Color(0xFF1C1C1E)
+val FrostTextSecondary = Color(0xFF6E6E73)
+val FrostTextTertiary = Color(0xFF8E8E93)
 
-val SemanticInfo = Color(0xFF0EA5E9) // Sky
-val SemanticInfoDim = Color(0x1F0EA5E9)
+// Accent (iOS blue)
+val FrostAccent = Color(0xFF0A84FF)
+val FrostAccentDim = Color(0x1F0A84FF)         // 12%
+val FrostAccentBorder = Color(0x400A84FF)      // 25%
 
-// High-Contrast Slate Typography Palette (WCAG AA Compliant)
-val Slate50 = Color(0xFFF8FAFC)
-val Slate100 = Color(0xFFF1F5F9)
-val Slate200 = Color(0xFFE2E8F0)
-val Slate300 = Color(0xFFCBD5E1)
-val Slate400 = Color(0xFF94A3B8)
-val Slate500 = Color(0xFF64748B)
-val Slate600 = Color(0xFF475569)
-val Slate700 = Color(0xFF334155)
-val Slate800 = Color(0xFF1E293B)
-val Slate900 = Color(0xFF0F172A)
+// Semantic colors (iOS system colors)
+val FrostSuccess = Color(0xFF34C759)
+val FrostSuccessDim = Color(0x1F34C759)
+val FrostSuccessBorder = Color(0x4034C759)
+val FrostWarning = Color(0xFFFF9F0A)
+val FrostWarningDim = Color(0x1FFF9F0A)
+val FrostWarningBorder = Color(0x40FF9F0A)
+val FrostDanger = Color(0xFFFF3B30)
+val FrostDangerDim = Color(0x1FFF3B30)
+val FrostDangerBorder = Color(0x40FF3B30)
+val FrostInfo = Color(0xFF0A84FF)
+val FrostInfoDim = Color(0x1F0A84FF)
+val FrostInfoBorder = Color(0x400A84FF)
 
-// Backward Compatibility Aliases remapped to cohesive palette
-val BackroundDark = DarkBgPrimary
-val SurfaceGlass = DarkSurface
-val GlassBorder = BorderSubtle
-val GlassSurface = DarkSurfaceElevated
+// Soft shadow + iOS segmented-control track
+val FrostShadow = Color(0x14000000)
+val FrostSegmentTrack = Color(0xFFE3E3E8)
 
-val NeonGreen = AccentEmerald
-val NeonBlue = AccentEmerald
-val CyberCyan = AccentEmerald
-val CyberYellow = SemanticWarning
-val NeonRed = SemanticDanger
-val CyberPink = SemanticDanger
+// ---------------------------------------------------------------------------
+// Legacy aliases. Do not add new call sites that depend on the old names.
+// ---------------------------------------------------------------------------
 
-val PrimaryBlue = AccentEmerald
-val PrimaryHover = Color(0xFF059669)
-val AccentIndigo = AccentEmerald
-val SettingsPrimary = AccentEmerald
-val BackgroundDeepNavy = DarkBgPrimary
-val PurpleAccent = AccentEmerald
+// Backgrounds formerly "Obsidian & Zinc"
+val DarkBgPrimary = FrostBg
+val DarkBgSecondary = FrostBgSecondary
+val DarkSurface = FrostSurfaceGlass
+val DarkSurfaceElevated = FrostSurfaceElevated
+val DarkSurfaceHighlight = Color(0xD9FFFFFF)   // #FFFFFF @ 85%
 
-val Navy950 = DarkBgPrimary
-val Navy900 = DarkBgSecondary
-val Navy850 = DarkSurface
-val Navy800 = DarkSurfaceElevated
+// Borders formerly white hairline
+val BorderSubtle = FrostBorderSubtle
+val BorderStandard = FrostBorderStandard
+val BorderHover = Color(0x24000000)
+
+// Accent formerly Emerald
+val AccentEmerald = FrostAccent
+val AccentEmeraldDim = FrostAccentDim
+val AccentEmeraldBorder = FrostAccentBorder
+val AccentEmeraldGlow = Color(0x1F0A84FF)
+
+// Semantic palette
+val SemanticDanger = FrostDanger
+val SemanticDangerDim = FrostDangerDim
+val SemanticDangerBorder = FrostDangerBorder
+
+val SemanticWarning = FrostWarning
+val SemanticWarningDim = FrostWarningDim
+val SemanticWarningBorder = FrostWarningBorder
+
+val SemanticInfo = FrostInfo
+val SemanticInfoDim = FrostInfoDim
+val SemanticInfoBorder = FrostInfoBorder
+
+// Slate scale, remapped to iOS neutral text/surface tones. The light end now
+// means "primary dark text" so existing text colors stay readable on glass.
+val Slate50 = FrostTextPrimary
+val Slate100 = Color(0xFF2C2C2E)
+val Slate200 = Color(0xFF3A3A3C)
+val Slate300 = Color(0xFF48484A)
+val Slate400 = FrostTextSecondary
+val Slate500 = FrostTextTertiary
+val Slate600 = Color(0xFFA1A1A6)
+val Slate700 = Color(0xFFC7C7CC)
+val Slate800 = Color(0xFFD1D1D6)
+val Slate900 = Color(0xFFE5E5EA)
+
+// Backward compatibility aliases remapped to Frost tokens
+val BackroundDark = FrostBg
+val SurfaceGlass = FrostSurfaceGlass
+val GlassBorder = FrostBorderSubtle
+val GlassSurface = FrostSurfaceElevated
+
+val NeonGreen = FrostSuccess
+val NeonBlue = FrostAccent
+val CyberCyan = FrostAccent
+val CyberYellow = FrostWarning
+val NeonRed = FrostDanger
+val CyberPink = FrostDanger
+
+val PrimaryBlue = FrostAccent
+val PrimaryHover = Color(0xFF0071E3)
+val AccentIndigo = FrostAccent
+val SettingsPrimary = FrostAccent
+val BackgroundDeepNavy = FrostBg
+val PurpleAccent = FrostAccent
+
+val Navy950 = FrostBg
+val Navy900 = FrostBgSecondary
+val Navy850 = FrostSurfaceGlass
+val Navy800 = FrostSurfaceElevated
 val Navy700 = Slate700
 val Navy600 = Slate600
 
-val SuccessGreen = AccentEmerald
-val DangerRed = SemanticDanger
-val OfflineGray = Slate500
+val SuccessGreen = FrostSuccess
+val DangerRed = FrostDanger
+val OfflineGray = FrostTextTertiary
