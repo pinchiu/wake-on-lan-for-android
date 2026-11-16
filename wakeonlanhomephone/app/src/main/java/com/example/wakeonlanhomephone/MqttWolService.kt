@@ -387,10 +387,10 @@ class MqttWolService : Service() {
     }
 
     private fun flushPendingPublishes() {
-        while (pendingPublishes.isNotEmpty()) {
-            val (topic, message) = pendingPublishes.removeFirst()
-            publishMessage(topic, message)
-        }
+        val queued = pendingPublishes.toList()
+        pendingPublishes.clear()
+        // publishMessage re-queues if the connection dropped meanwhile; no loop.
+        queued.forEach { (topic, message) -> publishMessage(topic, message) }
     }
 
     private fun cancelScheduledReconnect() {
