@@ -17,9 +17,11 @@
 //! without actually shutting down or rebooting the machine.
 
 pub mod action;
+pub mod auth;
 pub mod autostart;
 pub mod cli;
 pub mod config;
+pub mod crypto;
 pub mod dispatch;
 pub mod instance;
 pub mod logging;
