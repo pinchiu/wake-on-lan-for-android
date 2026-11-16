@@ -169,8 +169,8 @@ pc_onoff --web-ui
 ```
 The dashboard runs as a separate foreground process (it does not start a second daemon), binds
 loopback only, and shows daemon state, local IPs, autostart/system-service status and recent logs.
-It sends the five power actions through the normal UDP 9877 protocol and asks for confirmation
-before shutdown/reboot. The page supports light and dark `prefers-color-scheme` and uses the same
+It sends the five power actions through the normal UDP 9877 protocol, signed with the daemon's
+command secret, and asks for confirmation before shutdown/reboot. The page supports light and dark `prefers-color-scheme` and uses the same
 Frost design system as the Android apps.
 
 ### 2. Android Apps Setup
