@@ -12,11 +12,12 @@
 use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream, UdpSocket};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::action::PowerAction;
+use crate::auth;
 use crate::autostart;
 use crate::config::AppConfig;
 use crate::instance;
@@ -367,8 +368,22 @@ fn handle_action(request: &Request, port: u16) -> Response {
         Err(message) => return Response::error(400, &message),
     };
 
-    let udp_port = AppConfig::load(&paths::config_path()).udp_port;
-    match send_action(action, udp_port) {
+    let config_path = dashboard_config_path();
+    let config = AppConfig::load(&config_path);
+    if config.secret.trim().is_empty() {
+        return Response::error(503, "daemon command secret is not configured");
+    }
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let nonce = auth::generate_nonce();
+    let envelope = match auth::sign(action.keyword(), &config.secret, now, &nonce) {
+        Ok(envelope) => envelope,
+        Err(error) => return Response::error(500, &format!("cannot sign command: {error}")),
+    };
+    let udp_port = config.udp_port;
+    match send_action(&envelope, udp_port) {
         Ok(()) => Response::json(
             200,
             format!(
@@ -415,17 +430,38 @@ fn authority_matches(authority: &str, port: u16) -> bool {
     }
 }
 
-fn send_action(action: PowerAction, udp_port: u16) -> io::Result<()> {
+fn send_action(envelope: &str, udp_port: u16) -> io::Result<()> {
     let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))?;
     socket.set_write_timeout(Some(Duration::from_secs(2)))?;
-    socket.send_to(action.keyword().as_bytes(), (Ipv4Addr::LOCALHOST, udp_port))?;
+    socket.send_to(envelope.as_bytes(), (Ipv4Addr::LOCALHOST, udp_port))?;
     Ok(())
 }
 
+/// Prefer the system service's config when it owns the daemon, so the dashboard signs with
+/// the same secret and sends to the same UDP port as the running service.
+fn dashboard_config_path() -> PathBuf {
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let system = PathBuf::from("/var/lib/pc_onoff/config.ini");
+        if system_service::state().is_installed() && system.exists() {
+            return system;
+        }
+    }
+    paths::config_path()
+}
+
+fn dashboard_log_path(config_path: &Path) -> PathBuf {
+    #[cfg(all(unix, not(target_os = "macos")))]
+    if config_path.starts_with("/var/lib/pc_onoff") {
+        return config_path.with_file_name("pc_onoff.log");
+    }
+    paths::log_path()
+}
+
 fn status_json() -> String {
-    let config_path = paths::config_path();
+    let config_path = dashboard_config_path();
     let config = AppConfig::load(&config_path);
-    let log_path = paths::log_path();
+    let log_path = dashboard_log_path(&config_path);
     let service = system_service::state();
     let user_running = instance::is_running();
     // A root system service owns UDP 9877 without keeping a per-user lock file, so it must
@@ -463,7 +499,7 @@ fn status_json() -> String {
 }
 
 fn log_json(lines: usize) -> String {
-    let log_path = paths::log_path();
+    let log_path = dashboard_log_path(&dashboard_config_path());
     let tail = read_log_tail(&log_path, lines).unwrap_or_default();
     format!(
         "{{\"lines\":{},\"count\":{}}}",
