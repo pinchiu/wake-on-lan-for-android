@@ -1,63 +1,69 @@
 package com.example.wakeonwanremotephone.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = AccentEmerald,
-    secondary = AccentEmerald,
-    tertiary = SemanticInfo,
-    background = DarkBgPrimary,
-    surface = DarkSurface,
-    surfaceVariant = DarkSurfaceElevated,
-    onPrimary = Color.Black,
-    onSecondary = Color.Black,
+/**
+ * Frost is a light-only design: warm grey background, translucent white glass,
+ * dark text and a single iOS-blue accent.
+ */
+private val FrostLightColorScheme = lightColorScheme(
+    primary = FrostAccent,
+    onPrimary = Color.White,
+    primaryContainer = FrostAccentDim,
+    onPrimaryContainer = FrostAccent,
+    secondary = FrostTextSecondary,
+    onSecondary = Color.White,
+    secondaryContainer = FrostSurfaceElevated,
+    onSecondaryContainer = FrostTextPrimary,
+    tertiary = FrostInfo,
     onTertiary = Color.White,
-    onBackground = Slate50,
-    onSurface = Slate50,
-    onSurfaceVariant = Slate300,
-    outline = BorderStandard,
-    outlineVariant = BorderSubtle,
-    error = SemanticDanger
+    background = FrostBg,
+    onBackground = FrostTextPrimary,
+    surface = FrostSurfaceGlass,
+    onSurface = FrostTextPrimary,
+    surfaceVariant = FrostSurfaceElevated,
+    onSurfaceVariant = FrostTextSecondary,
+    surfaceTint = FrostAccent,
+    inverseSurface = FrostTextPrimary,
+    inverseOnSurface = FrostBg,
+    error = FrostDanger,
+    onError = Color.White,
+    outline = FrostBorderStandard,
+    outlineVariant = FrostBorderSubtle,
+    scrim = Color(0x66000000)
 )
 
+@Suppress("DEPRECATION")
 @Composable
 fun WakeOnWanRemotePhoneTheme(
-    darkTheme: Boolean = true,
+    // Retained for source compatibility. Frost is a light-only design, so both
+    // flags are ignored and the app always renders the light scheme.
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        else -> DarkColorScheme
-    }
-
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            window.statusBarColor = Color.Transparent.toArgb()
+            val controller = WindowCompat.getInsetsController(window, view)
+            // Dark status-bar / navigation-bar icons on the light Frost surface.
+            controller.isAppearanceLightStatusBars = true
+            controller.isAppearanceLightNavigationBars = true
         }
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = FrostLightColorScheme,
         typography = Typography,
         content = content
     )

@@ -37,7 +37,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/widget_remote_name"
-            android:textColor="#FFFFFF"
+            android:textColor="#1C1C1E"
             android:textSize="15sp"
             android:textStyle="bold" />
 
@@ -49,7 +49,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:text="@string/widget_remote_hint"
-            android:textColor="#94A3B8"
+            android:textColor="#6E6E73"
             android:textSize="12sp" />
     </LinearLayout>
 

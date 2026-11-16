@@ -118,4 +118,14 @@
     <!-- Default device names -->
     <string name="default_device_primary">Primary PC</string>
     <string name="default_device_new">New PC</string>
+
+    <!-- Frost redesign additions -->
+    <string name="power_lock">Lock</string>
+    <string name="power_sleep_caption">Suspend</string>
+    <string name="power_hibernate_caption">Save to disk</string>
+    <string name="power_reboot_caption">Restart</string>
+    <string name="power_shutdown_caption">Power off</string>
+    <string name="power_lock_caption">Lock session</string>
+    <string name="activity_title">Activity</string>
+    <string name="activity_last_result">Latest command result</string>
 </resources>
