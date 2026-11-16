@@ -80,11 +80,31 @@
     <string name="confirm_action_message">即將向目標電腦「%1$s」(%2$s:9877) 發送 UDP 控制封包。請確保電腦已儲存未完成的工作。</string>
     <string name="confirm_execute">確認執行</string>
 
+    <!-- Shared secrets -->
+    <string name="security_title">共用密鑰</string>
+    <string name="security_description">在目標電腦執行 `pc_onoff --status`，將印出的 Command Secret 貼到下方 PC 密鑰，並在兩支手機設定相同的助手密鑰。助手密鑰保護 TCP 9876 / MQTT 指令；PC 密鑰保護直連 UDP 9877 電源指令。</string>
+    <string name="helper_secret_label">助手共用密鑰 (Home Phone)</string>
+    <string name="pc_secret_label">PC 守護程式密鑰 (pc_onoff --status)</string>
+    <string name="generate_secret">產生</string>
+    <string name="copy_secret">複製</string>
+    <string name="paste_secret">貼上</string>
+    <string name="show_secret">顯示密鑰</string>
+    <string name="hide_secret">隱藏密鑰</string>
+    <string name="secret_generated">已產生助手密鑰</string>
+    <string name="secret_copied">已複製助手密鑰</string>
+    <string name="secret_pasted">已貼上 PC 密鑰</string>
+    <string name="secret_empty">密鑰為空</string>
+    <string name="clipboard_empty">剪貼簿沒有可用文字</string>
+    <string name="secrets_saved">密鑰已儲存</string>
+    <string name="error_helper_secret_missing">尚未設定助手共用密鑰</string>
+    <string name="error_pc_secret_missing">尚未設定 PC 密鑰</string>
+
     <!-- Widget -->
     <string name="widget_remote_device_title">%1$s 開機</string>
     <string name="widget_remote_target_mac">目標: %1$s</string>
     <string name="widget_no_target_toast">尚未設定目標電腦，請先開啟 App 設定</string>
     <string name="widget_no_helper_ipv6">尚未設定 Helper IPv6 地址</string>
+    <string name="widget_helper_secret_missing">尚未設定助手密鑰，請開啟 App 的共用密鑰設定</string>
     <string name="widget_sent_status">已發送 %1$s (%2$s)</string>
     <string name="widget_wake_sent_toast">已發送喚醒至 %1$s: %2$s</string>
     <string name="widget_send_failed">發送失敗: %1$s</string>
