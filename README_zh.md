@@ -88,6 +88,13 @@
   ```
 - 自動註冊 `systemd --user` 服務與 XDG Autostart，登入後自動常駐。
 
+#### 開機後、登入前即可控制（Linux）
+預設的 `systemd --user` / XDG Autostart 只會在**使用者登入後**才啟動，因此剛開機停在登入畫面的電腦不會回應關機／重啟指令。安裝一次系統層服務即可解決：
+```bash
+sudo ./pc_onoff-linux-x86_64.AppImage --install-system   # 或：sudo ./pc_onoff --install-system
+```
+此指令會將執行檔複製到 `/usr/local/bin/pc_onoff`、安裝 `/etc/systemd/system/pc_onoff.service`（以 root 執行、加入 `multi-user.target`、開機即啟動）、把設定與日誌放在 `/var/lib/pc_onoff/`，並移除個人 autostart 以避免兩者搶佔 UDP 9877。解除安裝：`sudo pc_onoff --uninstall-system`。
+
 #### Apple macOS 啟動方式
 下載並解壓縮 `pc_onoff-macos-universal.zip`。
 ```bash
@@ -100,17 +107,14 @@ chmod +x pc_onoff
 #### 守護程式 CLI 管理指令
 `pc_onoff` 提供豐富的命令列管理指令：
 ```bash
-pc_onoff --status             # 查詢守護程式執行狀態與 PID
-pc_onoff --stop               # 停止背景執行中的實例
-pc_onoff --restart            # 重新啟動背景實例
-pc_onoff --test <action>      # 本地測試電源指令 (shutdown, reboot, sleep, hibernate, lock)
-pc_onoff --show-ip            # 顯示本機目前的區域網路 IP 位址
-pc_onoff --show-log [N]       # 查看最近 N 筆執行日誌
-pc_onoff --autostart-status   # 檢查開機自動啟動註冊狀態
-pc_onoff --install-autostart  # 重新註冊開機自啟動
-pc_onoff --uninstall-autostart# 解除開機自啟動
-pc_onoff --foreground         # 於前景模式執行（便於偵錯）
-pc_onoff --port <PORT>        # 指定自訂 UDP 監聽連接埠（預設：9877）
+pc_onoff --status                # 查詢執行狀態、IP、連接埠、autostart 與系統服務狀態
+pc_onoff --log                   # 查看最近 25 筆執行日誌
+pc_onoff --stop                  # 停止背景執行中的守護程式
+pc_onoff --install               # 啟用開機自啟動
+pc_onoff --uninstall             # 解除開機自啟動
+sudo pc_onoff --install-system   # Linux：安裝開機即啟動的系統服務（登入前可用）
+sudo pc_onoff --uninstall-system # Linux：移除系統服務
+pc_onoff --help                  # 顯示使用說明
 ```
 
 ### 2. 安裝 Android 應用程式
