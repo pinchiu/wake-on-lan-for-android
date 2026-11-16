@@ -30,10 +30,23 @@ pub fn log_path() -> PathBuf {
 }
 
 fn resolve_file(file_name: &str) -> PathBuf {
-    if let Some(directory) = data_dir_override() {
+    if let Some(directory) = data_dir_override().or_else(system_data_dir) {
         return directory.join(file_name);
     }
     choose_file(file_name, executable_dir().as_deref(), &app_data_dir())
+}
+
+/// Root CLI invocations (`sudo pc_onoff --status/--log`) do not inherit the unit's
+/// `PC_ONOFF_DATA_DIR`, so prefer the installed service's data directory when it exists.
+#[cfg(all(unix, not(target_os = "macos")))]
+fn system_data_dir() -> Option<PathBuf> {
+    let directory = PathBuf::from("/var/lib/pc_onoff");
+    (crate::platform::is_root() && directory.is_dir()).then_some(directory)
+}
+
+#[cfg(not(all(unix, not(target_os = "macos"))))]
+fn system_data_dir() -> Option<PathBuf> {
+    None
 }
 
 fn data_dir_override() -> Option<PathBuf> {
@@ -45,7 +58,7 @@ fn data_dir_override() -> Option<PathBuf> {
 /// User application data directory
 /// (Windows: `%LOCALAPPDATA%\pc_onoff`; macOS: `~/Library/Application Support/pc_onoff`; Linux/Unix: `~/.config/pc_onoff`).
 pub fn app_data_dir() -> PathBuf {
-    if let Some(directory) = data_dir_override() {
+    if let Some(directory) = data_dir_override().or_else(system_data_dir) {
         return directory;
     }
 
@@ -169,6 +182,10 @@ mod tests {
 
     #[test]
     fn app_data_dir_is_under_the_platform_config_root() {
+        if system_data_dir().is_some() {
+            // Running as root on a machine with the system service installed.
+            return;
+        }
         let path = app_data_dir();
         assert!(path.ends_with(APP_NAME) || path == Path::new("."));
 

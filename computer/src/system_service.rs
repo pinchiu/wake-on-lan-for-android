@@ -190,11 +190,9 @@ mod linux {
         }
 
         let installed = Path::new(INSTALL_PATH);
-        let running_installed_copy = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.canonicalize().ok())
-            .is_some_and(|exe| Some(exe) == installed.canonicalize().ok());
-        if installed.exists() && !running_installed_copy {
+        // Linux allows unlinking the running executable; do not leave the installed
+        // binary behind when the user runs `sudo pc_onoff --uninstall-system`.
+        if installed.exists() {
             let _ = fs::remove_file(installed);
         }
 
@@ -276,7 +274,8 @@ mod linux {
             .filter(|user| !user.is_empty());
 
         if let Some(user) = &user {
-            let machine = format!("{user}@");
+            // `.host` is required to address the local machine's user manager.
+            let machine = format!("{user}@.host");
             let _ = platform::command("systemctl")
                 .args([
                     "--user",
@@ -309,6 +308,14 @@ mod linux {
             let _ = platform::command("kill")
                 .args(["-TERM", &pid.to_string()])
                 .output();
+            // Wait for the old daemon to release UDP 9877 before `systemctl restart`
+            // starts the system unit, otherwise the install fails with EADDRINUSE.
+            for _ in 0..40 {
+                if !is_users_pc_onoff(pid, home) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
         }
 
         removed.then(|| {
@@ -411,6 +418,24 @@ mod linux {
              StateDirectory=pc_onoff\n\
              Restart=on-failure\n\
              RestartSec=5\n\
+             NoNewPrivileges=true\n\
+             PrivateTmp=true\n\
+             ProtectSystem=strict\n\
+             ProtectHome=true\n\
+             ProtectKernelTunables=true\n\
+             ProtectKernelModules=true\n\
+             ProtectKernelLogs=true\n\
+             ProtectControlGroups=true\n\
+             ProtectClock=true\n\
+             ProtectHostname=true\n\
+             RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK\n\
+             RestrictNamespaces=true\n\
+             RestrictRealtime=true\n\
+             RestrictSUIDSGID=true\n\
+             LockPersonality=true\n\
+             MemoryDenyWriteExecute=true\n\
+             CapabilityBoundingSet=CAP_KILL CAP_SYS_BOOT\n\
+             UMask=0077\n\
              \n\
              [Install]\n\
              WantedBy=multi-user.target\n",
@@ -430,6 +455,11 @@ mod linux {
             assert!(unit.contains("Environment=PC_ONOFF_DATA_DIR=/var/lib/pc_onoff"));
             assert!(unit.contains("After=network-online.target"));
             assert!(!unit.contains("User="), "must run as root to power off");
+            assert!(unit.contains("NoNewPrivileges=true"));
+            assert!(unit.contains("ProtectSystem=strict"));
+            assert!(unit.contains("ProtectHome=true"));
+            assert!(unit.contains("MemoryDenyWriteExecute=true"));
+            assert!(unit.contains("RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK"));
         }
 
         #[test]

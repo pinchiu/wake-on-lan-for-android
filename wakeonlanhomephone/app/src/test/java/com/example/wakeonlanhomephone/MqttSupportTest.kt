@@ -95,6 +95,14 @@ class MqttSupportTest {
     }
 
     @Test
+    fun validatesTopicFilterUtf8ByteLength() {
+        // 30k CJK characters are < 65535 UTF-16 units but ~90 KB of UTF-8.
+        assertFalse(MqttTopics.isValidFilter("電".repeat(30_000)))
+        // 20k CJK characters stay under the 65535-byte UTF-8 limit.
+        assertTrue(MqttTopics.isValidFilter("電".repeat(20_000)))
+    }
+
+    @Test
     fun matchesTopicFilters() {
         assertTrue(MqttTopics.matches("home/pc/wake", "home/pc/wake"))
         assertFalse(MqttTopics.matches("home/pc/wake", "home/pc/wake/extra"))
