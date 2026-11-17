@@ -143,6 +143,18 @@ object CommandAuth {
             return first == 100 && second in 64..127
         }
         if (bytes.size == 16) {
+            // IPv4-mapped IPv6 (::ffff:a.b.c.d) is common on dual-stack sockets.
+            val mapped = bytes.take(10).all { it == 0.toByte() } &&
+                bytes[10] == 0xFF.toByte() && bytes[11] == 0xFF.toByte()
+            if (mapped) {
+                val first = bytes[12].toInt() and 0xFF
+                val second = bytes[13].toInt() and 0xFF
+                return first == 100 && second in 64..127 ||
+                    first == 10 || first == 192 && second == 168 ||
+                    first == 172 && second in 16..31 ||
+                    first == 169 && second == 254 ||
+                    first == 127
+            }
             val first = bytes[0].toInt() and 0xFF
             // fc00::/7 unique-local, which includes Tailscale's fd7a:115c:a1e0::/48.
             return (first and 0xFE) == 0xFC
