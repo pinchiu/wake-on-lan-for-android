@@ -54,11 +54,11 @@ MQTT **不使用 HMAC**，改依賴 broker 的 TLS、帳號密碼與主題權限
 SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677|sig=<hmac-sha256-hex>
 ```
 
-公開 port-forward 只需設定一次：
+公開 port-forward 只需設定一次；如果每台電腦的守護程式密鑰不同，請在該電腦的設定檔填入，全域值僅在該台留空時使用。
 
 | 密鑰 | 取得方式 | 貼到哪裡 |
 | :--- | :--- | :--- |
-| **PC 密鑰** | `pc_onoff --status` → `Command Secret: ...` | 家用手機 → 設定 → 安全性 → PC secret；外出手機 → 盾牌圖示 → PC secret |
+| **PC 密鑰** | `pc_onoff --status` → `Command Secret: ...` | 每台電腦：新增/編輯目標 → PC secret。設定頁／盾牌圖示的全域值只是該台留空時的備援。 |
 | **Helper 密鑰** | 家用手機 → 設定 → 安全性 → Helper secret（Generate） | 外出手機 → 盾牌圖示 → Helper secret |
 
 時間戳需在 ±5 分鐘內（請保持 NTP 同步），Nonce 會保留 10 分鐘。不要把 UDP 9877／TCP 9876

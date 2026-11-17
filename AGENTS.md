@@ -128,6 +128,9 @@ Private LAN and Tailscale are trusted; public IPv6/IPv4 signs every command auto
   `<command>|ts=<ts>|nonce=<nonce>`; ±300 s window; 600 s replay cache; constant-time compare.
 * Secrets are optional: only public port-forward users paste the daemon secret into the apps.
   LAN/Tailscale users never see a secret. MQTT users only configure broker credentials.
+* `pcSecret` is stored per `DeviceProfile` (Home Phone and Remote Phone); the global Settings /
+  shield value is only a fallback when a profile leaves it blank. This lets each PC use its own
+  `pc_onoff --status` secret.
 * Kotlin: `CommandAuth.kt` (both apps). Rust: `net.rs` (trusted-address classification),
   `auth.rs` + `crypto.rs` (HMAC).
 * Never log secrets or signatures. Recommend Tailscale over exposing TCP 9876/UDP 9877.
