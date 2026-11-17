@@ -266,21 +266,6 @@ fun RemoteWakeMainScreen() {
                 }
             }
 
-            // Profile capsule (selected computer) — opens the edit sheet.
-            if (currentSelectedDevice != null) {
-                Spacer(modifier = Modifier.height(16.dp))
-                SelectedProfileCapsule(
-                    device = currentSelectedDevice,
-                    deviceCount = devices.size,
-                    onClick = {
-                        deviceToEdit = currentSelectedDevice
-                        showEditDeviceDialog = true
-                    }
-                )
-
-
-            }
-
             Spacer(modifier = Modifier.height(18.dp))
 
             SegmentedModeSelector(
@@ -396,6 +381,24 @@ fun RemoteWakeMainScreen() {
                     onClick = { sendCommand("WAKE:${computerMacAddress.trim()}") }
                 )
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Five power tiles.
+            ModernPowerCommandGrid(
+                enabled = !isLoading && computerLocalIpv4.isNotBlank(),
+                onSleep = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
+                onHibernate = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
+                onReboot = {
+                    confirmAction = "REBOOT"
+                    confirmIsDestructive = false
+                },
+                onShutdown = {
+                    confirmAction = "SHUTDOWN"
+                    confirmIsDestructive = true
+                },
+                onLock = { sendCommand("LOCK:${computerLocalIpv4.trim()}") }
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -526,24 +529,6 @@ fun RemoteWakeMainScreen() {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Five power tiles.
-            ModernPowerCommandGrid(
-                enabled = !isLoading && computerLocalIpv4.isNotBlank(),
-                onSleep = { sendCommand("SLEEP:${computerLocalIpv4.trim()}") },
-                onHibernate = { sendCommand("HIBERNATE:${computerLocalIpv4.trim()}") },
-                onReboot = {
-                    confirmAction = "REBOOT"
-                    confirmIsDestructive = false
-                },
-                onShutdown = {
-                    confirmAction = "SHUTDOWN"
-                    confirmIsDestructive = true
-                },
-                onLock = { sendCommand("LOCK:${computerLocalIpv4.trim()}") }
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
 
             // Activity card.
             TerminalHudStatusCard(

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -54,10 +55,11 @@ fun SecuritySettingsDialog(onDismiss: () -> Unit) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, BorderStandard, RoundedCornerShape(16.dp)),
-            color = DarkSurfaceElevated,
-            tonalElevation = 8.dp
+                .clip(RoundedCornerShape(28.dp))
+                .border(1.dp, FrostBorderStandard, RoundedCornerShape(28.dp)),
+            color = FrostSurfaceSolid,
+            tonalElevation = 0.dp,
+            shadowElevation = 18.dp
         ) {
             Column(
                 modifier = Modifier
@@ -69,22 +71,22 @@ fun SecuritySettingsDialog(onDismiss: () -> Unit) {
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .background(AccentEmeraldDim, RoundedCornerShape(10.dp))
-                            .border(1.dp, AccentEmeraldBorder, RoundedCornerShape(10.dp)),
+                            .background(FrostAccentDim, RoundedCornerShape(14.dp))
+                            .border(1.dp, FrostAccentBorder, RoundedCornerShape(14.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
-                            tint = AccentEmerald,
+                            tint = FrostAccent,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = stringResource(R.string.security_title),
-                        color = Slate50,
-                        fontSize = 17.sp,
+                        color = FrostTextPrimary,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -93,8 +95,8 @@ fun SecuritySettingsDialog(onDismiss: () -> Unit) {
 
                 Text(
                     text = stringResource(R.string.security_description),
-                    color = Slate300,
-                    fontSize = 12.sp,
+                    color = FrostTextSecondary,
+                    fontSize = 13.sp,
                     lineHeight = 18.sp
                 )
 
@@ -186,7 +188,7 @@ fun SecuritySettingsDialog(onDismiss: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel), color = Slate400, fontSize = 13.sp)
+                        Text(stringResource(R.string.cancel), color = FrostTextSecondary, fontSize = 14.sp)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -200,14 +202,14 @@ fun SecuritySettingsDialog(onDismiss: () -> Unit) {
                             ).show()
                             onDismiss()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentEmerald),
-                        shape = RoundedCornerShape(10.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = FrostAccent),
+                        shape = CircleShape
                     ) {
                         Text(
                             text = stringResource(R.string.save),
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -228,7 +230,7 @@ private fun SecretField(
         Text(
             text = label,
             fontSize = 11.sp,
-            color = Slate400,
+            color = FrostTextSecondary,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(bottom = 4.dp)
         )
@@ -239,7 +241,7 @@ private fun SecretField(
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    tint = Slate400,
+                    tint = FrostTextSecondary,
                     modifier = Modifier.size(18.dp)
                 )
             },
@@ -250,19 +252,19 @@ private fun SecretField(
                         contentDescription = stringResource(
                             if (visible) R.string.hide_secret else R.string.show_secret
                         ),
-                        tint = Slate400,
+                        tint = FrostTextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AccentEmerald,
-                unfocusedBorderColor = BorderSubtle,
-                focusedTextColor = Slate50,
-                unfocusedTextColor = Slate50,
-                cursorColor = AccentEmerald,
-                focusedContainerColor = DarkSurface,
-                unfocusedContainerColor = DarkSurface
+                focusedBorderColor = FrostAccentBorder,
+                unfocusedBorderColor = FrostBorderSubtle,
+                focusedTextColor = FrostTextPrimary,
+                unfocusedTextColor = FrostTextPrimary,
+                cursorColor = FrostAccent,
+                focusedContainerColor = FrostSurfaceElevated,
+                unfocusedContainerColor = FrostSurfaceElevated
             ),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -272,7 +274,7 @@ private fun SecretField(
                 PasswordVisualTransformation()
             },
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -282,9 +284,9 @@ private fun SecretField(
 private fun SmallActionButton(text: String, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
-        border = BorderStroke(1.dp, BorderSubtle),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate200),
-        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, FrostBorderStandard),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = FrostTextPrimary),
+        shape = CircleShape,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(text = text, fontSize = 12.sp, fontWeight = FontWeight.Medium)

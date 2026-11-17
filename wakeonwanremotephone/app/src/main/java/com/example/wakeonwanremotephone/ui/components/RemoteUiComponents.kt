@@ -402,10 +402,14 @@ fun MasterWakeTriggerButton(
         Box(contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
-                    .size(148.dp)
-                    .blur(46.dp)
+                    .size(210.dp)
                     .background(
-                        FrostAccentGlow.copy(alpha = if (enabled) 0.9f else 0.25f),
+                        Brush.radialGradient(
+                            colors = listOf(
+                                FrostAccent.copy(alpha = if (enabled) 0.13f else 0.04f),
+                                Color.Transparent
+                            )
+                        ),
                         CircleShape
                     )
             )
