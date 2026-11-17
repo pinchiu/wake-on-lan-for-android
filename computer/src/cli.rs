@@ -37,6 +37,7 @@ pub enum CliCommand {
     UninstallSystem,
     /// Foreground local dashboard; never starts or acquires the daemon.
     WebUi,
+    ForgetTrusted,
     Help,
 }
 
@@ -78,6 +79,7 @@ impl CliCommand {
             "--install-system" => Ok(Self::InstallSystem),
             "--uninstall-system" => Ok(Self::UninstallSystem),
             "--web-ui" => Ok(Self::WebUi),
+            "--forget-trusted" => Ok(Self::ForgetTrusted),
             SERVICE_FLAG => Ok(Self::RunService),
             "--help" | "-h" => Ok(Self::Help),
             other => Err(CliError::UnknownArgument(other.to_owned())),
@@ -100,6 +102,7 @@ pub fn run(args: Vec<String>) -> i32 {
         Ok(CliCommand::InstallSystem) => report(system_service::install()),
         Ok(CliCommand::UninstallSystem) => report(system_service::uninstall()),
         Ok(CliCommand::WebUi) => run_web_ui(),
+        Ok(CliCommand::ForgetTrusted) => forget_trusted(),
         Ok(CliCommand::Run) => run_daemon(DaemonMode::User),
         Ok(CliCommand::RunService) => run_daemon(DaemonMode::SystemService),
         Err(error) => {
@@ -152,6 +155,20 @@ fn is_system_service_config(path: &Path) -> bool {
     path.parent() == Some(Path::new(SYSTEM_DATA_DIR))
 }
 
+fn forget_trusted() -> i32 {
+    let path = crate::trust::path_in(&paths::app_data_dir());
+    match crate::trust::clear(&path) {
+        Ok(()) => {
+            println!("Forgot trusted public peers ({})", path.display());
+            0
+        }
+        Err(error) => {
+            eprintln!("Cannot clear {}: {error}", path.display());
+            1
+        }
+    }
+}
+
 fn show_status() -> i32 {
     let config_path = active_config_path();
     let log_path = active_log_path(&config_path);
@@ -175,7 +192,7 @@ fn show_status() -> i32 {
             if privileged_system_config {
                 "(run sudo pc_onoff --status to view)"
             } else {
-                "(not configured)"
+                "(not set; only needed for public port forwarding)"
             }
         } else {
             config.secret.as_str()
@@ -202,6 +219,13 @@ fn show_status() -> i32 {
         println!("  System Service:     {}", service_state.label());
     }
     println!("  Config File:        {}", config_path.display());
+    let trusted = crate::trust::TrustedPeers::load(crate::trust::path_in(
+        config_path.parent().unwrap_or_else(|| Path::new(".")),
+    ));
+    println!(
+        "  Trusted Public:     {} peer(s) (LAN/Tailscale need none)",
+        trusted.len()
+    );
     println!("  Log File:           {}", log_path.display());
     if service_state.is_installed() {
         println!(
@@ -410,7 +434,14 @@ fn run_daemon(mode: DaemonMode) -> i32 {
     );
 
     let dispatcher = Dispatcher::new(SystemPower);
-    match server::serve(&dispatcher, config.udp_port, &config.secret, &logger) {
+    let peers_path = crate::trust::path_in(&paths::app_data_dir());
+    match server::serve(
+        &dispatcher,
+        config.udp_port,
+        &config.secret,
+        &peers_path,
+        &logger,
+    ) {
         Ok(()) => {
             logger.record("service_stop", "UDP listener service terminated.");
             0
@@ -445,6 +476,7 @@ fn print_help() {
         );
         println!("  sudo {exe} --uninstall-system  Remove the system service");
     }
+    println!("  {exe} --forget-trusted  Forget public TOFU peers (LAN/Tailscale unaffected)");
     println!("  {exe} --help       Show this help");
     println!();
     println!("Remote commands (UDP, case-insensitive):");
@@ -492,6 +524,7 @@ mod tests {
             ("--install-system", CliCommand::InstallSystem),
             ("--uninstall-system", CliCommand::UninstallSystem),
             ("--web-ui", CliCommand::WebUi),
+            ("--forget-trusted", CliCommand::ForgetTrusted),
             ("--service", CliCommand::RunService),
         ];
 

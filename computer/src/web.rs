@@ -370,20 +370,23 @@ fn handle_action(request: &Request, port: u16) -> Response {
 
     let config_path = dashboard_config_path();
     let config = AppConfig::load(&config_path);
-    if config.secret.trim().is_empty() {
-        return Response::error(503, "daemon command secret is not configured");
-    }
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0);
-    let nonce = auth::generate_nonce();
-    let envelope = match auth::sign(action.keyword(), &config.secret, now, &nonce) {
-        Ok(envelope) => envelope,
-        Err(error) => return Response::error(500, &format!("cannot sign command: {error}")),
+    // LAN/Tailscale needs no secret; a public port-forward signs, and the daemon remembers
+    // this source after the first authenticated contact (TOFU).
+    let wire = if config.secret.trim().is_empty() {
+        action.keyword().to_owned()
+    } else {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        let nonce = auth::generate_nonce();
+        match auth::sign(action.keyword(), &config.secret, now, &nonce) {
+            Ok(envelope) => envelope,
+            Err(error) => return Response::error(500, &format!("cannot sign command: {error}")),
+        }
     };
     let udp_port = config.udp_port;
-    match send_action(&envelope, udp_port) {
+    match send_action(&wire, udp_port) {
         Ok(()) => Response::json(
             200,
             format!(
