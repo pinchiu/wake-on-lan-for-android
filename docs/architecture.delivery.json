@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "receiptId": "31e12fd9-f7b2-449c-9263-b0b8bad87ee0",
+  "receiptId": "08b43f08-c21a-40da-a94a-3eec325d2fb9",
   "status": "current",
   "command": "deliver",
   "type": "architecture",
-  "input": "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
-  "output": "/home/scott/work/wol-ui/docs/architecture.html",
+  "input": "/home/scott/work/wol-pages/.archify-diagram/candidate.json",
+  "output": "/home/scott/work/wol-pages/docs/architecture.html",
   "specification": {
-    "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
-    "bytes": 7972
+    "sha256": "11ff757170447127f1188a3caa5999361a4cd5d4e95170172c0e5ee130dbc7f4",
+    "bytes": 8660
   },
   "artifact": {
-    "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
-    "bytes": 848347
+    "sha256": "66d0b0765c2a89984d2e17f85c4ad7b17a18207a4b6c331eb79017d662b2e82e",
+    "bytes": 849540
   }
 }

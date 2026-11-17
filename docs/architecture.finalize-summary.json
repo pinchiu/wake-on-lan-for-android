@@ -1,52 +1,36 @@
 {
   "schemaVersion": 1,
-  "ok": false,
+  "ok": true,
   "command": "finalize",
-  "status": "skipped",
+  "status": "pass",
   "type": "architecture",
   "quality": "showcase",
   "specification": {
-    "path": "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
-    "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
-    "bytes": 7972
+    "path": "/home/scott/work/wol-pages/.archify-diagram/candidate.json",
+    "sha256": "11ff757170447127f1188a3caa5999361a4cd5d4e95170172c0e5ee130dbc7f4",
+    "bytes": 8660
   },
   "artifact": {
-    "path": "/home/scott/work/wol-ui/docs/architecture.html",
-    "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
-    "bytes": 848347
+    "path": "/home/scott/work/wol-pages/docs/architecture.html",
+    "sha256": "66d0b0765c2a89984d2e17f85c4ad7b17a18207a4b6c331eb79017d662b2e82e",
+    "bytes": 849540
   },
   "gates": {
     "validate": "pass",
     "deliver": "pass",
     "check": "pass",
-    "browser-check": "skipped"
+    "browser-check": "pass"
   },
-  "failedStage": "browser-check",
-  "diagnostics": [
-    {
-      "code": "viewer/chrome-unavailable",
-      "severity": "warning",
-      "message": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path.",
-      "subject": {
-        "artifact": "/home/scott/work/wol-ui/docs/architecture.html"
-      },
-      "evidence": {
-        "executable": null
-      },
-      "supportedFixes": [
-        "set ARCHIFY_CHROME to a Chrome/Chromium executable (or Microsoft Edge) and rerun browser-check"
-      ]
-    }
-  ],
+  "diagnostics": [],
   "diagnosticSummary": {
-    "total": 1,
-    "shown": 1,
+    "total": 0,
+    "shown": 0,
     "truncated": false
   },
   "evidence": {
-    "receipt": "/home/scott/work/wol-ui/docs/architecture.finalize.json",
-    "summaryReceipt": "/home/scott/work/wol-ui/docs/architecture.finalize-summary.json",
-    "browserCheckReceipt": "/home/scott/work/wol-ui/docs/architecture.browser-check.json"
+    "receipt": "/home/scott/work/wol-pages/docs/architecture.finalize.json",
+    "summaryReceipt": "/home/scott/work/wol-pages/docs/architecture.finalize-summary.json",
+    "browserCheckReceipt": "/home/scott/work/wol-pages/docs/architecture.browser-check.json"
   },
   "update": {
     "status": "current",
@@ -59,9 +43,89 @@
     "noticeText": null
   },
   "visualReview": "not-requested",
-  "durationMs": 861,
+  "durationMs": 3925,
   "browserCheck": {
     "requested": true,
-    "ran": false
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 2,
+      "routesOverSuggestedStretch": 2
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "remote-mqtt",
+            "from": "remote",
+            "to": "broker",
+            "label": "MQTT publish · TLS",
+            "collectionIndex": 0,
+            "artifactIndex": 1
+          },
+          "bends": 4,
+          "stretch": 1.172
+        },
+        {
+          "relationship": {
+            "id": "helper-wol",
+            "from": "helper",
+            "to": "pc",
+            "label": "WoL UDP 9",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "bends": 2,
+          "stretch": 1.952,
+          "directCorridorBlockers": [
+            {
+              "id": "daemon",
+              "label": "pc_onoff daemon",
+              "box": [
+                660,
+                340,
+                190,
+                84
+              ]
+            }
+          ]
+        },
+        {
+          "relationship": {
+            "id": "remote-direct",
+            "from": "remote",
+            "to": "daemon",
+            "label": "Direct LAN · local IP :9877",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "bends": 3,
+          "stretch": 1.202
+        },
+        {
+          "relationship": {
+            "id": "remote-wol",
+            "from": "remote",
+            "to": "pc",
+            "label": "LAN WoL · UDP 9",
+            "collectionIndex": 9,
+            "artifactIndex": 10
+          },
+          "bends": 2,
+          "stretch": 1.58
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "remote → broker needs 4 bends: move node remote or broker so they share a row or column with matching centers, or sit diagonally with a clear corner.",
+      "remote → daemon needs 3 bends: move node remote or daemon so they share a row or column with matching centers, or sit diagonally with a clear corner.",
+      "remote → pc needs 2 bends: move node remote or pc so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
   }
 }
