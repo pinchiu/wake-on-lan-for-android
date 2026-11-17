@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "31e12fd9-f7b2-449c-9263-b0b8bad87ee0",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
+  "output": "/home/scott/work/wol-ui/docs/architecture.html",
+  "specification": {
+    "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
+    "bytes": 7972
+  },
+  "artifact": {
+    "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
+    "bytes": 848347
+  }
+}
