@@ -69,16 +69,20 @@ pub fn serve<P: PowerController>(
     );
 
     let mut replay = ReplayGuard::new();
+    // A captured envelope from before this process started is a replay, even though its
+    // timestamp is still inside the ±5 minute window (e.g. a reboot envelope after boot).
+    let not_before = auth::unix_now();
     let mut buffer = [0u8; MAX_COMMAND_BYTES];
     loop {
         match socket.recv_from(&mut buffer) {
             Ok((size, source)) => {
-                handle_datagram(
+                handle_datagram_since(
                     dispatcher,
                     &buffer[..size],
                     source,
                     secret,
                     &mut replay,
+                    not_before,
                     logger,
                 );
             }
@@ -93,13 +97,26 @@ pub fn serve<P: PowerController>(
     }
 }
 
-/// Handle a single UDP packet. Separated from loop for unit testability.
+/// Handle a single UDP packet from tests (no pre-start cutoff).
+#[cfg(test)]
 fn handle_datagram<P: PowerController>(
     dispatcher: &Dispatcher<P>,
     payload: &[u8],
     source: SocketAddr,
     secret: &str,
     replay: &mut ReplayGuard,
+    logger: &Logger,
+) {
+    handle_datagram_since(dispatcher, payload, source, secret, replay, 0, logger);
+}
+
+fn handle_datagram_since<P: PowerController>(
+    dispatcher: &Dispatcher<P>,
+    payload: &[u8],
+    source: SocketAddr,
+    secret: &str,
+    replay: &mut ReplayGuard,
+    not_before: u64,
     logger: &Logger,
 ) {
     let raw = String::from_utf8_lossy(payload);
@@ -120,6 +137,14 @@ fn handle_datagram<P: PowerController>(
             return;
         }
     };
+
+    if auth::timestamp(&raw).is_none_or(|timestamp| timestamp < not_before) {
+        logger.record(
+            "auth_rejected",
+            &format!("from {source}: authentication rejected (pre_start_replay)"),
+        );
+        return;
+    }
 
     logger.record(
         "network",

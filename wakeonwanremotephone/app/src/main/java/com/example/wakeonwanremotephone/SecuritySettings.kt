@@ -27,11 +27,8 @@ class SecuritySettings(context: Context) {
         prefs.edit().putString(KEY_HELPER_SECRET, secret.trim()).apply()
     }
 
-    fun generateHelperSecret(): String {
-        val secret = CommandAuth.generateSecret()
-        setHelperSecret(secret)
-        return secret
-    }
+    /** Returns a fresh secret without persisting it; the dialog saves on Save only. */
+    fun generateHelperSecret(): String = CommandAuth.generateSecret()
 
     fun getPcSecret(): String = prefs.getString(KEY_PC_SECRET, "").orEmpty()
 

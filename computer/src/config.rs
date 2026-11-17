@@ -6,6 +6,7 @@
 
 use std::fmt;
 use std::fs;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use crate::DEFAULT_UDP_PORT;
@@ -111,12 +112,42 @@ impl AppConfig {
         }
 
         let temporary = temporary_path(path);
-        fs::write(&temporary, self.render()).map_err(|e| {
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&temporary).map_err(|e| {
+            ConfigError::new(format!(
+                "cannot create temporary configuration file {}: {e}",
+                temporary.display()
+            ))
+        })?;
+        file.write_all(self.render().as_bytes()).map_err(|e| {
             ConfigError::new(format!(
                 "cannot write temporary configuration file {}: {e}",
                 temporary.display()
             ))
         })?;
+        file.sync_all().map_err(|e| {
+            ConfigError::new(format!(
+                "cannot sync temporary configuration file {}: {e}",
+                temporary.display()
+            ))
+        })?;
+        drop(file);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600)).map_err(|e| {
+                ConfigError::new(format!(
+                    "cannot set permissions on {}: {e}",
+                    temporary.display()
+                ))
+            })?;
+        }
 
         fs::rename(&temporary, path).map_err(|e| {
             let _ = fs::remove_file(&temporary);
@@ -281,6 +312,29 @@ autostart=maybe
             leftovers.is_empty(),
             "temp files should disappear after rename"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn saved_config_is_private_to_the_owner() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = TempDir::new("config-mode");
+        let path = dir.path().join("config.ini");
+        AppConfig {
+            udp_port: 9877,
+            autostart: false,
+            secret: "0123456789abcdef0123456789abcdef".to_owned(),
+        }
+        .save(&path)
+        .expect("save config");
+
+        let mode = fs::metadata(&path)
+            .expect("config metadata")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "config contains a command secret");
     }
 
     #[test]

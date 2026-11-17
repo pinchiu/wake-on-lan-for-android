@@ -5,6 +5,7 @@
 
 use std::fmt;
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::autostart;
 use crate::config::AppConfig;
@@ -12,11 +13,13 @@ use crate::dispatch::Dispatcher;
 use crate::instance::{self, InstanceError, SingleInstance, StopOutcome};
 use crate::logging::Logger;
 use crate::paths;
+use crate::platform;
 use crate::power::SystemPower;
 use crate::server;
 use crate::system_service::{self, SERVICE_FLAG};
 
 const LOG_TAIL_LINES: usize = 25;
+const SYSTEM_DATA_DIR: &str = "/var/lib/pc_onoff";
 
 /// User requested operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,11 +125,40 @@ fn report(result: Result<String, system_service::ServiceError>) -> i32 {
     }
 }
 
+fn active_config_path() -> PathBuf {
+    if system_service::state().is_installed() {
+        let system = PathBuf::from(SYSTEM_DATA_DIR).join("config.ini");
+        if system.exists() {
+            return system;
+        }
+    }
+    paths::config_path()
+}
+
+fn active_log_path(config_path: &Path) -> PathBuf {
+    if config_path.parent() == Some(Path::new(SYSTEM_DATA_DIR)) {
+        config_path.with_file_name("pc_onoff.log")
+    } else {
+        paths::log_path()
+    }
+}
+
+fn is_system_service_config(path: &Path) -> bool {
+    path.parent() == Some(Path::new(SYSTEM_DATA_DIR))
+}
+
 fn show_status() -> i32 {
-    let config_path = paths::config_path();
-    let log_path = paths::log_path();
+    let config_path = active_config_path();
+    let log_path = active_log_path(&config_path);
     let mut config = AppConfig::load(&config_path);
-    let secret_result = config.ensure_secret(&config_path);
+    // The system service config is root-only; an unprivileged status call must not write it
+    // or invent a different user secret. Suggest `sudo pc_onoff --status` instead.
+    let privileged_system_config = is_system_service_config(&config_path) && !platform::is_root();
+    let secret_result = if privileged_system_config {
+        Ok(())
+    } else {
+        config.ensure_secret(&config_path)
+    };
     let autostart_enabled = autostart::is_enabled();
 
     println!("Wake-on-LAN Computer Power Control Status:");
@@ -135,7 +167,11 @@ fn show_status() -> i32 {
     println!(
         "  Command Secret: {}",
         if config.secret.is_empty() {
-            "(not configured)"
+            if privileged_system_config {
+                "(run sudo pc_onoff --status to view)"
+            } else {
+                "(not configured)"
+            }
         } else {
             config.secret.as_str()
         }
@@ -298,12 +334,17 @@ fn run_daemon(mode: DaemonMode) -> i32 {
 
     if let Err(error) = config.ensure_secret(&config_path) {
         logger.record(
-            "warning",
+            "startup_error",
             &format!(
-                "cannot save command secret to {}: {error}",
+                "cannot save the command secret to {}: {error}",
                 config_path.display()
             ),
         );
+        eprintln!(
+            "Cannot persist the command secret to {}: {error}\n             Refusing to start with an unsaved secret (clients could never pair).",
+            config_path.display()
+        );
+        return 1;
     }
 
     if mode == DaemonMode::SystemService {

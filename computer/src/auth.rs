@@ -190,6 +190,14 @@ fn sign_input(command: &str, timestamp: u64, nonce: &str) -> String {
     format!("{command}|ts={timestamp}|nonce={nonce}")
 }
 
+/// Timestamp of a structurally valid envelope. Used by transports that need to reject
+/// envelopes minted before the current process (e.g. a captured reboot replayed after boot).
+pub fn timestamp(envelope: &str) -> Option<u64> {
+    ParsedEnvelope::parse(envelope)
+        .ok()
+        .map(|parsed| parsed.timestamp)
+}
+
 fn is_hex_of_length(value: &str, length: usize) -> bool {
     value.len() == length && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }

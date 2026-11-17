@@ -37,7 +37,7 @@ class WolListenerService : Service() {
         )
     }
 
-    private val replayGuard = ReplayGuard()
+    private val replayGuard = SharedReplayGuard
 
     private val activeClientSockets: MutableSet<Socket> = ConcurrentHashMap.newKeySet()
 

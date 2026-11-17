@@ -198,11 +198,20 @@ object CommandAuth {
 }
 
 /**
+ * Process-wide replay cache shared by the TCP and MQTT adapters.
+ *
+ * Both transports verify the same `helperSecret`; a per-service cache would let an attacker
+ * capture an MQTT envelope and replay it over TCP within the timestamp window. Services run
+ * in the same app process, so one synchronized cache closes that cross-transport gap.
+ */
+object SharedReplayGuard : ReplayGuard()
+
+/**
  * In-memory nonce replay cache: nonce -> expiry, TTL 600 s, at most [maxEntries] entries.
  * Thread-safe; expired entries are pruned on every check and the oldest entry is evicted when
  * the cache is full.
  */
-class ReplayGuard(
+open class ReplayGuard(
     private val maxEntries: Int = 1024,
     private val ttlSeconds: Long = 600
 ) {
