@@ -2,6 +2,8 @@ package com.example.wakeonwanremotephone
 
 import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
+import android.graphics.drawable.ColorDrawable
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -89,6 +91,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.wakeonwanremotephone.ui.components.AnimatedStatusDot
@@ -131,8 +134,26 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
+    @Suppress("DEPRECATION")
+    private fun applyStartupWindowBackground() {
+        val dark = when (ThemePreference(this).mode) {
+            AppThemeMode.DARK -> true
+            AppThemeMode.LIGHT -> false
+            AppThemeMode.SYSTEM ->
+                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                    Configuration.UI_MODE_NIGHT_YES
+        }
+        val background = if (dark) 0xFF121214.toInt() else 0xFFF2F2F7.toInt()
+        window.setBackgroundDrawable(ColorDrawable(background))
+        window.statusBarColor = background
+        window.navigationBarColor = if (dark) 0xFF1C1C1E.toInt() else 0xFFE9E9EF.toInt()
+        WindowCompat.getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = !dark
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyStartupWindowBackground()
         setContent {
             WakeOnWanRemotePhoneTheme {
                 RemoteWakeMainScreen()
