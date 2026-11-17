@@ -33,3 +33,6 @@ scripts/
 
 # Kotlin incremental session data
 .kotlin/
+
+# Archify working candidates
+.archify/

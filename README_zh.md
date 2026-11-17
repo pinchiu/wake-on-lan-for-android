@@ -83,20 +83,9 @@ Android App 以淺色玻璃為主；網頁儀表板同時支援淺色與深色 (
 
 ## 通訊架構與協定說明
 
-```
-[外出手機 (Client)]
-       │
-       ├─► (WAN: 公網 IPv6/IPv4) ─── TCP Port 9876 ────┐
-       ├─► (WAN: 雲端 Broker) ────── MQTT (TCP/TLS) ───┼─► [家中助手手機]
-       │                                                 │         │
-       │                                                 │   (家中區域網路 Wi-Fi)
-       │                                                 │   WoL 廣播: UDP 9
-       │                                                 │   電源控制: UDP 9877
-       │                                                 │         │
-       └─► (LAN: 同一 Wi-Fi) ─────── 直連 UDP 9/9877 ──┴─────────▼
-                                                             [目標電腦]
-                                                             (`pc_onoff` 守護行程)
-```
+[互動式系統架構與協定圖](docs/architecture.html) · [PNG](docs/screenshots/architecture-frost.png)
+
+![系統架構與協定](docs/screenshots/architecture-frost.png)
 
 1. **外出手機 -> 家中助手手機 (外網 TCP 直連模式)**：
    - 使用 **TCP (Port 9876)** 透過公網 IPv6 / IPv4 傳輸。
