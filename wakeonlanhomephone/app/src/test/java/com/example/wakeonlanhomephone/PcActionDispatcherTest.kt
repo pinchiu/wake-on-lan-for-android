@@ -114,26 +114,18 @@ class PcActionDispatcherTest {
     }
 
     @Test
-    fun testPowerCommandWithBlankPcSecretFailsAndSendsNothing() = runBlocking {
+    fun testPowerCommandWithoutPcSecretSendsBareCommand() = runBlocking {
         DatagramSocket(0, InetAddress.getByName(validIp)).use { receiver ->
-            receiver.soTimeout = 400
+            receiver.soTimeout = 2000
             val dispatcher = dispatcherWithSecret(port = receiver.localPort) { "" }
             val result = dispatcher.dispatch("SHUTDOWN:$validIp")
 
-            assertFalse(result.isSuccess)
-            assertTrue(result is PcActionResult.Failure)
-            assertEquals(
-                "ERROR: Shared PC secret is not configured",
-                result.toProtocolString()
-            )
+            assertTrue(result.isSuccess)
 
             val packet = DatagramPacket(ByteArray(1024), 1024)
-            try {
-                receiver.receive(packet)
-                fail("No UDP packet should be sent when the PC secret is blank")
-            } catch (_: SocketTimeoutException) {
-                // Expected: nothing was sent.
-            }
+            receiver.receive(packet)
+            val payload = String(packet.data, 0, packet.length, Charsets.UTF_8)
+            assertEquals("LAN/Tailscale daemon accepts a bare command", "shutdown", payload)
         }
     }
 

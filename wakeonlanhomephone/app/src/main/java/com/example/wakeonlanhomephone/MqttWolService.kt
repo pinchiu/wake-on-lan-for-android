@@ -72,7 +72,6 @@ class MqttWolService : Service() {
         )
     }
 
-    private val replayGuard = SharedReplayGuard
 
     private fun localized(resId: Int, vararg args: Any): String {
         return AppLocale.wrap(this).getString(resId, *args)
@@ -372,23 +371,10 @@ class MqttWolService : Service() {
         wakeLock?.acquire(COMMAND_WAKE_LOCK_MS)
         serviceScope.launch {
             try {
-                val secret = MqttConfigManager(this@MqttWolService).getConfig().helperSecret
-                val auth = CommandAuth.verify(payload, secret, replayGuard = replayGuard)
-                if (auth != AuthResult.Ok) {
-                    // Never log the payload: it contains a signature (and could contain anything).
-                    Log.w(TAG, "MQTT auth rejected on $topic: ${CommandAuth.reasonFor(auth)}")
-                    AppLogger.log("MQTT: auth rejected (${CommandAuth.reasonFor(auth)}) on '$topic'")
-                    return@launch
-                }
-                val command = CommandAuth.commandOf(payload)
-                if (command == null) {
-                    Log.w(TAG, "MQTT auth rejected on $topic: missing command")
-                    AppLogger.log("MQTT: auth rejected (missing command) on '$topic'")
-                    return@launch
-                }
-
-                Log.d(TAG, "Received authenticated command on $topic")
-                val result = dispatcher.dispatch(command, "MQTT")
+                // MQTT relies on the broker's TLS, credentials and topic ACLs. The
+                // publisher IP is not visible, so per-source TOFU cannot apply here.
+                Log.d(TAG, "Received command on $topic")
+                val result = dispatcher.dispatch(payload, "MQTT")
                 val text = when (result) {
                     is PcActionResult.Success -> result.message
                     is PcActionResult.Failure -> result.error
