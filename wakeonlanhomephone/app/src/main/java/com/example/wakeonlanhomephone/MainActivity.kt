@@ -1,5 +1,6 @@
 package com.example.wakeonlanhomephone
 
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -651,6 +652,9 @@ fun NewSettingsScreen(
     var updateAvailable by remember { mutableStateOf<String?>(null) }
     var updateMessage by remember { mutableStateOf<String?>(null) }
 
+    val themePreference = remember { ThemePreference(context) }
+    val currentTheme = themePreference.mode
+
     val currentConfig = remember { configManager.getConfig() }
     var brokerHost by remember { mutableStateOf(currentConfig.host) }
     var brokerPort by remember { mutableStateOf(if (currentConfig.port > 0) currentConfig.port.toString() else if (currentConfig.useSsl) "8883" else "1883") }
@@ -1106,6 +1110,47 @@ fun NewSettingsScreen(
                 }
             }
 
+            // Appearance
+            item {
+                Column {
+                    SectionHeader(stringResource(R.string.settings_appearance_title))
+                    Text(
+                        text = stringResource(R.string.settings_appearance_description),
+                        color = FrostTextSecondary,
+                        style = FrostCaption,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 10.dp)
+                    )
+                    GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                        SettingsChoiceRow(
+                            label = stringResource(R.string.theme_system),
+                            selected = currentTheme == AppThemeMode.SYSTEM,
+                            onClick = {
+                                themePreference.mode = AppThemeMode.SYSTEM
+                                (context as? Activity)?.recreate()
+                            }
+                        )
+                        HorizontalDivider(color = FrostBorderSubtle)
+                        SettingsChoiceRow(
+                            label = stringResource(R.string.theme_light),
+                            selected = currentTheme == AppThemeMode.LIGHT,
+                            onClick = {
+                                themePreference.mode = AppThemeMode.LIGHT
+                                (context as? Activity)?.recreate()
+                            }
+                        )
+                        HorizontalDivider(color = FrostBorderSubtle)
+                        SettingsChoiceRow(
+                            label = stringResource(R.string.theme_dark),
+                            selected = currentTheme == AppThemeMode.DARK,
+                            onClick = {
+                                themePreference.mode = AppThemeMode.DARK
+                                (context as? Activity)?.recreate()
+                            }
+                        )
+                    }
+                }
+            }
+
             // Language
             item {
                 Column {
@@ -1118,19 +1163,19 @@ fun NewSettingsScreen(
                     )
                     GlassPanel(modifier = Modifier.fillMaxWidth()) {
                         val currentLanguage = AppLocale.currentTag(context)
-                        LanguageOption(
+                        SettingsChoiceRow(
                             label = stringResource(R.string.language_system),
                             selected = currentLanguage == AppLocale.TAG_SYSTEM,
                             onClick = { AppLocale.set(context, AppLocale.TAG_SYSTEM) }
                         )
                         HorizontalDivider(color = FrostBorderSubtle)
-                        LanguageOption(
+                        SettingsChoiceRow(
                             label = stringResource(R.string.language_chinese_traditional),
                             selected = currentLanguage == AppLocale.TAG_TRADITIONAL_CHINESE,
                             onClick = { AppLocale.set(context, AppLocale.TAG_TRADITIONAL_CHINESE) }
                         )
                         HorizontalDivider(color = FrostBorderSubtle)
-                        LanguageOption(
+                        SettingsChoiceRow(
                             label = stringResource(R.string.language_english),
                             selected = currentLanguage == AppLocale.TAG_ENGLISH,
                             onClick = { AppLocale.set(context, AppLocale.TAG_ENGLISH) }
@@ -1276,7 +1321,7 @@ private fun MqttStatusPill(state: MqttConnectionState) {
 }
 
 @Composable
-private fun LanguageOption(
+private fun SettingsChoiceRow(
     label: String,
     selected: Boolean,
     onClick: () -> Unit

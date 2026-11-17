@@ -1,20 +1,23 @@
 package com.example.wakeonwanremotephone.ui.theme
 
 import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 /**
- * Frost is a light-only design: warm grey background, translucent white glass,
- * dark text and a single iOS-blue accent.
+ * Frost light scheme: warm grey background, translucent white glass, dark text
+ * and a single iOS-blue accent.
  */
-private val FrostLightColorScheme = lightColorScheme(
+private fun frostLightColorScheme() = lightColorScheme(
     primary = FrostAccent,
     onPrimary = Color.White,
     primaryContainer = FrostAccentDim,
@@ -41,29 +44,72 @@ private val FrostLightColorScheme = lightColorScheme(
     scrim = Color(0x66000000)
 )
 
+/**
+ * Frost dark scheme: near-black background, translucent charcoal glass, light
+ * text and the same iOS-blue accent.
+ */
+private fun frostDarkColorScheme() = darkColorScheme(
+    primary = FrostAccent,
+    onPrimary = Color.White,
+    primaryContainer = FrostAccentDim,
+    onPrimaryContainer = FrostAccent,
+    secondary = FrostTextSecondary,
+    onSecondary = Color(0xFF1C1C1E),
+    secondaryContainer = FrostSurfaceElevated,
+    onSecondaryContainer = FrostTextPrimary,
+    tertiary = FrostInfo,
+    onTertiary = Color.White,
+    background = FrostBg,
+    onBackground = FrostTextPrimary,
+    surface = FrostSurfaceGlass,
+    onSurface = FrostTextPrimary,
+    surfaceVariant = FrostSurfaceElevated,
+    onSurfaceVariant = FrostTextSecondary,
+    surfaceTint = FrostAccent,
+    inverseSurface = FrostTextPrimary,
+    inverseOnSurface = FrostBg,
+    error = FrostDanger,
+    onError = Color.White,
+    outline = FrostBorderStandard,
+    outlineVariant = FrostBorderSubtle,
+    scrim = Color(0x66000000)
+)
+
 @Suppress("DEPRECATION")
 @Composable
 fun WakeOnWanRemotePhoneTheme(
-    // Retained for source compatibility. Frost is a light-only design, so both
-    // flags are ignored and the app always renders the light scheme.
-    darkTheme: Boolean = false,
-    dynamicColor: Boolean = false,
+    // Retained for source compatibility. The persisted appearance preference
+    // is authoritative; SYSTEM resolves through isSystemInDarkTheme().
+    @Suppress("UNUSED_PARAMETER") darkTheme: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val systemDark = isSystemInDarkTheme()
+    val dark = when (ThemePreference(context).mode) {
+        AppThemeMode.SYSTEM -> systemDark
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+    }
+
+    // Palette tokens are plain top-level properties, so the flag must be set
+    // before the Material scheme and the content are composed.
+    FrostCurrent.dark = dark
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
-            // Dark status-bar / navigation-bar icons on the light Frost surface.
-            controller.isAppearanceLightStatusBars = true
-            controller.isAppearanceLightNavigationBars = true
+            controller.isAppearanceLightStatusBars = !dark
+            controller.isAppearanceLightNavigationBars = !dark
         }
     }
 
     MaterialTheme(
-        colorScheme = FrostLightColorScheme,
+        colorScheme = if (dark) frostDarkColorScheme() else frostLightColorScheme(),
         typography = Typography,
         content = content
     )

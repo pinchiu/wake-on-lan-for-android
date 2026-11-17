@@ -16,7 +16,7 @@
 - **語音助理整合**：支援 Google 助理 / Gemini 日常安排 (Routine) 語音捷徑 (`wake_pc_shortcut`)，說句語音指令立即喚醒。
 - **雙語介面支援**：手機 App 設定內建即時切換繁體中文與英文介面。
 - **指令安全**：內網／Tailscale 免密鑰；公開 port-forward 只需設定一次密鑰，之後自動簽章；MQTT 依賴 broker 帳密與主題權限。
-- **Frost 介面設計**：兩款 Android App 採用 Apple 風格的淺灰玻璃質感 — 半透明卡片、細緻描邊、系統字體與單一 iOS 藍色強調色；Rust 守護程式也提供相同風格的區域網頁儀表板。
+- **Frost 介面設計**：兩款 Android App 採用淺灰磨砂玻璃質感 — 半透明卡片、細緻描邊、系統字體與單一 iOS 藍色強調色，並支援 **系統／淺色／深色** 外觀；Rust 守護程式也提供相同風格的區域網頁儀表板。
 - **跨平台電腦端常駐守護程式 (`pc_onoff`)**：使用 Rust 開發之高效獨立執行檔，支援 Windows、Linux 與 Apple macOS。
   - 無需管理員權限之開機自啟動（Windows 註冊表 `HKCU Run`、Linux `systemd --user` / XDG Autostart、macOS `LaunchAgent`）。
   - 選用 Linux 系統層服務（`sudo pc_onoff --install-system`），開機後、登入前即可接收指令。

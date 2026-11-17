@@ -324,7 +324,8 @@ light-grey glass design language. The full token list lives in
 [`docs/frost-ui.md`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/docs/frost-ui.md).
 
 ### 9.1 Rules
-* **Grey first**: `#F2F2F7` background, translucent white cards, hairline black/white borders.
+* **Grey first**: light `#F2F2F7` / dark `#121214` background, translucent cards, hairline borders.
+* **Appearance**: both apps support System / Light / Dark; persist in `appearance/theme_mode` and recreate the activity on change.
 * **One accent**: iOS blue `#0A84FF`; status colours iOS green `#34C759`, orange `#FF9F0A`,
   red `#FF3B30`.
 * **No HUD/neon**: no scan lines, glowing outlines, emerald-on-black, or ALL-CAPS section headers.

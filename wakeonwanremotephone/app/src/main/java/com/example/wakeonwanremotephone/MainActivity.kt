@@ -1,5 +1,6 @@
 package com.example.wakeonwanremotephone
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -35,6 +36,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Brightness6
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
@@ -96,6 +99,7 @@ import com.example.wakeonwanremotephone.ui.components.ModernPowerCommandGrid
 import com.example.wakeonwanremotephone.ui.components.PrecisionSurfaceCard
 import com.example.wakeonwanremotephone.ui.components.SegmentedModeSelector
 import com.example.wakeonwanremotephone.ui.components.TerminalHudStatusCard
+import com.example.wakeonwanremotephone.ui.theme.AppThemeMode
 import com.example.wakeonwanremotephone.ui.theme.FrostAccent
 import com.example.wakeonwanremotephone.ui.theme.FrostAccentBorder
 import com.example.wakeonwanremotephone.ui.theme.FrostAccentDim
@@ -107,6 +111,7 @@ import com.example.wakeonwanremotephone.ui.theme.FrostDanger
 import com.example.wakeonwanremotephone.ui.theme.FrostHeadline
 import com.example.wakeonwanremotephone.ui.theme.FrostLargeTitle
 import com.example.wakeonwanremotephone.ui.theme.FrostMicro
+import com.example.wakeonwanremotephone.ui.theme.FrostShadow
 import com.example.wakeonwanremotephone.ui.theme.FrostSuccess
 import com.example.wakeonwanremotephone.ui.theme.FrostSurfaceElevated
 import com.example.wakeonwanremotephone.ui.theme.FrostSurfaceGlass
@@ -115,6 +120,7 @@ import com.example.wakeonwanremotephone.ui.theme.FrostSurfaceSolid
 import com.example.wakeonwanremotephone.ui.theme.FrostTextPrimary
 import com.example.wakeonwanremotephone.ui.theme.FrostTextSecondary
 import com.example.wakeonwanremotephone.ui.theme.FrostTextTertiary
+import com.example.wakeonwanremotephone.ui.theme.ThemePreference
 import com.example.wakeonwanremotephone.ui.theme.WakeOnWanRemotePhoneTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -160,6 +166,7 @@ fun RemoteWakeMainScreen() {
     var isLoading by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showSecurityDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
     var showAddDeviceDialog by remember { mutableStateOf(false) }
     var showEditDeviceDialog by remember { mutableStateOf(false) }
     var deviceToEdit by remember { mutableStateOf<DeviceProfile?>(null) }
@@ -263,6 +270,12 @@ fun RemoteWakeMainScreen() {
                         icon = Icons.Default.Security,
                         contentDescription = stringResource(R.string.security_title),
                         onClick = { showSecurityDialog = true }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    GlassIconButton(
+                        icon = Icons.Default.Brightness6,
+                        contentDescription = stringResource(R.string.theme_title),
+                        onClick = { showThemeDialog = true }
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     GlassIconButton(
@@ -576,6 +589,10 @@ fun RemoteWakeMainScreen() {
             )
         }
 
+        if (showThemeDialog) {
+            ThemeDialog(onDismiss = { showThemeDialog = false })
+        }
+
         // Shared secrets setup (helper + PC daemon)
         if (showSecurityDialog) {
             SecuritySettingsDialog(onDismiss = { showSecurityDialog = false })
@@ -874,8 +891,8 @@ private fun FrostSheet(
                     elevation = 28.dp,
                     shape = shape,
                     clip = false,
-                    ambientColor = Color(0x1F000000),
-                    spotColor = Color(0x1F000000)
+                    ambientColor = FrostShadow,
+                    spotColor = FrostShadow
                 ),
             shape = shape,
             color = FrostSurfaceSolid,
@@ -1099,6 +1116,102 @@ private fun AboutGlassDialog(
                     color = FrostTextSecondary,
                     style = FrostCallout
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val currentMode = remember { ThemePreference(context).mode }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        FrostSheet {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(FrostAccentDim, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Brightness6,
+                        contentDescription = null,
+                        tint = FrostAccent,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = stringResource(R.string.theme_title),
+                    color = FrostTextPrimary,
+                    style = FrostHeadline
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(FrostSurfaceInset)
+                    .border(1.dp, FrostBorderSubtle, RoundedCornerShape(16.dp))
+            ) {
+                val options = listOf(
+                    AppThemeMode.SYSTEM to stringResource(R.string.theme_system),
+                    AppThemeMode.LIGHT to stringResource(R.string.theme_light),
+                    AppThemeMode.DARK to stringResource(R.string.theme_dark)
+                )
+                options.forEachIndexed { index, (mode, label) ->
+                    if (index > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp)
+                                .height(1.dp)
+                                .background(FrostBorderSubtle)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                ThemePreference(context).mode = mode
+                                onDismiss()
+                                if (mode != currentMode) {
+                                    (context as? Activity)?.recreate()
+                                }
+                            }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (mode == currentMode) FrostAccent else FrostTextPrimary,
+                            style = FrostCallout,
+                            fontWeight = if (mode == currentMode) FontWeight.SemiBold else FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (mode == currentMode) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = FrostAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }

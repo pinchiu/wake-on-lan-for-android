@@ -18,6 +18,13 @@
     <string name="password_show">顯示密碼</string>
     <string name="password_hide">隱藏密碼</string>
 
+    <!-- 外觀選擇 -->
+    <string name="settings_appearance_title">外觀 / Appearance</string>
+    <string name="settings_appearance_description">選擇系統、淺色或深色外觀</string>
+    <string name="theme_system">跟隨系統</string>
+    <string name="theme_light">淺色</string>
+    <string name="theme_dark">深色</string>
+
     <!-- 語言選擇 -->
     <string name="settings_language_title">語言 / Language</string>
     <string name="settings_language_description">選擇應用程式介面語言</string>
