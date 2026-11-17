@@ -190,6 +190,14 @@ fn sign_input(command: &str, timestamp: u64, nonce: &str) -> String {
     format!("{command}|ts={timestamp}|nonce={nonce}")
 }
 
+/// Command inside a structurally valid envelope, without verifying the signature.
+/// Trusted LAN/Tailscale transports may accept the command directly.
+pub fn command(envelope: &str) -> Option<&str> {
+    ParsedEnvelope::parse(envelope)
+        .ok()
+        .map(|parsed| parsed.command)
+}
+
 /// Timestamp of a structurally valid envelope. Used by transports that need to reject
 /// envelopes minted before the current process (e.g. a captured reboot replayed after boot).
 pub fn timestamp(envelope: &str) -> Option<u64> {

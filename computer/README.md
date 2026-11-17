@@ -113,6 +113,7 @@ Unknown keys and formatting errors are safely ignored; older configs (including 
 * `sudo pc_onoff --uninstall-system` (Linux): Remove the system service
 * `pc_onoff --service`: Internal flag used by the system service unit
 * `pc_onoff --web-ui`: Open the local Frost dashboard at `http://127.0.0.1:9878`
+* `pc_onoff --forget-trusted`: Forget public TOFU peers (LAN/Tailscale unaffected)
 * `pc_onoff --help`: Show command usage
 
 ### Local Frost Dashboard (optional)
@@ -126,7 +127,16 @@ daemon state, local IPs, autostart/system-service status and the latest log line
 five power actions through the normal UDP 9877 protocol, signed with the same command secret.
 Destructive actions ask for confirmation.
 The page follows `prefers-color-scheme` and uses the same Frost design tokens as the Android apps
-(see `docs/frost-ui.md`).
+(see `docs/frost-ui.md`). On a public port-forward the action is signed with the command secret;
+LAN/Tailscale deployments can leave the secret empty and the dashboard sends bare commands.
+
+### Network trust & public TOFU
+LAN (RFC1918 / IPv6 ULA / link-local) and Tailscale (`100.64/10`, `fd7a:115c:a1e0::/48`)
+commands are accepted without a secret. A **public** IPv6/IPv4 source must send the first
+HMAC-signed command; the daemon then remembers that address in `trusted_peers` and accepts
+later bare commands from it. `--forget-trusted` clears the list. Tailscale is strongly preferred
+over exposing UDP 9877 to the internet. MQTT is handled by the Home Phone and relies on broker
+TLS/credentials/topic ACLs.
 
 ---
 
@@ -145,6 +155,8 @@ The core business logic converges in `dispatch`: callers only need `Dispatcher::
 | `src/autostart.rs` | Windows HKCU Run / macOS launchd / Linux systemd & XDG autostart. |
 | `src/system_service.rs` | Linux root system service (`--install-system`) so commands work before login. |
 | `src/web.rs` | Optional `--web-ui` loopback dashboard (embedded HTML/CSS/JS, `/api/*`, zero crates). |
+| `src/net.rs` | Trusted LAN / Tailscale address classification. |
+| `src/trust.rs` | Persistent TOFU list for public peers (`trusted_peers`, mode 0600). |
 | `src/instance.rs` | Single-instance mutual exclusion and `--stop` implementation. |
 | `src/paths.rs` | Config / log path resolution without side-effect probes. |
 | `src/cli.rs` | Command line argument parsing and process lifecycle. |
