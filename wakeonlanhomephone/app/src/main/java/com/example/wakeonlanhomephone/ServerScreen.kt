@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -16,6 +18,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Refresh
@@ -34,6 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -553,8 +559,8 @@ fun ServerScreen(
         if (showAddDeviceDialog) {
             AddComputerDialog(
                 onDismiss = { showAddDeviceDialog = false },
-                onConfirm = { name, mac, ip ->
-                    profileManager.addDevice(name, mac, ip)
+                onConfirm = { name, mac, ip, pcSecret ->
+                    profileManager.addDevice(name, mac, ip, pcSecret)
                     refreshDevices()
                     showAddDeviceDialog = false
                 }
@@ -567,8 +573,11 @@ fun ServerScreen(
                 device = device,
                 canDelete = devices.size > 1,
                 onDismiss = { deviceToEdit = null },
-                onSave = { name, mac, ip ->
-                    profileManager.updateDevice(device.copy(name = name, mac = mac, ip = ip))
+                onSave = { name, mac, ip, pcSecret ->
+                    profileManager.updateDevice(
+                        device.copy(name = name, mac = mac, ip = ip, pcSecret = pcSecret),
+                        preservePcSecret = false
+                    )
                     refreshDevices()
                     deviceToEdit = null
                 },
@@ -836,11 +845,13 @@ private fun getDeviceIPv6Addresses(): List<String> {
 @Composable
 fun AddComputerDialog(
     onDismiss: () -> Unit,
-    onConfirm: (name: String, mac: String, ip: String) -> Unit
+    onConfirm: (name: String, mac: String, ip: String, pcSecret: String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var mac by remember { mutableStateOf("") }
     var ip by remember { mutableStateOf("") }
+    var pcSecret by remember { mutableStateOf("") }
+    var pcSecretVisible by remember { mutableStateOf(false) }
     val newHostName = stringResource(R.string.default_device_new_host)
 
     Dialog(onDismissRequest = onDismiss) {
@@ -858,6 +869,8 @@ fun AddComputerDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState())
                     .padding(24.dp)
             ) {
                 Text(
@@ -883,6 +896,13 @@ fun AddComputerDialog(
                     value = ip,
                     onValueChange = { ip = it }
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                PcSecretField(
+                    value = pcSecret,
+                    onValueChange = { pcSecret = it },
+                    visible = pcSecretVisible,
+                    onToggleVisibility = { pcSecretVisible = !pcSecretVisible }
+                )
                 Spacer(modifier = Modifier.height(20.dp))
                 DialogActions(
                     onDismiss = onDismiss,
@@ -890,7 +910,7 @@ fun AddComputerDialog(
                     confirmEnabled = mac.isNotBlank(),
                     onConfirm = {
                         if (mac.isNotBlank()) {
-                            onConfirm(name.ifBlank { newHostName }, mac.trim(), ip.trim())
+                            onConfirm(name.ifBlank { newHostName }, mac.trim(), ip.trim(), pcSecret.trim())
                         }
                     }
                 )
@@ -904,12 +924,14 @@ fun EditComputerDialog(
     device: DeviceProfile,
     canDelete: Boolean,
     onDismiss: () -> Unit,
-    onSave: (name: String, mac: String, ip: String) -> Unit,
+    onSave: (name: String, mac: String, ip: String, pcSecret: String) -> Unit,
     onDelete: () -> Unit
 ) {
     var name by remember { mutableStateOf(device.name) }
     var mac by remember { mutableStateOf(device.mac) }
     var ip by remember { mutableStateOf(device.ip) }
+    var pcSecret by remember { mutableStateOf(device.pcSecret) }
+    var pcSecretVisible by remember { mutableStateOf(false) }
     val fallbackHostName = stringResource(R.string.default_device_host)
 
     Dialog(onDismissRequest = onDismiss) {
@@ -927,6 +949,8 @@ fun EditComputerDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState())
                     .padding(24.dp)
             ) {
                 Text(
@@ -952,6 +976,13 @@ fun EditComputerDialog(
                     value = ip,
                     onValueChange = { ip = it }
                 )
+                Spacer(modifier = Modifier.height(12.dp))
+                PcSecretField(
+                    value = pcSecret,
+                    onValueChange = { pcSecret = it },
+                    visible = pcSecretVisible,
+                    onToggleVisibility = { pcSecretVisible = !pcSecretVisible }
+                )
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -975,7 +1006,7 @@ fun EditComputerDialog(
                         confirmEnabled = mac.isNotBlank(),
                         onConfirm = {
                             if (mac.isNotBlank()) {
-                                onSave(name.ifBlank { fallbackHostName }, mac.trim(), ip.trim())
+                                onSave(name.ifBlank { fallbackHostName }, mac.trim(), ip.trim(), pcSecret.trim())
                             }
                         }
                     )
@@ -986,16 +1017,58 @@ fun EditComputerDialog(
 }
 
 @Composable
+private fun PcSecretField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    visible: Boolean,
+    onToggleVisibility: () -> Unit
+) {
+    DialogTextField(
+        label = stringResource(R.string.dialog_pc_secret_label),
+        value = value,
+        onValueChange = onValueChange,
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = onToggleVisibility) {
+                Icon(
+                    imageVector = if (visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                    contentDescription = if (visible) {
+                        stringResource(R.string.password_hide)
+                    } else {
+                        stringResource(R.string.password_show)
+                    },
+                    tint = FrostTextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        },
+        supportingText = {
+            Text(
+                text = stringResource(R.string.dialog_pc_secret_caption),
+                color = FrostTextTertiary,
+                style = FrostCaption
+            )
+        }
+    )
+}
+
+@Composable
 private fun DialogTextField(
     label: String,
     value: String,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingIcon: (@Composable () -> Unit)? = null,
+    supportingText: (@Composable () -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label, style = FrostCaption) },
         singleLine = true,
+        visualTransformation = visualTransformation,
+        trailingIcon = trailingIcon,
+        supportingText = supportingText,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = FrostAccentBorder,
             unfocusedBorderColor = FrostBorderSubtle,
