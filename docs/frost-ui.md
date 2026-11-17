@@ -37,9 +37,9 @@ panels, hairline borders, system typography, and one restrained blue accent.
 | `warning` | `#FF9F0A` | Connecting / caution |
 | `danger` | `#FF3B30` | Shutdown / errors |
 
-Dark mode uses graphite glass: `#1C1C1E` background, `#2C2C2E` 72% cards, `#F2F2F7` text,
+The Android apps offer **System / Light / Dark** appearance (Settings → Appearance on Home Phone, sun/moon button on Remote Phone). Dark mode uses graphite glass: `#1C1C1E` background, `#2C2C2E` 72% cards, `#F2F2F7` text,
 the same blue accent, and 12% white borders. The web dashboard follows
-`prefers-color-scheme`; the Android apps currently use the light palette.
+`prefers-color-scheme`; the Android apps offer System / Light / Dark.
 
 ## Shape & depth
 

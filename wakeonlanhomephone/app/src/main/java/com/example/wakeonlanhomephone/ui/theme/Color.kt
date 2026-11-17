@@ -3,130 +3,145 @@ package com.example.wakeonlanhomephone.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ---------------------------------------------------------------------------
-// Frost UI tokens (light, Apple-like grey glass)
+// Frost UI tokens (Apple-like grey glass)
 // ---------------------------------------------------------------------------
 // The app historically used a dark "precision hardware" palette. The constant
 // names are kept as legacy aliases so existing call sites keep compiling, but
-// every value now resolves to a Frost token. New UI code should prefer the
+// every value resolves to the active Frost token. New UI code should prefer the
 // Frost* names directly.
+//
+// Tokens are exposed as top-level `val`s with getters instead of `const val`s so
+// the same call sites render light or dark without being rewritten. The theme
+// flips [FrostCurrent.dark] before composing the UI and recreates the activity
+// when the user changes the preference, so each composition reads one palette.
+
+/** Palette currently selected by the rest of the UI. Set by WakeOnLanTheme. */
+object FrostCurrent {
+    @Volatile
+    var dark: Boolean = false
+}
+
+private fun frostColor(light: Long, dark: Long): Color =
+    Color(if (FrostCurrent.dark) dark else light)
 
 // Backgrounds
-val FrostBg = Color(0xFFF2F2F7)
-val FrostBgSecondary = Color(0xFFE9E9EF)
+val FrostBg: Color get() = frostColor(0xFFF2F2F7, 0xFF121214)
+val FrostBgSecondary: Color get() = frostColor(0xFFE9E9EF, 0xFF1C1C1E)
 
-// Translucent white surfaces
-val FrostSurfaceGlass = Color(0x94FFFFFF)      // #FFFFFF @ 58%
-val FrostSurfaceElevated = Color(0xC2FFFFFF)   // #FFFFFF @ 76%
-val FrostSurfaceSolid = Color(0xEBFFFFFF)      // #FFFFFF @ 92%
+// Translucent white (light) / charcoal (dark) surfaces
+val FrostSurfaceGlass: Color get() = frostColor(0x94FFFFFF, 0xCC1C1C1E)      // light 58%, dark 80%
+val FrostSurfaceElevated: Color get() = frostColor(0xC2FFFFFF, 0xF22C2C2E)   // light 76%, dark 95%
+val FrostSurfaceSolid: Color get() = frostColor(0xEBFFFFFF, 0xFF2C2C2E)      // light 92%, dark 100%
 
 // Hairlines
-val FrostBorderSubtle = Color(0x0F000000)      // #000000 @ 6%
-val FrostBorderStandard = Color(0x1A000000)    // #000000 @ 10%
-val FrostBorderStrong = Color(0xE6FFFFFF)      // #FFFFFF @ 90%
+val FrostBorderSubtle: Color get() = frostColor(0x0F000000, 0x1AFFFFFF)      // 6% / 10%
+val FrostBorderStandard: Color get() = frostColor(0x1A000000, 0x2BFFFFFF)    // 10% / 17%
+val FrostBorderStrong: Color get() = frostColor(0xE6FFFFFF, 0x33FFFFFF)      // 90% / 20%
 
 // Text
-val FrostTextPrimary = Color(0xFF1C1C1E)
-val FrostTextSecondary = Color(0xFF6E6E73)
-val FrostTextTertiary = Color(0xFF8E8E93)
+val FrostTextPrimary: Color get() = frostColor(0xFF1C1C1E, 0xFFF5F5F7)
+val FrostTextSecondary: Color get() = frostColor(0xFF6E6E73, 0xFFA1A1A6)
+val FrostTextTertiary: Color get() = frostColor(0xFF8E8E93, 0xFF8E8E93)
 
 // Accent (iOS blue)
-val FrostAccent = Color(0xFF0A84FF)
-val FrostAccentDim = Color(0x1F0A84FF)         // 12%
-val FrostAccentBorder = Color(0x400A84FF)      // 25%
+val FrostAccent: Color get() = frostColor(0xFF0A84FF, 0xFF0A84FF)
+val FrostAccentDim: Color get() = frostColor(0x1F0A84FF, 0x330A84FF)         // 12% / 20%
+val FrostAccentBorder: Color get() = frostColor(0x400A84FF, 0x660A84FF)      // 25% / 40%
 
 // Semantic colors (iOS system colors)
-val FrostSuccess = Color(0xFF34C759)
-val FrostSuccessDim = Color(0x1F34C759)
-val FrostSuccessBorder = Color(0x4034C759)
-val FrostWarning = Color(0xFFFF9F0A)
-val FrostWarningDim = Color(0x1FFF9F0A)
-val FrostWarningBorder = Color(0x40FF9F0A)
-val FrostDanger = Color(0xFFFF3B30)
-val FrostDangerDim = Color(0x1FFF3B30)
-val FrostDangerBorder = Color(0x40FF3B30)
-val FrostInfo = Color(0xFF0A84FF)
-val FrostInfoDim = Color(0x1F0A84FF)
-val FrostInfoBorder = Color(0x400A84FF)
+val FrostSuccess: Color get() = frostColor(0xFF34C759, 0xFF34C759)
+val FrostSuccessDim: Color get() = frostColor(0x1F34C759, 0x3334C759)
+val FrostSuccessBorder: Color get() = frostColor(0x4034C759, 0x6634C759)
+val FrostWarning: Color get() = frostColor(0xFFFF9F0A, 0xFFFF9F0A)
+val FrostWarningDim: Color get() = frostColor(0x1FFF9F0A, 0x33FF9F0A)
+val FrostWarningBorder: Color get() = frostColor(0x40FF9F0A, 0x66FF9F0A)
+val FrostDanger: Color get() = frostColor(0xFFFF3B30, 0xFFFF3B30)
+val FrostDangerDim: Color get() = frostColor(0x1FFF3B30, 0x33FF3B30)
+val FrostDangerBorder: Color get() = frostColor(0x40FF3B30, 0x66FF3B30)
+val FrostInfo: Color get() = frostColor(0xFF0A84FF, 0xFF0A84FF)
+val FrostInfoDim: Color get() = frostColor(0x1F0A84FF, 0x330A84FF)
+val FrostInfoBorder: Color get() = frostColor(0x400A84FF, 0x660A84FF)
 
 // Soft shadow + iOS segmented-control track
-val FrostShadow = Color(0x14000000)
-val FrostSegmentTrack = Color(0xFFE3E3E8)
+val FrostShadow: Color get() = frostColor(0x14000000, 0x66000000)
+val FrostSegmentTrack: Color get() = frostColor(0xFFE3E3E8, 0xFF2C2C2E)
 
 // ---------------------------------------------------------------------------
 // Legacy aliases. Do not add new call sites that depend on the old names.
 // ---------------------------------------------------------------------------
 
 // Backgrounds formerly "Obsidian & Zinc"
-val DarkBgPrimary = FrostBg
-val DarkBgSecondary = FrostBgSecondary
-val DarkSurface = FrostSurfaceGlass
-val DarkSurfaceElevated = FrostSurfaceElevated
-val DarkSurfaceHighlight = Color(0xD9FFFFFF)   // #FFFFFF @ 85%
+val DarkBgPrimary: Color get() = FrostBg
+val DarkBgSecondary: Color get() = FrostBgSecondary
+val DarkSurface: Color get() = FrostSurfaceGlass
+val DarkSurfaceElevated: Color get() = FrostSurfaceElevated
+val DarkSurfaceHighlight: Color get() = frostColor(0xD9FFFFFF, 0x33FFFFFF)
 
 // Borders formerly white hairline
-val BorderSubtle = FrostBorderSubtle
-val BorderStandard = FrostBorderStandard
-val BorderHover = Color(0x24000000)
+val BorderSubtle: Color get() = FrostBorderSubtle
+val BorderStandard: Color get() = FrostBorderStandard
+val BorderHover: Color get() = frostColor(0x24000000, 0x40FFFFFF)
 
 // Accent formerly Emerald
-val AccentEmerald = FrostAccent
-val AccentEmeraldDim = FrostAccentDim
-val AccentEmeraldBorder = FrostAccentBorder
-val AccentEmeraldGlow = Color(0x1F0A84FF)
+val AccentEmerald: Color get() = FrostAccent
+val AccentEmeraldDim: Color get() = FrostAccentDim
+val AccentEmeraldBorder: Color get() = FrostAccentBorder
+val AccentEmeraldGlow: Color get() = frostColor(0x1F0A84FF, 0x330A84FF)
 
 // Semantic palette
-val SemanticDanger = FrostDanger
-val SemanticDangerDim = FrostDangerDim
-val SemanticDangerBorder = FrostDangerBorder
+val SemanticDanger: Color get() = FrostDanger
+val SemanticDangerDim: Color get() = FrostDangerDim
+val SemanticDangerBorder: Color get() = FrostDangerBorder
 
-val SemanticWarning = FrostWarning
-val SemanticWarningDim = FrostWarningDim
-val SemanticWarningBorder = FrostWarningBorder
+val SemanticWarning: Color get() = FrostWarning
+val SemanticWarningDim: Color get() = FrostWarningDim
+val SemanticWarningBorder: Color get() = FrostWarningBorder
 
-val SemanticInfo = FrostInfo
-val SemanticInfoDim = FrostInfoDim
-val SemanticInfoBorder = FrostInfoBorder
+val SemanticInfo: Color get() = FrostInfo
+val SemanticInfoDim: Color get() = FrostInfoDim
+val SemanticInfoBorder: Color get() = FrostInfoBorder
 
-// Slate scale, remapped to iOS neutral text/surface tones. The light end now
-// means "primary dark text" so existing text colors stay readable on glass.
-val Slate50 = FrostTextPrimary
-val Slate100 = Color(0xFF2C2C2E)
-val Slate200 = Color(0xFF3A3A3C)
-val Slate300 = Color(0xFF48484A)
-val Slate400 = FrostTextSecondary
-val Slate500 = FrostTextTertiary
-val Slate600 = Color(0xFFA1A1A6)
-val Slate700 = Color(0xFFC7C7CC)
-val Slate800 = Color(0xFFD1D1D6)
-val Slate900 = Color(0xFFE5E5EA)
+// Slate scale, remapped to iOS neutral text/surface tones. Light values map the
+// light end to "primary dark text"; the dark palette inverts the scale so the
+// same aliases stay readable on charcoal glass.
+val Slate50: Color get() = frostColor(0xFF1C1C1E, 0xFFF5F5F7)
+val Slate100: Color get() = frostColor(0xFF2C2C2E, 0xFFE5E5EA)
+val Slate200: Color get() = frostColor(0xFF3A3A3C, 0xFFD1D1D6)
+val Slate300: Color get() = frostColor(0xFF48484A, 0xFFC7C7CC)
+val Slate400: Color get() = frostColor(0xFF6E6E73, 0xFFA1A1A6)
+val Slate500: Color get() = frostColor(0xFF8E8E93, 0xFF8E8E93)
+val Slate600: Color get() = frostColor(0xFFA1A1A6, 0xFF6E6E73)
+val Slate700: Color get() = frostColor(0xFFC7C7CC, 0xFF48484A)
+val Slate800: Color get() = frostColor(0xFFD1D1D6, 0xFF3A3A3C)
+val Slate900: Color get() = frostColor(0xFFE5E5EA, 0xFF2C2C2E)
 
 // Backward compatibility aliases remapped to Frost tokens
-val BackroundDark = FrostBg
-val SurfaceGlass = FrostSurfaceGlass
-val GlassBorder = FrostBorderSubtle
-val GlassSurface = FrostSurfaceElevated
+val BackroundDark: Color get() = FrostBg
+val SurfaceGlass: Color get() = FrostSurfaceGlass
+val GlassBorder: Color get() = FrostBorderSubtle
+val GlassSurface: Color get() = FrostSurfaceElevated
 
-val NeonGreen = FrostSuccess
-val NeonBlue = FrostAccent
-val CyberCyan = FrostAccent
-val CyberYellow = FrostWarning
-val NeonRed = FrostDanger
-val CyberPink = FrostDanger
+val NeonGreen: Color get() = FrostSuccess
+val NeonBlue: Color get() = FrostAccent
+val CyberCyan: Color get() = FrostAccent
+val CyberYellow: Color get() = FrostWarning
+val NeonRed: Color get() = FrostDanger
+val CyberPink: Color get() = FrostDanger
 
-val PrimaryBlue = FrostAccent
-val PrimaryHover = Color(0xFF0071E3)
-val AccentIndigo = FrostAccent
-val SettingsPrimary = FrostAccent
-val BackgroundDeepNavy = FrostBg
-val PurpleAccent = FrostAccent
+val PrimaryBlue: Color get() = FrostAccent
+val PrimaryHover: Color get() = frostColor(0xFF0071E3, 0xFF409CFF)
+val AccentIndigo: Color get() = FrostAccent
+val SettingsPrimary: Color get() = FrostAccent
+val BackgroundDeepNavy: Color get() = FrostBg
+val PurpleAccent: Color get() = FrostAccent
 
-val Navy950 = FrostBg
-val Navy900 = FrostBgSecondary
-val Navy850 = FrostSurfaceGlass
-val Navy800 = FrostSurfaceElevated
-val Navy700 = Slate700
-val Navy600 = Slate600
+val Navy950: Color get() = FrostBg
+val Navy900: Color get() = FrostBgSecondary
+val Navy850: Color get() = FrostSurfaceGlass
+val Navy800: Color get() = FrostSurfaceElevated
+val Navy700: Color get() = Slate700
+val Navy600: Color get() = Slate600
 
-val SuccessGreen = FrostSuccess
-val DangerRed = FrostDanger
-val OfflineGray = FrostTextTertiary
+val SuccessGreen: Color get() = FrostSuccess
+val DangerRed: Color get() = FrostDanger
+val OfflineGray: Color get() = FrostTextTertiary

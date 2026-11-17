@@ -50,6 +50,12 @@
     <string name="language_zh_tw">繁體中文</string>
     <string name="language_en">English</string>
 
+    <!-- Appearance selector -->
+    <string name="theme_title">Appearance</string>
+    <string name="theme_system">System default</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
     <!-- Add / edit device dialogs -->
     <string name="add_device_title">Add target computer</string>
     <string name="device_name_hint">Computer name (e.g. Bedroom PC)</string>
