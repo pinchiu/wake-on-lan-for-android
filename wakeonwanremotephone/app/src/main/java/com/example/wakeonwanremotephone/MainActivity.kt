@@ -41,8 +41,11 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -77,6 +80,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -192,7 +197,8 @@ fun RemoteWakeMainScreen() {
                     RemoteNetworkUtil.sendDirectCommandToPC(
                         ip,
                         action.lowercase(Locale.ROOT),
-                        securitySettings.getPcSecret()
+                        currentSelectedDevice?.pcSecret?.ifBlank { securitySettings.getPcSecret() }
+                            ?: securitySettings.getPcSecret()
                     )
                 }
             } else {
@@ -580,8 +586,8 @@ fun RemoteWakeMainScreen() {
         if (showAddDeviceDialog) {
             AddDeviceDialog(
                 onDismiss = { showAddDeviceDialog = false },
-                onConfirm = { name, mac, ip ->
-                    val newDev = deviceManager.addDevice(name, mac, ip)
+                onConfirm = { name, mac, ip, pcSecret ->
+                    val newDev = deviceManager.addDevice(name, mac, ip, pcSecret)
                     devices = deviceManager.getDevices()
                     selectedDeviceId = newDev.id
                     computerMacAddress = newDev.mac
@@ -599,8 +605,13 @@ fun RemoteWakeMainScreen() {
                     showEditDeviceDialog = false
                     deviceToEdit = null
                 },
-                onSave = { name, mac, ip ->
-                    val updated = deviceToEdit!!.copy(name = name, mac = mac, ip = ip)
+                onSave = { name, mac, ip, pcSecret ->
+                    val updated = deviceToEdit!!.copy(
+                        name = name,
+                        mac = mac,
+                        ip = ip,
+                        pcSecret = pcSecret
+                    )
                     deviceManager.updateDevice(updated)
                     devices = deviceManager.getDevices()
                     if (selectedDeviceId == updated.id) {
@@ -1208,6 +1219,87 @@ fun PrecisionOutlinedTextField(
 }
 
 /**
+ * Password-style field for the optional per-profile PC secret, with an eye
+ * toggle and a short explanatory caption.
+ */
+@Composable
+private fun PrecisionSecretField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    caption: String,
+    visible: Boolean,
+    onToggleVisibility: () -> Unit
+) {
+    Column {
+        Text(
+            text = label,
+            color = FrostTextSecondary,
+            style = FrostCaption.copy(fontSize = 12.sp),
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+        )
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = FrostTextTertiary,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
+            trailingIcon = {
+                IconButton(onClick = onToggleVisibility, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        imageVector = if (visible) {
+                            Icons.Default.VisibilityOff
+                        } else {
+                            Icons.Default.Visibility
+                        },
+                        contentDescription = stringResource(
+                            if (visible) R.string.hide_secret else R.string.show_secret
+                        ),
+                        tint = FrostTextSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = FrostAccent,
+                unfocusedBorderColor = FrostBorderStandard,
+                focusedTextColor = FrostTextPrimary,
+                unfocusedTextColor = FrostTextPrimary,
+                cursorColor = FrostAccent,
+                focusedContainerColor = FrostSurfaceElevated,
+                unfocusedContainerColor = FrostSurfaceElevated,
+                focusedLeadingIconColor = FrostAccent,
+                unfocusedLeadingIconColor = FrostTextTertiary
+            ),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            visualTransformation = if (visible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = FrostTextPrimary,
+                fontSize = 15.sp
+            ),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = caption,
+            color = FrostTextTertiary,
+            style = FrostCaption.copy(fontSize = 11.sp),
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+        )
+    }
+}
+
+/**
  * Small helper so field persistence only runs on focus loss, matching the
  * previous onFocusChanged usage.
  */
@@ -1295,11 +1387,13 @@ fun HardwareCommandCard(
 @Composable
 fun AddDeviceDialog(
     onDismiss: () -> Unit,
-    onConfirm: (name: String, mac: String, ip: String) -> Unit
+    onConfirm: (name: String, mac: String, ip: String, pcSecret: String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var mac by remember { mutableStateOf("") }
     var ip by remember { mutableStateOf("") }
+    var pcSecret by remember { mutableStateOf("") }
+    var pcSecretVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     Dialog(
@@ -1334,6 +1428,15 @@ fun AddDeviceDialog(
                 label = stringResource(R.string.lan_ipv4_optional),
                 icon = Icons.Default.Dns
             )
+            Spacer(modifier = Modifier.height(12.dp))
+            PrecisionSecretField(
+                value = pcSecret,
+                onValueChange = { pcSecret = it },
+                label = stringResource(R.string.pc_secret_optional_label),
+                caption = stringResource(R.string.pc_secret_optional_caption),
+                visible = pcSecretVisible,
+                onToggleVisibility = { pcSecretVisible = !pcSecretVisible }
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -1361,7 +1464,8 @@ fun AddDeviceDialog(
                             onConfirm(
                                 name.ifBlank { context.getString(R.string.new_device_default_name) },
                                 mac.trim(),
-                                ip.trim()
+                                ip.trim(),
+                                pcSecret.trim()
                             )
                         }
                     },
@@ -1392,12 +1496,14 @@ fun EditDeviceDialog(
     device: DeviceProfile,
     canDelete: Boolean,
     onDismiss: () -> Unit,
-    onSave: (name: String, mac: String, ip: String) -> Unit,
+    onSave: (name: String, mac: String, ip: String, pcSecret: String) -> Unit,
     onDelete: () -> Unit
 ) {
     var name by remember { mutableStateOf(device.name) }
     var mac by remember { mutableStateOf(device.mac) }
     var ip by remember { mutableStateOf(device.ip) }
+    var pcSecret by remember { mutableStateOf(device.pcSecret) }
+    var pcSecretVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     Dialog(
@@ -1431,6 +1537,15 @@ fun EditDeviceDialog(
                 onValueChange = { ip = it },
                 label = stringResource(R.string.lan_ipv4_optional),
                 icon = Icons.Default.Dns
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            PrecisionSecretField(
+                value = pcSecret,
+                onValueChange = { pcSecret = it },
+                label = stringResource(R.string.pc_secret_optional_label),
+                caption = stringResource(R.string.pc_secret_optional_caption),
+                visible = pcSecretVisible,
+                onToggleVisibility = { pcSecretVisible = !pcSecretVisible }
             )
 
             if (canDelete) {
@@ -1480,7 +1595,8 @@ fun EditDeviceDialog(
                             onSave(
                                 name.ifBlank { context.getString(R.string.device_fallback_name) },
                                 mac.trim(),
-                                ip.trim()
+                                ip.trim(),
+                                pcSecret.trim()
                             )
                         }
                     },

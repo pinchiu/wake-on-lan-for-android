@@ -55,6 +55,8 @@
     <string name="device_name_hint">Computer name (e.g. Bedroom PC)</string>
     <string name="mac_hint">NIC MAC (e.g. AA:BB:CC:DD:EE:FF)</string>
     <string name="lan_ipv4_optional">LAN IPv4 (optional)</string>
+    <string name="pc_secret_optional_label">PC secret (optional)</string>
+    <string name="pc_secret_optional_caption">Optional; only for public port-forward. Uses the shared secret if blank.</string>
     <string name="cancel">Cancel</string>
     <string name="new_device_default_name">New PC</string>
     <string name="add">Add</string>

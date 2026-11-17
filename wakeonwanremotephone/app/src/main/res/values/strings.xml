@@ -54,6 +54,8 @@
     <string name="device_name_hint">電腦名稱 (例: 臥室主機)</string>
     <string name="mac_hint">網卡 MAC (例: AA:BB:CC:DD:EE:FF)</string>
     <string name="lan_ipv4_optional">區域網路 IPv4 (可選)</string>
+    <string name="pc_secret_optional_label">PC 密鑰 (選用)</string>
+    <string name="pc_secret_optional_caption">選用；僅公開 port-forward 需要。留空則使用共用密鑰。</string>
     <string name="cancel">取消</string>
     <string name="new_device_default_name">新主機</string>
     <string name="add">新增</string>

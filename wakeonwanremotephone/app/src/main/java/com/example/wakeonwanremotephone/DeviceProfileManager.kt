@@ -9,12 +9,17 @@ import java.util.UUID
 /**
  * Target computer data model.
  * Supports storing multiple computers with name, MAC address, and local IPv4 address.
+ *
+ * [pcSecret] is optional and only needed when the `pc_onoff` daemon is reached
+ * through a public port-forward. A blank value means "use the shared PC secret
+ * from [SecuritySettings]", so older profiles keep working unchanged.
  */
 data class DeviceProfile(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val mac: String,
-    val ip: String = ""
+    val ip: String = "",
+    val pcSecret: String = ""
 )
 
 /**
@@ -55,7 +60,10 @@ class DeviceProfileManager(private val context: Context) {
         val json = prefs.getString(KEY_DEVICES_JSON, null) ?: return emptyList()
         return try {
             val type = object : TypeToken<List<DeviceProfile>>() {}.type
-            gson.fromJson(json, type) ?: emptyList()
+            val loaded: List<DeviceProfile>? = gson.fromJson(json, type)
+            // Gson bypasses Kotlin defaults, so JSON written before pcSecret
+            // existed yields null instead of "". Normalise it back to blank.
+            loaded.orEmpty().map { if (it.pcSecret.isNullOrBlank()) it.copy(pcSecret = "") else it }
         } catch (_: Exception) {
             emptyList()
         }
@@ -67,11 +75,12 @@ class DeviceProfileManager(private val context: Context) {
         notifyWidgetUpdate()
     }
 
-    fun addDevice(name: String, mac: String, ip: String): DeviceProfile {
+    fun addDevice(name: String, mac: String, ip: String, pcSecret: String = ""): DeviceProfile {
         val newDevice = DeviceProfile(
             name = name.trim().ifEmpty { context.getString(R.string.default_device_new) },
             mac = mac.trim(),
-            ip = ip.trim()
+            ip = ip.trim(),
+            pcSecret = pcSecret.trim()
         )
         val current = getDevices().toMutableList()
         current.add(newDevice)
