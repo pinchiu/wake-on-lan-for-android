@@ -122,6 +122,8 @@
     <string name="dialog_name_with_example">電腦名稱 (例: 臥室主機)</string>
     <string name="dialog_mac_with_example">網卡 MAC (例: AA:BB:CC:DD:EE:FF)</string>
     <string name="dialog_ip_optional_power">區域網路 IPv4 (可選，供關機/重啟)</string>
+    <string name="dialog_pc_secret_label">PC 密鑰（選用）</string>
+    <string name="dialog_pc_secret_caption">選用；只有公開 port-forward 才需要。留空則使用共用密鑰。</string>
     <string name="default_device_new_host">新主機</string>
     <string name="dialog_edit_target_title">編輯目標電腦</string>
     <string name="dialog_name">電腦名稱</string>

@@ -28,7 +28,13 @@ class PcActionDispatcher(
      * Supplies the shared PC secret used to sign UDP 9877 power commands. Android callers wire
      * this to [MqttConfigManager]; the default is fail-closed for pure-JVM use and tests.
      */
-    private val pcSecretProvider: () -> String = { "" }
+    private val pcSecretProvider: () -> String = { "" },
+    /**
+     * Optional per-target override for the PC secret. Callers pass a resolver that looks up the
+     * [DeviceProfile] matching the command's target IP, so each `pc_onoff` daemon can have its
+     * own `secret=`. Returning null (or omitting the resolver) falls back to [pcSecretProvider].
+     */
+    private val pcSecretResolver: ((String) -> String)? = null
 ) {
     companion object {
         private const val TAG = "PcActionDispatcher"
@@ -119,9 +125,9 @@ class PcActionDispatcher(
         }
 
         val secret = try {
-            pcSecretProvider().trim()
+            (pcSecretResolver?.invoke(targetIp) ?: pcSecretProvider()).trim()
         } catch (_: Exception) {
-            // A broken provider must fail closed, exactly like an unconfigured secret.
+            // A broken resolver/provider must fail closed, exactly like an unconfigured secret.
             ""
         }
         val address = try {

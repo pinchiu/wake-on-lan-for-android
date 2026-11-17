@@ -30,10 +30,19 @@ class WolListenerService : Service() {
     private val _isRunning = MutableStateFlow(false)
     val isRunning = _isRunning.asStateFlow()
 
+    private val profileManager by lazy { DeviceProfileManager(this) }
+
     private val dispatcher by lazy {
         PcActionDispatcher(
             defaultMacProvider = { MqttConfigManager(this).getConfig().targetMac },
-            pcSecretProvider = { MqttConfigManager(this).getConfig().pcSecret }
+            pcSecretProvider = { MqttConfigManager(this).getConfig().pcSecret },
+            pcSecretResolver = { targetIp ->
+                val profileSecret = profileManager.getDevices()
+                    .firstOrNull { it.ip.trim() == targetIp.trim() }
+                    ?.pcSecret
+                    .orEmpty()
+                profileSecret.ifBlank { MqttConfigManager(this).getConfig().pcSecret }
+            }
         )
     }
 

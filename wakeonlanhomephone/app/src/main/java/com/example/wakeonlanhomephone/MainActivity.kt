@@ -272,7 +272,10 @@ fun MainScreen(
                                 onPowerCommand = { device, action ->
                                     coroutineScope.launch {
                                         val dispatcher = PcActionDispatcher(
-                                            pcSecretProvider = { MqttConfigManager(context).getConfig().pcSecret }
+                                            pcSecretProvider = {
+                                                val currentConfig = MqttConfigManager(context).getConfig()
+                                                device.pcSecret.ifBlank { currentConfig.pcSecret }
+                                            }
                                         )
                                         val result = dispatcher.dispatch("${action.uppercase()}:${device.ip}", "HomePhoneUI")
                                         if (result.isSuccess) {

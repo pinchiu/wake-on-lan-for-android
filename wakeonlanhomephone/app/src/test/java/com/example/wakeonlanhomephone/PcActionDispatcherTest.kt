@@ -114,6 +114,63 @@ class PcActionDispatcherTest {
     }
 
     @Test
+    fun testPowerCommandUsesPerTargetSecretResolver() = runBlocking {
+        val firstIp = "127.0.0.1"
+        val secondIp = "127.0.0.2"
+        val firstSecret = "first-pc-secret-0123456789abcdef"
+        val secondSecret = "second-pc-secret-0123456789abcdef"
+        val sharedSecret = "shared-fallback-secret-0123456789abcdef"
+
+        DatagramSocket(0, InetAddress.getByName(firstIp)).use { firstReceiver ->
+            firstReceiver.soTimeout = 2000
+            DatagramSocket(firstReceiver.localPort, InetAddress.getByName(secondIp)).use { secondReceiver ->
+                secondReceiver.soTimeout = 2000
+                val dispatcher = PcActionDispatcher(
+                    pcCommandPort = firstReceiver.localPort,
+                    pcSecretProvider = { sharedSecret },
+                    pcSecretResolver = { targetIp ->
+                        when (targetIp) {
+                            firstIp -> firstSecret
+                            secondIp -> secondSecret
+                            else -> ""
+                        }
+                    }
+                )
+
+                assertTrue(dispatcher.dispatch("SHUTDOWN:$firstIp").isSuccess)
+                val firstPayload = receive(firstReceiver)
+                assertEquals(AuthResult.Ok, CommandAuth.verify(firstPayload, firstSecret))
+                assertEquals(AuthResult.BadSignature, CommandAuth.verify(firstPayload, secondSecret))
+                assertEquals("shutdown", CommandAuth.commandOf(firstPayload))
+
+                assertTrue(dispatcher.dispatch("REBOOT:$secondIp").isSuccess)
+                val secondPayload = receive(secondReceiver)
+                assertEquals(AuthResult.Ok, CommandAuth.verify(secondPayload, secondSecret))
+                assertEquals(AuthResult.BadSignature, CommandAuth.verify(secondPayload, firstSecret))
+                assertEquals("reboot", CommandAuth.commandOf(secondPayload))
+            }
+        }
+    }
+
+    @Test
+    fun testThrowingPcSecretResolverFailsClosed() = runBlocking {
+        val dispatcher = PcActionDispatcher(
+            pcSecretProvider = { testPcSecret },
+            pcSecretResolver = { throw IllegalStateException("broken profile lookup") }
+        )
+        val result = dispatcher.dispatch("SHUTDOWN:8.8.8.8")
+
+        assertTrue(result is PcActionResult.Failure)
+        assertTrue((result as PcActionResult.Failure).error.contains("public IP"))
+    }
+
+    private fun receive(socket: DatagramSocket): String {
+        val packet = DatagramPacket(ByteArray(1024), 1024)
+        socket.receive(packet)
+        return String(packet.data, 0, packet.length, Charsets.UTF_8)
+    }
+
+    @Test
     fun testPowerCommandWithoutPcSecretSendsBareCommand() = runBlocking {
         DatagramSocket(0, InetAddress.getByName(validIp)).use { receiver ->
             receiver.soTimeout = 2000

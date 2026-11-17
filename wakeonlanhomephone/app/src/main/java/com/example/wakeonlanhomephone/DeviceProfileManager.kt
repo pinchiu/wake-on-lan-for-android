@@ -3,18 +3,22 @@ package com.example.wakeonlanhomephone
 import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
 import java.util.UUID
 
 /**
  * Target computer data model for Home Phone helper.
- * Supports saving computer name, network adapter MAC address, and local IPv4 address.
+ * Supports saving computer name, network adapter MAC address, local IPv4 address, and an
+ * optional per-computer PC secret. A blank [pcSecret] falls back to the shared value in
+ * [MqttConfigManager].
  */
 data class DeviceProfile(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val mac: String,
-    val ip: String = ""
+    val ip: String = "",
+    val pcSecret: String = ""
 )
 
 /**
@@ -52,9 +56,33 @@ class DeviceProfileManager(private val context: Context) {
         val json = prefs.getString(KEY_DEVICES_JSON, null) ?: return emptyList()
         return try {
             val type = object : TypeToken<List<DeviceProfile>>() {}.type
-            gson.fromJson(json, type) ?: emptyList()
+            gson.fromJson(withPcSecretDefaults(json), type) ?: emptyList()
         } catch (_: Exception) {
             emptyList()
+        }
+    }
+
+    /**
+     * Gson bypasses Kotlin constructor defaults, so profiles written before [DeviceProfile.pcSecret]
+     * existed would deserialize that field as null. Add the field to the stored JSON before parsing
+     * so the backward-compatible default (blank = shared secret) applies.
+     */
+    private fun withPcSecretDefaults(json: String): String {
+        return try {
+            val root = JsonParser().parse(json)
+            if (!root.isJsonArray) return json
+            root.asJsonArray.forEach { element ->
+                if (element.isJsonObject) {
+                    val obj = element.asJsonObject
+                    val secret = obj.get("pcSecret")
+                    if (secret == null || secret.isJsonNull) {
+                        obj.addProperty("pcSecret", "")
+                    }
+                }
+            }
+            root.toString()
+        } catch (_: Exception) {
+            json
         }
     }
 
@@ -64,11 +92,12 @@ class DeviceProfileManager(private val context: Context) {
         notifyWidgetUpdate()
     }
 
-    fun addDevice(name: String, mac: String, ip: String): DeviceProfile {
+    fun addDevice(name: String, mac: String, ip: String, pcSecret: String = ""): DeviceProfile {
         val newDevice = DeviceProfile(
             name = name.trim().ifEmpty { AppLocale.wrap(context).getString(R.string.default_device_new) },
             mac = mac.trim(),
-            ip = ip.trim()
+            ip = ip.trim(),
+            pcSecret = pcSecret.trim()
         )
         val current = getDevices().toMutableList()
         current.add(newDevice)
@@ -79,14 +108,22 @@ class DeviceProfileManager(private val context: Context) {
         return newDevice
     }
 
-    fun updateDevice(updated: DeviceProfile) {
+    fun updateDevice(updated: DeviceProfile, preservePcSecret: Boolean = true) {
         val current = getDevices().toMutableList()
         val index = current.indexOfFirst { it.id == updated.id }
         if (index != -1) {
-            current[index] = updated
+            // Legacy callers that only know name/MAC/IP keep the existing per-PC secret. The edit
+            // dialog opts out so clearing the field switches the profile back to the shared secret.
+            val pcSecret = if (preservePcSecret && updated.pcSecret.isBlank()) {
+                current[index].pcSecret.orEmpty()
+            } else {
+                updated.pcSecret.trim()
+            }
+            val merged = updated.copy(pcSecret = pcSecret)
+            current[index] = merged
             saveDevices(current)
             if (getSelectedDeviceId() == updated.id) {
-                syncToMqttConfig(updated.mac)
+                syncToMqttConfig(merged.mac)
             }
         }
     }

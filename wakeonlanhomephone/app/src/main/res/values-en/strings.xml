@@ -123,6 +123,8 @@
     <string name="dialog_name_with_example">Computer name (e.g. Bedroom PC)</string>
     <string name="dialog_mac_with_example">NIC MAC (e.g. AA:BB:CC:DD:EE:FF)</string>
     <string name="dialog_ip_optional_power">LAN IPv4 (optional, for shutdown/restart)</string>
+    <string name="dialog_pc_secret_label">PC secret (optional)</string>
+    <string name="dialog_pc_secret_caption">Optional; only for public port-forward. Uses the shared secret if blank.</string>
     <string name="default_device_new_host">New PC</string>
     <string name="dialog_edit_target_title">Edit target computer</string>
     <string name="dialog_name">Computer name</string>
