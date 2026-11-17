@@ -31,7 +31,6 @@ pub mod platform;
 pub mod power;
 pub mod server;
 pub mod system_service;
-pub mod trust;
 pub mod web;
 
 /// Application name, also used as part of data directory and mutex names.

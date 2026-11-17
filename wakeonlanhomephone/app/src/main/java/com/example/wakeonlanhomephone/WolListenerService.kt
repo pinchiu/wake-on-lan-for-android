@@ -38,7 +38,6 @@ class WolListenerService : Service() {
     }
 
     private val replayGuard = SharedReplayGuard
-    private val trustedPeers by lazy { TrustedPeers(this) }
 
     private val activeClientSockets: MutableSet<Socket> = ConcurrentHashMap.newKeySet()
 
@@ -227,8 +226,7 @@ class WolListenerService : Service() {
         clientAddress: java.net.InetAddress?,
         senderAddress: String
     ): String {
-        val trusted = clientAddress != null &&
-            (CommandAuth.isTrustedAddress(clientAddress) || trustedPeers.contains(senderAddress))
+        val trusted = clientAddress != null && CommandAuth.isTrustedAddress(clientAddress)
 
         val command = if (trusted) {
             // LAN/Tailscale (or a previously paired public peer): a bare command or the
@@ -242,7 +240,6 @@ class WolListenerService : Service() {
                 Log.w(TAG, "Auth rejected from $senderAddress: ${CommandAuth.reasonFor(auth)}")
                 return CommandAuth.errorFor(auth) ?: CommandAuth.WIRE_ERROR_AUTH_REQUIRED
             }
-            trustedPeers.add(senderAddress)
             CommandAuth.commandOf(envelope)
         }
 

@@ -49,6 +49,10 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // Pure-JVM tests touch android.util.Log indirectly (WolUtil error path).
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

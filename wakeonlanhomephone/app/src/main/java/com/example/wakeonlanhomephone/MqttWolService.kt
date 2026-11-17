@@ -372,9 +372,12 @@ class MqttWolService : Service() {
         serviceScope.launch {
             try {
                 // MQTT relies on the broker's TLS, credentials and topic ACLs. The
-                // publisher IP is not visible, so per-source TOFU cannot apply here.
+                // publisher IP is not visible, so per-source checks cannot apply here.
+                // Accept both bare commands and signed envelopes from older clients; MQTT
+                // itself does not verify HMAC (broker ACLs/TLS are the trust boundary).
+                val command = CommandAuth.commandOf(payload) ?: payload.trim()
                 Log.d(TAG, "Received command on $topic")
-                val result = dispatcher.dispatch(payload, "MQTT")
+                val result = dispatcher.dispatch(command, "MQTT")
                 val text = when (result) {
                     is PcActionResult.Success -> result.message
                     is PcActionResult.Failure -> result.error

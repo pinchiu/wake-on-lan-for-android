@@ -61,7 +61,7 @@
     <string name="security_copy">複製</string>
     <string name="security_paste">貼上</string>
     <string name="toast_secret_copied">密鑰已複製</string>
-    <string name="security_pc_secret_missing_hint">選用：只有第一次公開 port-forward 連線才需要</string>
+    <string name="security_pc_secret_missing_hint">選用：只有公開 port-forward 才需要</string>
 
     <!-- 關於與更新 -->
     <string name="about_title">關於與軟體更新</string>
