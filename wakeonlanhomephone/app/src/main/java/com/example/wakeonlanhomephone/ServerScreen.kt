@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -268,7 +269,7 @@ fun ServerScreen(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, FrostBorderSubtle)
                             ) {
                                 Text(
-                                    text = stringResource(R.string.server_device_count, devices.size),
+                                    text = pluralStringResource(R.plurals.server_device_count_plural, devices.size, devices.size),
                                     color = FrostTextSecondary,
                                     style = FrostMicro,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)

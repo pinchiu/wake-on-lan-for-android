@@ -76,6 +76,12 @@ The Android apps adapt automatically and stay readable in both layouts. The dash
 `prefers-color-scheme` (light frosted grey / dark graphite glass). See
 [`docs/frost-ui.md`](docs/frost-ui.md) for tokens and component rules.
 
+## Screenshots
+
+| Home Phone | Remote Phone | Settings | Local dashboard |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/home-phone-frost.png" width="240" alt="Home Phone Frost UI"> | <img src="docs/screenshots/remote-phone-frost.png" width="240" alt="Remote Phone Frost UI"> | <img src="docs/screenshots/home-settings-frost.png" width="240" alt="Frost settings"> | <img src="docs/screenshots/dashboard-frost.png" width="320" alt="Rust daemon dashboard"> |
+
 ## System Architecture & Protocols
 
 ```

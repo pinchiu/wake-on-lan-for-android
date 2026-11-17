@@ -92,6 +92,10 @@
     <string name="content_copy">Copy</string>
     <string name="server_targets_title">Target computers</string>
     <string name="server_device_count">%1$d devices</string>
+    <plurals name="server_device_count_plural">
+        <item quantity="one">%1$d device</item>
+        <item quantity="other">%1$d devices</item>
+    </plurals>
     <string name="content_add_target">Add target computer</string>
     <string name="server_no_devices">No target computers yet. Tap + in the top right to add one.</string>
     <string name="server_no_mac">No MAC</string>
