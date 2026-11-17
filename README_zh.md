@@ -155,6 +155,7 @@ pc_onoff --uninstall             # 解除開機自啟動
 sudo pc_onoff --install-system   # Linux：安裝開機即啟動的系統服務（登入前可用）
 sudo pc_onoff --uninstall-system # Linux：移除系統服務
 pc_onoff --web-ui                # 區域 Frost 儀表板（http://127.0.0.1:9878）
+pc_onoff --forget-trusted        # 清除公開 TOFU 來源
 pc_onoff --help                  # 顯示使用說明
 ```
 
