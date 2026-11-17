@@ -23,6 +23,9 @@ fn is_trusted_v4(ip: Ipv4Addr) -> bool {
 }
 
 fn is_trusted_v6(ip: Ipv6Addr) -> bool {
+    if let Some(mapped) = ip.to_ipv4_mapped() {
+        return is_trusted_v4(mapped);
+    }
     let segments = ip.segments();
     ip.is_loopback()
         || ip.is_unicast_link_local()
