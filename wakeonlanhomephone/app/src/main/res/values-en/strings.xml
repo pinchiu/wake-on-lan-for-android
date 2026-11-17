@@ -54,14 +54,14 @@
 
     <!-- Security / shared secrets -->
     <string name="settings_security_title">Security &amp; shared secrets</string>
-    <string name="settings_security_description">Signs TCP / MQTT commands and PC power commands</string>
+    <string name="settings_security_description">Only needed for public IPv6/IPv4 port forwarding; LAN, Tailscale and MQTT need no secret.</string>
     <string name="settings_helper_secret_label">Helper Secret (TCP / MQTT)</string>
     <string name="settings_pc_secret_label">PC Secret (UDP 9877)</string>
     <string name="security_generate">Generate</string>
     <string name="security_copy">Copy</string>
     <string name="security_paste">Paste</string>
     <string name="toast_secret_copied">Secret copied</string>
-    <string name="security_pc_secret_missing_hint">No PC secret configured; shutdown/restart commands will be rejected</string>
+    <string name="security_pc_secret_missing_hint">Optional: only needed for the first public port-forward contact</string>
 
     <!-- About and updates -->
     <string name="about_title">About &amp; updates</string>

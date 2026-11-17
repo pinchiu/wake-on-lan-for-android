@@ -128,6 +128,28 @@ object CommandAuth {
         AuthResult.NotConfigured -> "secret not configured"
     }
 
+    /**
+     * True for loopback, RFC1918, link-local, IPv6 ULA and the Tailscale/CGNAT range.
+     * Private LAN and Tailscale commands do not need an HMAC envelope.
+     */
+    fun isTrustedAddress(address: java.net.InetAddress): Boolean {
+        if (address.isLoopbackAddress || address.isLinkLocalAddress || address.isSiteLocalAddress) {
+            return true
+        }
+        val bytes = address.address
+        if (bytes.size == 4) {
+            val first = bytes[0].toInt() and 0xFF
+            val second = bytes[1].toInt() and 0xFF
+            return first == 100 && second in 64..127
+        }
+        if (bytes.size == 16) {
+            val first = bytes[0].toInt() and 0xFF
+            // fc00::/7 unique-local, which includes Tailscale's fd7a:115c:a1e0::/48.
+            return (first and 0xFE) == 0xFC
+        }
+        return false
+    }
+
     /** 32 lowercase hex characters from a CSPRNG (16 random bytes). */
     fun generateSecret(): String {
         val bytes = ByteArray(16)

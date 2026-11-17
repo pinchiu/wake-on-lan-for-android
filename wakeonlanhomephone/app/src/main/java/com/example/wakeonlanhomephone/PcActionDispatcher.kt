@@ -124,14 +124,16 @@ class PcActionDispatcher(
             // A broken provider must fail closed, exactly like an unconfigured secret.
             ""
         }
-        if (secret.isEmpty()) {
-            return PcActionResult.Failure(PC_SECRET_MISSING_ERROR)
+        // No secret: send the bare command. The daemon accepts it from LAN/Tailscale or
+        // from a public peer that already completed its first authenticated contact (TOFU).
+        val wire = if (secret.isEmpty()) {
+            command
+        } else {
+            CommandAuth.sign(command, secret) ?: return PcActionResult.Failure(PC_SECRET_MISSING_ERROR)
         }
-        val envelope = CommandAuth.sign(command, secret)
-            ?: return PcActionResult.Failure(PC_SECRET_MISSING_ERROR)
 
         return try {
-            val commandBytes = envelope.toByteArray()
+            val commandBytes = wire.toByteArray()
             val address = InetAddress.getByName(targetIp)
             val packet = DatagramPacket(commandBytes, commandBytes.size, address, pcCommandPort)
             DatagramSocket().use { socket ->

@@ -38,6 +38,7 @@ class WolListenerService : Service() {
     }
 
     private val replayGuard = SharedReplayGuard
+    private val trustedPeers by lazy { TrustedPeers(this) }
 
     private val activeClientSockets: MutableSet<Socket> = ConcurrentHashMap.newKeySet()
 
@@ -183,11 +184,13 @@ class WolListenerService : Service() {
     private fun handleClientConnection(clientSocket: Socket) {
         try {
             clientSocket.soTimeout = CLIENT_TIMEOUT_MS
-            val senderAddress = try {
-                clientSocket.inetAddress?.hostAddress
+            val clientAddress = try {
+                clientSocket.inetAddress
             } catch (_: Exception) {
                 null
-            } ?: localized(R.string.service_wol_unknown_source)
+            }
+            val senderAddress = clientAddress?.hostAddress
+                ?: localized(R.string.service_wol_unknown_source)
 
             val read = readLimitedLine(clientSocket.getInputStream(), CommandAuth.MAX_ENVELOPE_BYTES)
             val response = when (read) {
@@ -201,7 +204,7 @@ class WolListenerService : Service() {
                     Log.w(TAG, "Auth rejected from $senderAddress: missing envelope")
                     CommandAuth.WIRE_ERROR_AUTH_REQUIRED
                 }
-                is LineRead.Line -> handleAuthenticatedLine(read.text, senderAddress)
+                is LineRead.Line -> handleAuthenticatedLine(read.text, clientAddress, senderAddress)
             }
 
             updateNotification(localized(R.string.service_wol_last_command, response, senderAddress))
@@ -219,18 +222,31 @@ class WolListenerService : Service() {
         }
     }
 
-    private fun handleAuthenticatedLine(envelope: String, senderAddress: String): String {
-        val secret = MqttConfigManager(this).getConfig().helperSecret
-        val auth = CommandAuth.verify(envelope, secret, replayGuard = replayGuard)
-        if (auth != AuthResult.Ok) {
-            AppLogger.log("TCP: auth rejected (${CommandAuth.reasonFor(auth)}) from $senderAddress")
-            Log.w(TAG, "Auth rejected from $senderAddress: ${CommandAuth.reasonFor(auth)}")
-            return CommandAuth.errorFor(auth) ?: CommandAuth.WIRE_ERROR_AUTH_REQUIRED
+    private fun handleAuthenticatedLine(
+        envelope: String,
+        clientAddress: java.net.InetAddress?,
+        senderAddress: String
+    ): String {
+        val trusted = clientAddress != null &&
+            (CommandAuth.isTrustedAddress(clientAddress) || trustedPeers.contains(senderAddress))
+
+        val command = if (trusted) {
+            // LAN/Tailscale (or a previously paired public peer): a bare command or the
+            // command inside an envelope is accepted without a signature.
+            CommandAuth.commandOf(envelope) ?: envelope.trim()
+        } else {
+            val secret = MqttConfigManager(this).getConfig().helperSecret
+            val auth = CommandAuth.verify(envelope, secret, replayGuard = replayGuard)
+            if (auth != AuthResult.Ok) {
+                AppLogger.log("TCP: auth rejected (${CommandAuth.reasonFor(auth)}) from $senderAddress")
+                Log.w(TAG, "Auth rejected from $senderAddress: ${CommandAuth.reasonFor(auth)}")
+                return CommandAuth.errorFor(auth) ?: CommandAuth.WIRE_ERROR_AUTH_REQUIRED
+            }
+            trustedPeers.add(senderAddress)
+            CommandAuth.commandOf(envelope)
         }
 
-        // Envelope already verified; dispatch only the legacy command inside it.
-        val command = CommandAuth.commandOf(envelope)
-        if (command == null) {
+        if (command.isNullOrBlank() || command.contains('|')) {
             AppLogger.log("TCP: auth rejected (missing command) from $senderAddress")
             return CommandAuth.WIRE_ERROR_AUTH_REQUIRED
         }
