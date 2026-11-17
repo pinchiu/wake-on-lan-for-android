@@ -12,8 +12,6 @@ import java.util.Locale
 
 object RemoteNetworkUtil {
 
-    const val ERROR_HELPER_SECRET_MISSING = "Shared helper secret is not configured"
-    const val ERROR_PC_SECRET_MISSING = "Shared PC secret is not configured"
 
     /**
      * Sends [command] to the Home Phone helper over TCP 9876.
@@ -24,14 +22,17 @@ object RemoteNetworkUtil {
      */
     suspend fun sendTcpCommand(host: String, command: String, helperSecret: String): String {
         return withContext(Dispatchers.IO) {
-            if (helperSecret.isBlank()) {
-                return@withContext ERROR_HELPER_SECRET_MISSING
-            }
             if (host.isBlank() || command.isBlank()) {
                 return@withContext "Address or command cannot be empty!"
             }
-            val envelope = CommandAuth.sign(command.trim(), helperSecret)
-                ?: return@withContext "Failed to sign command"
+            // LAN/Tailscale accepts a bare command; a public port-forward accepts the first
+            // signed contact and then remembers this source (TOFU).
+            val wire = if (helperSecret.isBlank()) {
+                command.trim()
+            } else {
+                CommandAuth.sign(command.trim(), helperSecret)
+                    ?: return@withContext "Failed to sign command"
+            }
             try {
                 val targetAddr = InetAddress.getByName(host.trim())
                 val socket = Socket()
@@ -40,7 +41,7 @@ object RemoteNetworkUtil {
                 socket.soTimeout = 5000
                 socket.use { s ->
                     val writer = s.getOutputStream().bufferedWriter()
-                    writer.write(envelope + "\n")
+                    writer.write(wire + "\n")
                     writer.flush()
 
                     val reader = s.getInputStream().bufferedReader()
@@ -106,17 +107,18 @@ object RemoteNetworkUtil {
      */
     suspend fun sendDirectCommandToPC(pcIp: String, action: String, pcSecret: String): String {
         return withContext(Dispatchers.IO) {
-            if (pcSecret.isBlank()) {
-                return@withContext ERROR_PC_SECRET_MISSING
-            }
             if (pcIp.isBlank() || action.isBlank()) {
                 return@withContext "PC IP or command cannot be empty!"
             }
             val command = "${action.trim().uppercase(Locale.ROOT)}:${pcIp.trim()}"
-            val envelope = CommandAuth.sign(command, pcSecret)
-                ?: return@withContext "Failed to sign command"
+            val wire = if (pcSecret.isBlank()) {
+                command
+            } else {
+                CommandAuth.sign(command, pcSecret)
+                    ?: return@withContext "Failed to sign command"
+            }
             try {
-                val commandBytes = envelope.toByteArray(StandardCharsets.UTF_8)
+                val commandBytes = wire.toByteArray(StandardCharsets.UTF_8)
                 val packet = DatagramPacket(
                     commandBytes,
                     commandBytes.size,

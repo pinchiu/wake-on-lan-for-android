@@ -85,7 +85,7 @@
 
     <!-- Shared secrets -->
     <string name="security_title">共用密鑰</string>
-    <string name="security_description">在目標電腦執行 `pc_onoff --status`，將印出的 Command Secret 貼到下方 PC 密鑰，並在兩支手機設定相同的助手密鑰。助手密鑰保護 TCP 9876 / MQTT 指令；PC 密鑰保護直連 UDP 9877 電源指令。</string>
+    <string name="security_description">選用。內網與 Tailscale 免密鑰；只有公開 IPv6／IPv4 port-forward 的第一次連線需要驗證。MQTT 依賴 broker 帳密與主題權限。</string>
     <string name="helper_secret_label">助手共用密鑰 (Home Phone)</string>
     <string name="pc_secret_label">PC 守護程式密鑰 (pc_onoff --status)</string>
     <string name="generate_secret">產生</string>

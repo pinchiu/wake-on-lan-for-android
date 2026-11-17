@@ -86,7 +86,7 @@
 
     <!-- Shared secrets -->
     <string name="security_title">Shared secrets</string>
-    <string name="security_description">Run `pc_onoff --status` on the target PC and paste the printed Command Secret as the PC secret below. Set the same helper secret on both phones. The helper secret secures TCP 9876 / MQTT commands; the PC secret secures direct UDP 9877 power commands.</string>
+    <string name="security_description">Optional. LAN and Tailscale need no secret; a public IPv6/IPv4 port-forward only verifies the first contact. MQTT relies on the broker credentials and topic ACLs.</string>
     <string name="helper_secret_label">Helper shared secret (Home Phone)</string>
     <string name="pc_secret_label">PC daemon secret (pc_onoff --status)</string>
     <string name="generate_secret">Generate</string>
