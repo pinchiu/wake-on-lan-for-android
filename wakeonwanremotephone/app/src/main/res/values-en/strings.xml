@@ -11,6 +11,10 @@
     <string name="about_title">About &amp; Updates</string>
     <string name="target_device_list">Target computers</string>
     <string name="device_count">%1$d PCs</string>
+    <plurals name="device_count_plural">
+        <item quantity="one">%1$d PC</item>
+        <item quantity="other">%1$d PCs</item>
+    </plurals>
     <string name="add_computer">Add computer</string>
     <string name="current_selected_target">Currently selected target</string>
     <string name="edit_device_settings">Edit device settings</string>

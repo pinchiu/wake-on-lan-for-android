@@ -11,6 +11,9 @@
     <string name="about_title">關於與更新</string>
     <string name="target_device_list">目標主機清單</string>
     <string name="device_count">%1$d 台</string>
+    <plurals name="device_count_plural">
+        <item quantity="other">%1$d 台</item>
+    </plurals>
     <string name="add_computer">新增電腦</string>
     <string name="current_selected_target">當前選定目標主機</string>
     <string name="edit_device_settings">編輯主機設定</string>

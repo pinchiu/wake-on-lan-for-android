@@ -75,6 +75,12 @@ helper 密鑰。變更密鑰後必須同步更新所有對端。TCP 會回傳 `E
 Android App 以淺色玻璃為主；網頁儀表板同時支援淺色與深色 (`prefers-color-scheme`)。完整設計
 權杖與元件規範請見 [`docs/frost-ui.md`](docs/frost-ui.md)。
 
+## 介面截圖
+
+| 家用手機 | 外出手機 | 設定頁 | 區域儀表板 |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/home-phone-frost.png" width="240" alt="家用手機 Frost 介面"> | <img src="docs/screenshots/remote-phone-frost.png" width="240" alt="外出手機 Frost 介面"> | <img src="docs/screenshots/home-settings-frost.png" width="240" alt="Frost 設定頁"> | <img src="docs/screenshots/dashboard-frost.png" width="320" alt="Rust 守護程式儀表板"> |
+
 ## 通訊架構與協定說明
 
 ```

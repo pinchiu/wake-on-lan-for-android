@@ -92,6 +92,9 @@
     <string name="content_copy">複製</string>
     <string name="server_targets_title">目標電腦管理</string>
     <string name="server_device_count">%1$d 台</string>
+    <plurals name="server_device_count_plural">
+        <item quantity="other">%1$d 台</item>
+    </plurals>
     <string name="content_add_target">新增目標電腦</string>
     <string name="server_no_devices">尚未新增目標電腦，請點擊右上角「+」新增</string>
     <string name="server_no_mac">無 MAC</string>
