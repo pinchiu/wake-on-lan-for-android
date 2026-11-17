@@ -137,7 +137,13 @@ mod linux {
         let current = std::env::current_exe()
             .map_err(|error| ServiceError::new(format!("cannot get executable path: {error}")))?;
         let target = Path::new(INSTALL_PATH);
-        install_binary(&current, target)?;
+        let previous_install = Path::new(UNIT_PATH).exists();
+        let previous_unit = fs::read_to_string(UNIT_PATH).ok();
+        let binary_backup = backup_binary(target)?;
+        if let Err(error) = install_binary(&current, target) {
+            restore_binary(binary_backup.as_deref(), target);
+            return Err(error);
+        }
 
         fs::create_dir_all(DATA_DIR)
             .map_err(|error| ServiceError::new(format!("cannot create {DATA_DIR}: {error}")))?;
@@ -151,8 +157,13 @@ mod linux {
         if let Err(error) =
             systemctl(&["daemon-reload"]).and_then(|()| systemctl(&["enable", UNIT_NAME]))
         {
-            let _ = fs::remove_file(UNIT_PATH);
-            let _ = systemctl(&["daemon-reload"]);
+            rollback_install(
+                invoking_home.as_deref(),
+                false,
+                binary_backup.as_deref(),
+                previous_unit.as_deref(),
+                previous_install,
+            );
             return Err(error);
         }
 
@@ -161,12 +172,27 @@ mod linux {
         let user_stopped = stop_user_instance(invoking_home.as_deref());
 
         if let Err(error) = systemctl(&["restart", UNIT_NAME]) {
-            rollback_install(invoking_home.as_deref(), user_stopped);
+            rollback_install(
+                invoking_home.as_deref(),
+                user_stopped,
+                binary_backup.as_deref(),
+                previous_unit.as_deref(),
+                previous_install,
+            );
             return Err(error);
         }
         if let Err(error) = wait_until_healthy() {
-            rollback_install(invoking_home.as_deref(), user_stopped);
+            rollback_install(
+                invoking_home.as_deref(),
+                user_stopped,
+                binary_backup.as_deref(),
+                previous_unit.as_deref(),
+                previous_install,
+            );
             return Err(error);
+        }
+        if let Some(backup) = binary_backup.as_deref() {
+            let _ = fs::remove_file(backup);
         }
 
         let mut notes = Vec::new();
@@ -415,11 +441,72 @@ mod linux {
         pid.is_ok_and(|pid| pid > 0 && Path::new(&format!("/proc/{pid}")).exists())
     }
 
-    /// Remove the unit and restart the user instance if the system service could not stay up.
-    fn rollback_install(home: Option<&Path>, user_stopped: bool) {
-        let _ = fs::remove_file(UNIT_PATH);
+    /// Copy the currently installed binary aside so a failed upgrade can restore it.
+    fn backup_binary(target: &Path) -> Result<Option<PathBuf>, ServiceError> {
+        use std::os::unix::fs::PermissionsExt;
+
+        if fs::symlink_metadata(target).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+            return Err(ServiceError::new(format!(
+                "refusing to back up symlink {}",
+                target.display()
+            )));
+        }
+        if !target.exists() {
+            return Ok(None);
+        }
+        let name = target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("pc_onoff");
+        let backup = target.with_file_name(format!(".{name}.previous.{}", std::process::id()));
+        let _ = fs::remove_file(&backup);
+        fs::copy(target, &backup).map_err(|error| {
+            ServiceError::new(format!(
+                "cannot back up {} to {}: {error}",
+                target.display(),
+                backup.display()
+            ))
+        })?;
+        fs::set_permissions(&backup, fs::Permissions::from_mode(0o755)).map_err(|error| {
+            ServiceError::new(format!("cannot chmod {}: {error}", backup.display()))
+        })?;
+        Ok(Some(backup))
+    }
+
+    fn restore_binary(backup: Option<&Path>, target: &Path) {
+        if let Some(backup) = backup {
+            let _ = fs::remove_file(target);
+            let _ = fs::rename(backup, target);
+        } else {
+            let _ = fs::remove_file(target);
+        }
+    }
+
+    /// Remove the failed unit and restore the previous binary/unit. If this was an upgrade,
+    /// restart the previous service; otherwise bring the per-user service back.
+    fn rollback_install(
+        home: Option<&Path>,
+        user_stopped: bool,
+        binary_backup: Option<&Path>,
+        previous_unit: Option<&str>,
+        previous_install: bool,
+    ) {
         let _ = systemctl(&["disable", "--now", UNIT_NAME]);
+        restore_binary(binary_backup, Path::new(INSTALL_PATH));
+        match previous_unit {
+            Some(unit) => {
+                let _ = fs::write(UNIT_PATH, unit);
+            }
+            None => {
+                let _ = fs::remove_file(UNIT_PATH);
+            }
+        }
         let _ = systemctl(&["daemon-reload"]);
+        if previous_install {
+            let _ = systemctl(&["enable", UNIT_NAME]);
+            let _ = systemctl(&["restart", UNIT_NAME]);
+            return;
+        }
         if user_stopped && home.is_some() {
             let user = std::env::var("SUDO_USER")
                 .ok()
@@ -594,6 +681,24 @@ mod linux {
             assert!(is_pc_onoff_executable("pc_onoff-linux-x"));
             assert!(!is_pc_onoff_executable("pc_onoffd"));
             assert!(!is_pc_onoff_executable("bash"));
+        }
+
+        #[test]
+        fn backup_and_restore_binary_round_trip() {
+            use crate::test_support::TempDir;
+
+            let dir = TempDir::new("backup-binary");
+            let target = dir.path().join("pc_onoff");
+            fs::write(&target, b"previous").expect("write previous");
+
+            let backup = backup_binary(&target)
+                .expect("backup")
+                .expect("some backup");
+            assert!(backup.exists());
+            fs::write(&target, b"broken").expect("write broken");
+            restore_binary(Some(&backup), &target);
+            assert_eq!(fs::read(&target).expect("read restored"), b"previous");
+            assert!(!backup.exists());
         }
 
         #[test]

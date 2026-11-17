@@ -72,7 +72,7 @@ class MqttWolService : Service() {
         )
     }
 
-    private val replayGuard = ReplayGuard()
+    private val replayGuard = SharedReplayGuard
 
     private fun localized(resId: Int, vararg args: Any): String {
         return AppLocale.wrap(this).getString(resId, *args)
@@ -329,18 +329,25 @@ class MqttWolService : Service() {
         val topic = publish.topic.toString()
         val payload = String(publish.payloadAsBytes, StandardCharsets.UTF_8).trim()
 
-        // Device status filters win over the command filter. A wildcard command topic can
-        // overlap a status topic (e.g. home/# and home/pc/status); treating "online"/"ON"
-        // as a command would wake the PC every time it reports its state.
+        // A device status topic may legitimately equal the command topic (the add-device
+        // screen defaults to it). Only consume the message as status when the payload is
+        // exactly the configured online/offline marker; signed commands fall through.
         val statusDevices = deviceSubscriptions.filter { MqttTopics.matches(it.topic, topic) }
-        if (statusDevices.isNotEmpty()) {
-            statusDevices.forEach { device ->
-                Log.d(TAG, "Device ${device.name} status: $payload")
-                when (payload) {
-                    device.onlinePayload -> AppGlobalState.updateDeviceStatus(device.id, true)
-                    device.offlinePayload -> AppGlobalState.updateDeviceStatus(device.id, false)
+        var handledAsStatus = false
+        statusDevices.forEach { device ->
+            when (payload) {
+                device.onlinePayload -> {
+                    AppGlobalState.updateDeviceStatus(device.id, true)
+                    handledAsStatus = true
+                }
+                device.offlinePayload -> {
+                    AppGlobalState.updateDeviceStatus(device.id, false)
+                    handledAsStatus = true
                 }
             }
+        }
+        if (handledAsStatus) {
+            Log.d(TAG, "Device status on $topic: $payload")
             return
         }
 
