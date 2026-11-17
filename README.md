@@ -37,30 +37,36 @@ Download the latest pre-built releases from the [GitHub Releases page](https://g
 - **Linux**: `pc_onoff-linux-x86_64.AppImage` (or standalone binary `pc_onoff-linux-x86_64` / `.tar.gz`) — portable AppImage running on any modern Linux distribution.
 - **Apple macOS**: `pc_onoff-macos-universal.zip` (or `.tar.gz` / binary `pc_onoff-macos-universal`) — Universal Binary natively supporting Apple Silicon (M1/M2/M3/M4) and Intel Macs.
 
-## Command Authentication (required)
+## Command Security (LAN/Tailscale first)
 
-Remote power commands are authenticated with a shared secret and a signed envelope:
+The recommended setup is **Tailscale** (or plain home Wi-Fi). Commands from private and
+Tailscale addresses need **no secret at all**:
+
+- IPv4 `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `127/8`, `100.64/10` (Tailscale).
+- IPv6 `::1`, `fe80::/10`, `fc00::/7` (including Tailscale `fd7a:115c:a1e0::/48`).
+
+Public IPv6/IPv4 is the only path that gets friction. The **first** command from a public
+source must carry the HMAC envelope; after that the source is remembered (TOFU) and later
+commands from the same address are accepted without signing. Remove remembered peers with
+`pc_onoff --forget-trusted` (the Home Phone keeps its own list; clear app data to reset it).
+
+MQTT does **not** use HMAC. It relies on the broker's TLS, username/password and topic ACLs,
+because the publisher IP is not visible to the subscriber.
 
 ```text
 SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677|sig=<hmac-sha256-hex>
 ```
 
-- `sig` is HMAC-SHA256 over `SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677`.
-- Timestamps must be within ±5 minutes (keep NTP/automatic time enabled).
-- Nonces are remembered for 10 minutes to reject replays.
-- There is **no unsigned fallback**; old clients must be updated with this release.
-
-Two secrets are used:
+For a public port-forward, copy the values once:
 
 | Secret | Where to get it | Where to paste it |
 | :--- | :--- | :--- |
 | **PC secret** | `pc_onoff --status` → `Command Secret: ...` | Home Phone → Settings → Security → PC secret; Remote Phone → shield icon → PC secret |
-| **Helper secret** | Home Phone → Settings → Security → Helper secret (generated on first launch) | Remote Phone → shield icon → Helper secret |
+| **Helper secret** | Home Phone → Settings → Security → Helper secret (Generate) | Remote Phone → shield icon → Helper secret |
 
-The daemon generates its secret on first run and stores it as `secret=` in `config.ini`. The
-Home Phone generates its helper secret on first launch. Changing a secret requires updating
-every peer. TCP returns `ERROR: authentication required` / `ERROR: authentication failed`;
-MQTT and UDP drop and log `auth rejected (<reason>)` without logging secrets or payloads.
+Timestamps must be within ±5 minutes (keep NTP enabled); nonces are remembered for 10 minutes.
+Never expose UDP 9877 or TCP 9876 to the internet without the HMAC secret. Tailscale is strongly
+preferred over port forwarding.
 
 ## Frost Interface
 
