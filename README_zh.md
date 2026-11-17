@@ -15,7 +15,7 @@
   - *外出遙控端小工具*：顯示當前選定之電腦名稱，單鍵發送遠端喚醒。
 - **語音助理整合**：支援 Google 助理 / Gemini 日常安排 (Routine) 語音捷徑 (`wake_pc_shortcut`)，說句語音指令立即喚醒。
 - **雙語介面支援**：手機 App 設定內建即時切換繁體中文與英文介面。
-- **指令簽章驗證**：TCP 9876、MQTT 指令主題與 UDP 9877 均使用 HMAC-SHA256 信封、時間戳與重放保護；不再接受未簽章的電源指令。
+- **指令安全**：內網／Tailscale 免密鑰；公開 port-forward 第一次使用 HMAC，之後以 TOFU 記住來源；MQTT 依賴 broker 帳密與主題權限。
 - **Frost 介面設計**：兩款 Android App 採用 Apple 風格的淺灰玻璃質感 — 半透明卡片、細緻描邊、系統字體與單一 iOS 藍色強調色；Rust 守護程式也提供相同風格的區域網頁儀表板。
 - **跨平台電腦端常駐守護程式 (`pc_onoff`)**：使用 Rust 開發之高效獨立執行檔，支援 Windows、Linux 與 Apple macOS。
   - 無需管理員權限之開機自啟動（Windows 註冊表 `HKCU Run`、Linux `systemd --user` / XDG Autostart、macOS `LaunchAgent`）。
@@ -37,30 +37,33 @@
 - **Linux**：`pc_onoff-linux-x86_64.AppImage` (或獨立二進位檔 `pc_onoff-linux-x86_64` / `.tar.gz`) — 免安裝 AppImage，隨點隨開，支援各大主流 Linux 發行版。
 - **Apple macOS**：`pc_onoff-macos-universal.zip` (或 `.tar.gz` / 獨立執行檔 `pc_onoff-macos-universal`) — 通用二進位檔 (Universal Binary)，原生支援 Apple Silicon (M1/M2/M3/M4) 與 Intel Mac。
 
-## 指令簽章驗證（必要）
+## 指令安全（內網／Tailscale 優先）
 
-所有遠端電源指令都必須使用共享密鑰與簽章信封：
+**強烈建議使用 Tailscale**（或直接在家用 Wi-Fi 內網）。來自私有網段與 Tailscale 的指令
+**完全不需要密鑰**：
+
+- IPv4：`10/8`、`172.16/12`、`192.168/16`、`169.254/16`、`127/8`、`100.64/10`（Tailscale）。
+- IPv6：`::1`、`fe80::/10`、`fc00::/7`（包含 Tailscale `fd7a:115c:a1e0::/48`）。
+
+只有**公開 IPv6／IPv4 port-forward** 才需要第一次 HMAC 驗證；成功後會記住該來源（TOFU），
+之後同一來源不用再簽章。可用 `pc_onoff --forget-trusted` 清除守護程式記住的公開來源；
+家用手機的來源清單可透過清除 App 資料重置。
+
+MQTT **不使用 HMAC**，改依賴 broker 的 TLS、帳號密碼與主題權限（訂閱端看不到發佈者 IP）。
 
 ```text
 SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677|sig=<hmac-sha256-hex>
 ```
 
-- `sig` 是對 `SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677` 計算的 HMAC-SHA256。
-- 時間戳必須在 ±5 分鐘內（請保持 NTP／自動時間同步）。
-- Nonce 會保留 10 分鐘，用於拒絕重放。
-- **沒有未簽章備援**；舊版用戶端必須一併更新。
-
-會用到兩組密鑰：
+公開 port-forward 只需設定一次：
 
 | 密鑰 | 取得方式 | 貼到哪裡 |
 | :--- | :--- | :--- |
 | **PC 密鑰** | `pc_onoff --status` → `Command Secret: ...` | 家用手機 → 設定 → 安全性 → PC secret；外出手機 → 盾牌圖示 → PC secret |
-| **Helper 密鑰** | 家用手機 → 設定 → 安全性 → Helper secret（首次啟動自動產生） | 外出手機 → 盾牌圖示 → Helper secret |
+| **Helper 密鑰** | 家用手機 → 設定 → 安全性 → Helper secret（Generate） | 外出手機 → 盾牌圖示 → Helper secret |
 
-守護程式首次啟動會自動產生密鑰並寫入 `config.ini` 的 `secret=`；家用手機首次啟動會自動產生
-helper 密鑰。變更密鑰後必須同步更新所有對端。TCP 會回傳 `ERROR: authentication required`／
-`ERROR: authentication failed`；MQTT 與 UDP 會記錄 `auth rejected (<reason>)` 並丟棄，且不會記錄
-密鑰或完整封包內容。
+時間戳需在 ±5 分鐘內（請保持 NTP 同步），Nonce 會保留 10 分鐘。不要把 UDP 9877／TCP 9876
+直接暴露到公網而不設 HMAC；能用 Tailscale 就不要用 port-forward。
 
 ## Frost 介面設計
 

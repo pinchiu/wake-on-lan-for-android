@@ -113,28 +113,27 @@ impl<P: PowerController> Dispatcher<P> {
 * **Testability**: `PowerController` is the single system seam, allowing unit tests to inject mock controllers without triggering actual shutdowns.
 * **Unidirectional Dependency**: `power → action`, `dispatch → {action, power}`, `server → dispatch`, `cli → all`.
 
-### 2.4 Command Authentication (v1)
+### 2.4 Command Security (LAN/Tailscale first)
 
-Every network command is signed; there is **no unsigned fallback** for power commands.
+Private LAN and Tailscale are trusted; public IPv6/IPv4 uses one-time TOFU verification.
 
-```text
-<command>|ts=<unix-seconds>|nonce=<16 lowercase hex>|sig=<64 lowercase hex>
-```
-
-* `command` is the legacy payload (`WAKE`, `SHUTDOWN:192.168.1.10`, …).
-* `sig` = lowercase hex HMAC-SHA256(secret UTF-8, `<command>|ts=<ts>|nonce=<nonce>`).
-* Timestamp window ±300 s; nonces are remembered for 600 s (max 1024) to reject replays.
-* Two secrets:
-  * `helperSecret` — Remote Phone → Home Phone (TCP 9876 and MQTT command topic).
-  * `pcSecret` — phones → `pc_onoff` (UDP 9877).
-* The daemon generates `secret=` on first use and prints it with `pc_onoff --status`; paste it
-  into both apps. The Home Phone generates `helperSecret` on first launch; paste it into the
-  Remote Phone. Secret changes require updating every peer.
-* TCP failures return `ERROR: authentication required`, `ERROR: authentication failed`, or
-  `ERROR: authentication not configured`. MQTT/UDP log `auth rejected (<reason>)` and drop.
-* Kotlin: `CommandAuth.kt` (both apps) + `ReplayGuard`. Rust: `crypto.rs` (SHA-256/HMAC,
-  dependency-free) + `auth.rs`.
-* Never log secrets or signatures; log only the stable reason.
+* **Trusted sources**: IPv4 `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `127/8`,
+  `100.64/10` (Tailscale); IPv6 `::1`, `fe80::/10`, `fc00::/7` (includes
+  `fd7a:115c:a1e0::/48`). Bare commands are accepted without HMAC.
+* **Public sources**: the first command must carry the HMAC-SHA256 envelope; the source IP is
+  then persisted in `trusted_peers` (daemon) or SharedPreferences (Home Phone), and later bare
+  commands from that source are accepted (TOFU). `pc_onoff --forget-trusted` clears the
+  daemon list; clearing app data clears the Home Phone list.
+* **MQTT**: no HMAC. The Home Phone relies on the broker's TLS, username/password and topic
+  ACLs; publisher IPs are not visible to the subscriber.
+* **Envelope** (public first contact only):
+  `<command>|ts=<unix>|nonce=<16 hex>|sig=<64 hex>`; HMAC over
+  `<command>|ts=<ts>|nonce=<nonce>`; ±300 s window; 600 s replay cache; constant-time compare.
+* Secrets are optional: only public port-forward users paste the daemon secret into the apps.
+  LAN/Tailscale users never see a secret. MQTT users only configure broker credentials.
+* Kotlin: `CommandAuth.kt` + `TrustedPeers.kt` (Home Phone). Rust: `net.rs` (trusted-address
+  classification), `trust.rs` (persistent TOFU list), `auth.rs` + `crypto.rs` (HMAC).
+* Never log secrets or signatures. Recommend Tailscale over exposing TCP 9876/UDP 9877.
 
 ---
 
@@ -163,6 +162,7 @@ Every network command is signed; there is **no unsigned fallback** for power com
 | **TCP Service Adapter** | [`wakeonlanhomephone/.../WolListenerService.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt) | Listens on TCP 9876, directs stream input to `dispatcher.dispatch()`, and writes back `toProtocolString()`. |
 | **MQTT Service Adapter** | [`wakeonlanhomephone/.../MqttWolService.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt) | Keeps one HiveMQ client (generation-tagged listeners), exponential back-off reconnect (1–120 s) with immediate retry on network return, re-subscribes after every clean-session connect, ignores retained command messages, and forwards payloads to `dispatcher.dispatch()`. |
 | **MQTT Pure Helpers** | [`wakeonlanhomephone/.../MqttSupport.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttSupport.kt) | Android-free `MqttEndpoint.parse` (schemes, ports, IPv6, WebSocket path), MQTT topic-filter validation/matching (incl. `$share/`), and reconnect/client-id policy. Covered by `MqttSupportTest.kt`. |
+| **Trusted Peers (Home Phone)** | [`wakeonlanhomephone/.../TrustedPeers.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/TrustedPeers.kt) | Persists public source IPs after the first HMAC contact (TOFU); LAN/Tailscale never needs an entry. |
 | **Command Auth (Android)** | [`wakeonlanhomephone/.../CommandAuth.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt) and [`wakeonwanremotephone/.../CommandAuth.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/CommandAuth.kt) | Pure-JVM HMAC-SHA256 envelope sign/verify, bounded `ReplayGuard`, secret generation and exact wire errors. Duplicated because the apps are separate Gradle projects. |
 | **Voice / Shortcut Adapter** | [`wakeonlanhomephone/.../VoiceWakeActivity.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/VoiceWakeActivity.kt) | Invisible entry activity for Google Assistant / App Shortcuts; invokes `dispatcher.dispatch("WAKE")` asynchronously and exits immediately. |
 | **Home Phone Widget** | [`wakeonlanhomephone/.../WakePcWidgetProvider.kt`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WakePcWidgetProvider.kt) | Android desktop widget for 1-tap local WoL packet broadcasting. |
@@ -184,6 +184,8 @@ Every network command is signed; there is **no unsigned fallback** for power com
 | **PC Daemon System Service** | [`computer/src/system_service.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/system_service.rs) | Root `--install-system` / `--uninstall-system`: copies the ELF out of the AppImage, writes `/etc/systemd/system/pc_onoff.service`, migrates config, removes conflicting user autostart, and rolls the unit back on failure. |
 | **PC Daemon Frost Dashboard** | [`computer/src/web.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/web.rs) | Optional `--web-ui` loopback dashboard: embedded HTML/CSS/JS, `/api/status`, `/api/log`, `/api/action`; signed UDP actions; no external crates. |
 | **PC Daemon Path Resolution** | [`computer/src/paths.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/paths.rs) | Cross-platform config/log path resolution (Windows `%LOCALAPPDATA%`, Linux `~/.config`, macOS `~/Library/Application Support`); `PC_ONOFF_DATA_DIR` pins all files to one directory (used by the system service). |
+| **PC Daemon Network Trust** | [`computer/src/net.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/net.rs) | Classifies loopback, RFC1918, link-local, IPv6 ULA and Tailscale/CGNAT sources as trusted. |
+| **PC Daemon TOFU Peers** | [`computer/src/trust.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/trust.rs) | Persistent `trusted_peers` list (0600) for public sources after their first signed command; `--forget-trusted`. |
 | **PC Daemon Crypto** | [`computer/src/crypto.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/crypto.rs) | Dependency-free SHA-256, HMAC-SHA256, hex and constant-time comparison. FIPS/RFC 4231 test vectors. |
 | **PC Daemon Auth** | [`computer/src/auth.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/auth.rs) | Command envelope sign/verify, ±300 s timestamp window, 600 s bounded replay guard, typed errors. |
 | **PC Daemon UDP Server** | [`computer/src/server.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/server.rs) | Listens on UDP 9877, verifies the auth envelope, passes authenticated datagrams to dispatcher, logs `auth_rejected`, resolves local IPv4. |
