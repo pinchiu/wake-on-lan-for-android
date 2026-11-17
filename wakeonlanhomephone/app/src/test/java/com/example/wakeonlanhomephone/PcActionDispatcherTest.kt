@@ -130,6 +130,17 @@ class PcActionDispatcherTest {
     }
 
     @Test
+    fun testPowerCommandWithoutSecretToPublicIpFails() = runBlocking {
+        val dispatcher = PcActionDispatcher(
+            defaultMacProvider = { validMac },
+            pcSecretProvider = { "" }
+        )
+        val result = dispatcher.dispatch("SHUTDOWN:8.8.8.8")
+        assertTrue(result is PcActionResult.Failure)
+        assertTrue((result as PcActionResult.Failure).error.contains("public IP"))
+    }
+
+    @Test
     fun testWakeStaysUnsignedAndWorksWithoutPcSecret() = runBlocking {
         val dispatcher = PcActionDispatcher(
             defaultMacProvider = { validMac },

@@ -124,8 +124,18 @@ class PcActionDispatcher(
             // A broken provider must fail closed, exactly like an unconfigured secret.
             ""
         }
-        // No secret: send the bare command. The daemon accepts it from LAN/Tailscale or
-        // from a public peer that already completed its first authenticated contact (TOFU).
+        val address = try {
+            InetAddress.getByName(targetIp)
+        } catch (e: Exception) {
+            return PcActionResult.Failure("Invalid target IP '$targetIp': ${e.message}")
+        }
+        if (secret.isEmpty() && !CommandAuth.isTrustedAddress(address)) {
+            return PcActionResult.Failure(
+                "PC secret is required for a public IP; set it once for port forwarding"
+            )
+        }
+        // No secret on a trusted network: send the bare command. A public first contact is
+        // signed, and the daemon remembers the source afterwards (TOFU).
         val wire = if (secret.isEmpty()) {
             command
         } else {
@@ -134,7 +144,6 @@ class PcActionDispatcher(
 
         return try {
             val commandBytes = wire.toByteArray()
-            val address = InetAddress.getByName(targetIp)
             val packet = DatagramPacket(commandBytes, commandBytes.size, address, pcCommandPort)
             DatagramSocket().use { socket ->
                 socket.send(packet)
