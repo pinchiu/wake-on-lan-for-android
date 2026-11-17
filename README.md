@@ -45,10 +45,9 @@ Tailscale addresses need **no secret at all**:
 - IPv4 `10/8`, `172.16/12`, `192.168/16`, `169.254/16`, `127/8`, `100.64/10` (Tailscale).
 - IPv6 `::1`, `fe80::/10`, `fc00::/7` (including Tailscale `fd7a:115c:a1e0::/48`).
 
-Public IPv6/IPv4 is the only path that gets friction. The **first** command from a public
-source must carry the HMAC envelope; after that the source is remembered (TOFU) and later
-commands from the same address are accepted without signing. Remove remembered peers with
-`pc_onoff --forget-trusted` (the Home Phone keeps its own list; clear app data to reset it).
+Public IPv6/IPv4 is the only path that needs a secret. Paste the daemon/helper secret **once**
+into the apps; every public command is then signed automatically. You never re-enter or
+re-verify it per connection.
 
 MQTT does **not** use HMAC. It relies on the broker's TLS, username/password and topic ACLs,
 because the publisher IP is not visible to the subscriber.
@@ -160,7 +159,6 @@ pc_onoff --uninstall             # Disable autostart on boot
 sudo pc_onoff --install-system   # Linux: boot-time system service (works before login)
 sudo pc_onoff --uninstall-system # Linux: remove the system service
 pc_onoff --web-ui                # Local Frost dashboard (http://127.0.0.1:9878)
-pc_onoff --forget-trusted         # Forget public TOFU peers
 pc_onoff --help                  # Show usage
 ```
 

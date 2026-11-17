@@ -86,7 +86,7 @@
 
     <!-- Shared secrets -->
     <string name="security_title">Shared secrets</string>
-    <string name="security_description">Optional. LAN and Tailscale need no secret; a public IPv6/IPv4 port-forward only verifies the first contact. MQTT relies on the broker credentials and topic ACLs.</string>
+    <string name="security_description">Optional. LAN and Tailscale need no secret; a public IPv6/IPv4 port-forward requires the secret, then signs every command automatically. MQTT relies on the broker credentials and topic ACLs.</string>
     <string name="helper_secret_label">Helper shared secret (Home Phone)</string>
     <string name="pc_secret_label">PC daemon secret (pc_onoff --status)</string>
     <string name="generate_secret">Generate</string>

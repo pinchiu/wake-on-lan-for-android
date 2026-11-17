@@ -370,8 +370,8 @@ fn handle_action(request: &Request, port: u16) -> Response {
 
     let config_path = dashboard_config_path();
     let config = AppConfig::load(&config_path);
-    // LAN/Tailscale needs no secret; a public port-forward signs, and the daemon remembers
-    // this source after the first authenticated contact (TOFU).
+    // LAN/Tailscale needs no secret; a public port-forward signs every command with the
+    // stored daemon secret.
     let wire = if config.secret.trim().is_empty() {
         action.keyword().to_owned()
     } else {

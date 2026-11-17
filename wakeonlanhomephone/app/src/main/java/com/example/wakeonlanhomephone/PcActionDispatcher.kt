@@ -134,8 +134,8 @@ class PcActionDispatcher(
                 "PC secret is required for a public IP; set it once for port forwarding"
             )
         }
-        // No secret on a trusted network: send the bare command. A public first contact is
-        // signed, and the daemon remembers the source afterwards (TOFU).
+        // No secret on a trusted network: send the bare command. A public destination
+        // requires a secret, and every command is then signed automatically.
         val wire = if (secret.isEmpty()) {
             command
         } else {

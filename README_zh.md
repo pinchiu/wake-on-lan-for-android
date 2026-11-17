@@ -15,7 +15,7 @@
   - *外出遙控端小工具*：顯示當前選定之電腦名稱，單鍵發送遠端喚醒。
 - **語音助理整合**：支援 Google 助理 / Gemini 日常安排 (Routine) 語音捷徑 (`wake_pc_shortcut`)，說句語音指令立即喚醒。
 - **雙語介面支援**：手機 App 設定內建即時切換繁體中文與英文介面。
-- **指令安全**：內網／Tailscale 免密鑰；公開 port-forward 第一次使用 HMAC，之後以 TOFU 記住來源；MQTT 依賴 broker 帳密與主題權限。
+- **指令安全**：內網／Tailscale 免密鑰；公開 port-forward 只需設定一次密鑰，之後自動簽章；MQTT 依賴 broker 帳密與主題權限。
 - **Frost 介面設計**：兩款 Android App 採用 Apple 風格的淺灰玻璃質感 — 半透明卡片、細緻描邊、系統字體與單一 iOS 藍色強調色；Rust 守護程式也提供相同風格的區域網頁儀表板。
 - **跨平台電腦端常駐守護程式 (`pc_onoff`)**：使用 Rust 開發之高效獨立執行檔，支援 Windows、Linux 與 Apple macOS。
   - 無需管理員權限之開機自啟動（Windows 註冊表 `HKCU Run`、Linux `systemd --user` / XDG Autostart、macOS `LaunchAgent`）。
@@ -45,9 +45,8 @@
 - IPv4：`10/8`、`172.16/12`、`192.168/16`、`169.254/16`、`127/8`、`100.64/10`（Tailscale）。
 - IPv6：`::1`、`fe80::/10`、`fc00::/7`（包含 Tailscale `fd7a:115c:a1e0::/48`）。
 
-只有**公開 IPv6／IPv4 port-forward** 才需要第一次 HMAC 驗證；成功後會記住該來源（TOFU），
-之後同一來源不用再簽章。可用 `pc_onoff --forget-trusted` 清除守護程式記住的公開來源；
-家用手機的來源清單可透過清除 App 資料重置。
+只有**公開 IPv6／IPv4 port-forward** 才需要密鑰。把密鑰貼進 App **一次**，之後每個公開指令
+都會自動簽章，不需要再次輸入或驗證。
 
 MQTT **不使用 HMAC**，改依賴 broker 的 TLS、帳號密碼與主題權限（訂閱端看不到發佈者 IP）。
 
@@ -155,7 +154,6 @@ pc_onoff --uninstall             # 解除開機自啟動
 sudo pc_onoff --install-system   # Linux：安裝開機即啟動的系統服務（登入前可用）
 sudo pc_onoff --uninstall-system # Linux：移除系統服務
 pc_onoff --web-ui                # 區域 Frost 儀表板（http://127.0.0.1:9878）
-pc_onoff --forget-trusted        # 清除公開 TOFU 來源
 pc_onoff --help                  # 顯示使用說明
 ```
 

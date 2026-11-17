@@ -61,7 +61,7 @@
     <string name="security_copy">Copy</string>
     <string name="security_paste">Paste</string>
     <string name="toast_secret_copied">Secret copied</string>
-    <string name="security_pc_secret_missing_hint">Optional: only needed for the first public port-forward contact</string>
+    <string name="security_pc_secret_missing_hint">Optional: only needed for public port forwarding</string>
 
     <!-- About and updates -->
     <string name="about_title">About &amp; updates</string>

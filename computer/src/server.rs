@@ -8,7 +8,6 @@
 
 use std::fmt;
 use std::net::{SocketAddr, UdpSocket};
-use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
@@ -17,7 +16,6 @@ use crate::dispatch::{DispatchError, Dispatcher};
 use crate::logging::Logger;
 use crate::net;
 use crate::power::PowerController;
-use crate::trust::TrustedPeers;
 use crate::{LISTEN_IP, MAX_COMMAND_BYTES};
 
 const ERROR_BACKOFF: Duration = Duration::from_millis(250);
@@ -49,7 +47,6 @@ pub fn serve<P: PowerController>(
     dispatcher: &Dispatcher<P>,
     port: u16,
     secret: &str,
-    peers_path: &Path,
     logger: &Logger,
 ) -> Result<(), ServerError> {
     let bind_address = format!("{LISTEN_IP}:{port}");
@@ -73,7 +70,6 @@ pub fn serve<P: PowerController>(
     );
 
     let mut replay = ReplayGuard::new();
-    let mut peers = TrustedPeers::load(peers_path.to_path_buf());
     // A captured envelope from before this process started is a replay, even though its
     // timestamp is still inside the ±5 minute window (e.g. a reboot envelope after boot).
     let not_before = auth::unix_now();
@@ -87,7 +83,6 @@ pub fn serve<P: PowerController>(
                     source,
                     secret,
                     &mut replay,
-                    &mut peers,
                     not_before,
                     true,
                     logger,
@@ -115,15 +110,7 @@ fn handle_datagram<P: PowerController>(
     logger: &Logger,
 ) {
     handle_datagram_since(
-        dispatcher,
-        payload,
-        source,
-        secret,
-        replay,
-        &mut TrustedPeers::in_memory(),
-        0,
-        false,
-        logger,
+        dispatcher, payload, source, secret, replay, 0, false, logger,
     );
 }
 
@@ -134,17 +121,16 @@ fn handle_datagram_since<P: PowerController>(
     source: SocketAddr,
     secret: &str,
     replay: &mut ReplayGuard,
-    peers: &mut TrustedPeers,
     not_before: u64,
     trust_private: bool,
     logger: &Logger,
 ) {
     let raw = String::from_utf8_lossy(payload);
 
-    // Trusted LAN / Tailscale sources and previously paired public peers need no HMAC.
+    // Trusted LAN / Tailscale sources need no HMAC. Public sources sign every command;
+    // the apps store the secret once and sign automatically, so the user never re-enters it.
     let trusted_network = trust_private && net::is_trusted_source(source.ip());
-    let trusted_peer = !trusted_network && peers.contains(source.ip());
-    if trusted_network || trusted_peer {
+    if trusted_network {
         let command = auth::command(&raw).unwrap_or_else(|| raw.trim());
         if command.is_empty() {
             logger.record("auth_rejected", &format!("from {source}: empty command"));
@@ -153,17 +139,16 @@ fn handle_datagram_since<P: PowerController>(
         logger.record(
             "network",
             &format!(
-                "from {source} len: {} bytes, command: '{command}' (trusted {})",
-                payload.len(),
-                if trusted_network { "network" } else { "peer" }
+                "from {source} len: {} bytes, command: '{command}' (trusted network)",
+                payload.len()
             ),
         );
         dispatch(dispatcher, command, source, logger);
         return;
     }
 
-    // Public first contact: require the HMAC envelope, then remember this source (TOFU).
-    // Rejected envelopes are never echoed into the log: they contain a signature.
+    // Public sources sign every command. Rejected envelopes are never echoed into the log:
+    // they contain a signature.
     let command = match auth::verify(&raw, secret, auth::unix_now(), replay) {
         Ok(command) => command,
         Err(error) => {
@@ -184,21 +169,6 @@ fn handle_datagram_since<P: PowerController>(
             &format!("from {source}: authentication rejected (pre_start_replay)"),
         );
         return;
-    }
-
-    if let Err(error) = peers.add(source.ip()) {
-        logger.record(
-            "warning",
-            &format!("cannot persist trusted peer {}: {error}", source.ip()),
-        );
-    } else {
-        logger.record(
-            "trusted_peer",
-            &format!(
-                "remembered public peer {} after first authenticated command",
-                source.ip()
-            ),
-        );
     }
 
     logger.record(
@@ -305,106 +275,6 @@ mod tests {
 
     fn log_text(path: &Path) -> String {
         fs::read_to_string(path).expect("read captured log")
-    }
-
-    fn public_source() -> SocketAddr {
-        "203.0.113.5:4444".parse().expect("public source")
-    }
-
-    #[test]
-    fn private_sources_skip_hmac_when_trusted() {
-        let power = FakePower::default();
-        let observed = power.observed();
-        let dispatcher = Dispatcher::new(power);
-        let logger = Logger::disabled();
-
-        handle_datagram_since(
-            &dispatcher,
-            b"SHUTDOWN:192.168.1.100",
-            source(),
-            SECRET,
-            &mut ReplayGuard::new(),
-            &mut TrustedPeers::in_memory(),
-            0,
-            true,
-            &logger,
-        );
-
-        assert_eq!(*observed.lock().expect("lock"), vec![PowerAction::Shutdown]);
-    }
-
-    #[test]
-    fn public_source_is_remembered_after_the_first_signed_command() {
-        let power = FakePower::default();
-        let observed = power.observed();
-        let dispatcher = Dispatcher::new(power);
-        let logger = Logger::disabled();
-        let mut replay = ReplayGuard::new();
-        let mut peers = TrustedPeers::in_memory();
-
-        // First contact without HMAC is rejected.
-        handle_datagram_since(
-            &dispatcher,
-            b"SHUTDOWN:192.168.1.100",
-            public_source(),
-            SECRET,
-            &mut replay,
-            &mut peers,
-            0,
-            true,
-            &logger,
-        );
-        assert!(observed.lock().expect("lock").is_empty());
-
-        // A signed first contact is accepted and the source is remembered.
-        let envelope = signed_envelope("SHUTDOWN:192.168.1.100", SECRET);
-        handle_datagram_since(
-            &dispatcher,
-            envelope.as_bytes(),
-            public_source(),
-            SECRET,
-            &mut replay,
-            &mut peers,
-            0,
-            true,
-            &logger,
-        );
-        assert_eq!(*observed.lock().expect("lock"), vec![PowerAction::Shutdown]);
-        assert!(peers.contains(public_source().ip()));
-
-        // The same public peer can now send a bare command.
-        handle_datagram_since(
-            &dispatcher,
-            b"REBOOT:192.168.1.100",
-            public_source(),
-            SECRET,
-            &mut replay,
-            &mut peers,
-            0,
-            true,
-            &logger,
-        );
-        assert_eq!(
-            *observed.lock().expect("lock"),
-            vec![PowerAction::Shutdown, PowerAction::Reboot]
-        );
-
-        // A different public address is still untrusted.
-        handle_datagram_since(
-            &dispatcher,
-            b"SLEEP:192.168.1.100",
-            "198.51.100.7:4444".parse().expect("other public"),
-            SECRET,
-            &mut replay,
-            &mut peers,
-            0,
-            true,
-            &logger,
-        );
-        assert_eq!(
-            *observed.lock().expect("lock"),
-            vec![PowerAction::Shutdown, PowerAction::Reboot]
-        );
     }
 
     #[test]

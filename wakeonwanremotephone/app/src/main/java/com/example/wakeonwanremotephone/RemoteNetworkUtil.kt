@@ -25,8 +25,8 @@ object RemoteNetworkUtil {
             if (host.isBlank() || command.isBlank()) {
                 return@withContext "Address or command cannot be empty!"
             }
-            // LAN/Tailscale accepts a bare command; a public port-forward accepts the first
-            // signed contact and then remembers this source (TOFU).
+            // LAN/Tailscale accepts a bare command; a public port-forward requires the
+            // stored secret, and every command is then signed automatically.
             val wire = if (helperSecret.isBlank()) {
                 command.trim()
             } else {
