@@ -83,9 +83,9 @@ The Android apps adapt automatically and stay readable in both layouts. The dash
 
 ## Screenshots
 
-| Home Phone | Remote Phone | Settings | Local dashboard |
-| :---: | :---: | :---: | :---: |
-| <img src="docs/screenshots/home-phone-frost.png" width="240" alt="Home Phone Frost UI"> | <img src="docs/screenshots/remote-phone-frost.png" width="240" alt="Remote Phone Frost UI"> | <img src="docs/screenshots/home-settings-frost.png" width="240" alt="Frost settings"> | <img src="docs/screenshots/dashboard-frost.png" width="320" alt="Rust daemon dashboard"> |
+| Home Phone (light) | Remote Phone (light) | Remote Phone (dark) | Appearance (dark) | Local dashboard |
+| :---: | :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/home-phone-frost.png" width="210" alt="Home Phone light"> | <img src="docs/screenshots/remote-phone-frost.png" width="210" alt="Remote Phone light"> | <img src="docs/screenshots/remote-phone-dark.png" width="210" alt="Remote Phone dark"> | <img src="docs/screenshots/home-settings-dark.png" width="210" alt="Frost dark appearance setting"> | <img src="docs/screenshots/dashboard-frost.png" width="300" alt="Rust daemon dashboard"> |
 
 ## System Architecture & Protocols
 

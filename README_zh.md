@@ -79,9 +79,9 @@ Android App 以淺色玻璃為主；網頁儀表板同時支援淺色與深色 (
 
 ## 介面截圖
 
-| 家用手機 | 外出手機 | 設定頁 | 區域儀表板 |
-| :---: | :---: | :---: | :---: |
-| <img src="docs/screenshots/home-phone-frost.png" width="240" alt="家用手機 Frost 介面"> | <img src="docs/screenshots/remote-phone-frost.png" width="240" alt="外出手機 Frost 介面"> | <img src="docs/screenshots/home-settings-frost.png" width="240" alt="Frost 設定頁"> | <img src="docs/screenshots/dashboard-frost.png" width="320" alt="Rust 守護程式儀表板"> |
+| 家用手機（淺色） | 外出手機（淺色） | 外出手機（深色） | 外觀設定（深色） | 區域儀表板 |
+| :---: | :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/home-phone-frost.png" width="210" alt="家用手機淺色"> | <img src="docs/screenshots/remote-phone-frost.png" width="210" alt="外出手機淺色"> | <img src="docs/screenshots/remote-phone-dark.png" width="210" alt="外出手機深色"> | <img src="docs/screenshots/home-settings-dark.png" width="210" alt="Frost 深色外觀設定"> | <img src="docs/screenshots/dashboard-frost.png" width="300" alt="Rust 守護程式儀表板"> |
 
 ## 通訊架構與協定說明
 
