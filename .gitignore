@@ -36,3 +36,6 @@ scripts/
 
 # Archify working candidates
 .archify/
+
+# Archify working files
+.archify-diagram/

@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "ok": false,
+  "ok": true,
   "command": "finalize",
-  "status": "skipped",
+  "status": "pass",
   "type": "architecture",
   "quality": "showcase",
-  "startedAt": "2026-11-17T00:24:44.544Z",
+  "startedAt": "2026-11-17T07:50:14.648Z",
   "specification": {
-    "path": "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
-    "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
-    "bytes": 7972
+    "path": "/home/scott/work/wol-pages/.archify-diagram/candidate.json",
+    "sha256": "11ff757170447127f1188a3caa5999361a4cd5d4e95170172c0e5ee130dbc7f4",
+    "bytes": 8660
   },
   "artifact": {
-    "path": "/home/scott/work/wol-ui/docs/architecture.html",
-    "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
-    "bytes": 848347
+    "path": "/home/scott/work/wol-pages/docs/architecture.html",
+    "sha256": "66d0b0765c2a89984d2e17f85c4ad7b17a18207a4b6c331eb79017d662b2e82e",
+    "bytes": 849540
   },
   "stages": {
     "validate": {
@@ -27,12 +27,12 @@
         "/home/scott/.agents/skills/archify/bin/archify.mjs",
         "deliver",
         "architecture",
-        "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
-        "/home/scott/work/wol-ui/docs/architecture.html",
+        "/home/scott/work/wol-pages/.archify-diagram/candidate.json",
+        "/home/scott/work/wol-pages/docs/architecture.html",
         "--quality",
         "showcase",
         "--repo-root",
-        "/home/scott/work/wol-ui",
+        "/home/scott/work/wol-pages",
         "--json"
       ],
       "receipt": {
@@ -40,8 +40,8 @@
         "ok": true,
         "command": "validate",
         "specification": {
-          "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
-          "bytes": 7972
+          "sha256": "11ff757170447127f1188a3caa5999361a4cd5d4e95170172c0e5ee130dbc7f4",
+          "bytes": 8660
         },
         "validation": {
           "checksPassed": 9,
@@ -56,35 +56,35 @@
     "deliver": {
       "status": "pass",
       "exitCode": 0,
-      "durationMs": 480,
+      "durationMs": 475,
       "command": [
         "/usr/bin/node",
         "/home/scott/.agents/skills/archify/bin/archify.mjs",
         "deliver",
         "architecture",
-        "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
-        "/home/scott/work/wol-ui/docs/architecture.html",
+        "/home/scott/work/wol-pages/.archify-diagram/candidate.json",
+        "/home/scott/work/wol-pages/docs/architecture.html",
         "--quality",
         "showcase",
         "--repo-root",
-        "/home/scott/work/wol-ui",
+        "/home/scott/work/wol-pages",
         "--json"
       ],
       "receipt": {
         "schemaVersion": 1,
-        "receiptId": "6573fa5c-9041-48fc-bfda-5d56c8501e37",
+        "receiptId": "08b43f08-c21a-40da-a94a-3eec325d2fb9",
         "ok": true,
         "command": "deliver",
         "type": "architecture",
-        "input": "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
-        "output": "/home/scott/work/wol-ui/docs/architecture.html",
+        "input": "/home/scott/work/wol-pages/.archify-diagram/candidate.json",
+        "output": "/home/scott/work/wol-pages/docs/architecture.html",
         "specification": {
-          "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
-          "bytes": 7972
+          "sha256": "11ff757170447127f1188a3caa5999361a4cd5d4e95170172c0e5ee130dbc7f4",
+          "bytes": 8660
         },
         "artifact": {
-          "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
-          "bytes": 848347
+          "sha256": "66d0b0765c2a89984d2e17f85c4ad7b17a18207a4b6c331eb79017d662b2e82e",
+          "bytes": 849540
         },
         "validation": {
           "checksPassed": 9,
@@ -116,20 +116,20 @@
     "check": {
       "status": "pass",
       "exitCode": 0,
-      "durationMs": 208,
+      "durationMs": 192,
       "command": [
         "/usr/bin/node",
         "/home/scott/.agents/skills/archify/bin/archify.mjs",
         "check",
-        "/home/scott/work/wol-ui/docs/architecture.html",
+        "/home/scott/work/wol-pages/docs/architecture.html",
         "--require-provenance"
       ],
       "receipt": {
         "ok": true,
-        "file": "/home/scott/work/wol-ui/docs/architecture.html",
+        "file": "/home/scott/work/wol-pages/docs/architecture.html",
         "artifact": {
-          "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
-          "bytes": 848347
+          "sha256": "66d0b0765c2a89984d2e17f85c4ad7b17a18207a4b6c331eb79017d662b2e82e",
+          "bytes": 849540
         },
         "checks": [
           {
@@ -203,7 +203,7 @@
             "maxBends": 4,
             "routesOverSuggestedBends": 2,
             "maxStretch": 1.952,
-            "routesOverSuggestedStretch": 1,
+            "routesOverSuggestedStretch": 2,
             "minSegmentPx": 16,
             "minInteriorSegmentPx": 16,
             "shortSegmentCount": 0,
@@ -261,22 +261,34 @@
                   "id": "remote-direct",
                   "from": "remote",
                   "to": "daemon",
-                  "label": "LAN · UDP 9877 direct",
+                  "label": "Direct LAN · local IP :9877",
                   "collectionIndex": 6,
                   "artifactIndex": 7
                 },
                 "bends": 3,
                 "stretch": 1.202
+              },
+              {
+                "relationship": {
+                  "id": "remote-wol",
+                  "from": "remote",
+                  "to": "pc",
+                  "label": "LAN WoL · UDP 9",
+                  "collectionIndex": 9,
+                  "artifactIndex": 10
+                },
+                "bends": 2,
+                "stretch": 1.58
               }
             ]
           },
           "leadingSpace": {
             "measured": true,
             "emptyTopPx": 20,
-            "emptyTopRatio": 0.029,
+            "emptyTopRatio": 0.026,
             "occupiedTop": 20,
             "viewBoxTop": 0,
-            "canvasHeight": 696,
+            "canvasHeight": 768,
             "typicalNodeHeight": 72,
             "reviewSuggested": false
           },
@@ -301,82 +313,737 @@
             },
             "minimumSourceTextPx": 8,
             "minimumProjectedTextPx": 7.5,
-            "semanticTextCount": 24
+            "semanticTextCount": 25
           },
           "issues": []
         },
         "provenance": "current",
-        "deliveryReceiptId": "6573fa5c-9041-48fc-bfda-5d56c8501e37"
+        "deliveryReceiptId": "08b43f08-c21a-40da-a94a-3eec325d2fb9"
       }
     },
     "browser-check": {
-      "status": "skipped",
-      "exitCode": 2,
-      "durationMs": 40,
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 3129,
       "command": [
         "/usr/bin/node",
         "/home/scott/.agents/skills/archify/bin/archify.mjs",
         "browser-check",
-        "/home/scott/work/wol-ui/docs/architecture.html",
+        "/home/scott/work/wol-pages/docs/architecture.html",
         "--json",
         "--require-provenance"
       ],
       "execution": "in-process",
       "receipt": {
         "schemaVersion": 1,
-        "ok": false,
+        "ok": true,
         "command": "browser-check",
         "evidenceKind": "automated-browser",
-        "status": "skipped",
+        "status": "pass",
         "visualReview": "not-requested",
         "provenance": "current",
-        "deliveryReceiptId": "6573fa5c-9041-48fc-bfda-5d56c8501e37",
+        "deliveryReceiptId": "08b43f08-c21a-40da-a94a-3eec325d2fb9",
         "artifact": {
-          "path": "/home/scott/work/wol-ui/docs/architecture.html",
-          "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
-          "bytes": 848347
+          "path": "/home/scott/work/wol-pages/docs/architecture.html",
+          "sha256": "66d0b0765c2a89984d2e17f85c4ad7b17a18207a4b6c331eb79017d662b2e82e",
+          "bytes": 849540
         },
         "state": {
           "detail": "read",
           "motion": "still"
         },
         "chrome": {
-          "status": "unavailable",
-          "executable": null
+          "status": "available",
+          "executable": "/home/scott/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome"
         },
-        "diagnostics": [
-          {
-            "code": "viewer/chrome-unavailable",
-            "severity": "warning",
-            "message": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path.",
-            "subject": {
-              "artifact": "/home/scott/work/wol-ui/docs/architecture.html"
-            },
-            "evidence": {
-              "executable": null
-            },
-            "supportedFixes": [
-              "set ARCHIFY_CHROME to a Chrome/Chromium executable (or Microsoft Edge) and rerun browser-check"
-            ]
-          }
-        ],
+        "diagnostics": [],
         "containment": {
-          "status": "skipped",
+          "status": "pass",
           "policy": "fit-or-reader-declared-readable-vertical-scroll",
-          "viewports": []
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1196,
+              "diagramWidth": 1166,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 52,
+                "diagramChromePx": 78,
+                "svgPx": 746,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 7.773333333333333,
+              "minimumProjectedNonEdgeTextPx": 8.745000000000001,
+              "minimumProjectedEdgeTextPx": 7.773333333333333,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1249,
+              "diagramWidth": 1219,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 780,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1374,
+              "diagramWidth": 1344,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 860,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1741,
+              "diagramWidth": 1691,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 68,
+                "diagramChromePx": 94,
+                "svgPx": 1082,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
         },
         "themeStates": {
-          "status": "skipped",
-          "viewports": []
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            }
+          ]
         },
         "readability": {
-          "status": "skipped",
+          "status": "pass",
           "minimumProjectedNodeTextPx": 6,
-          "viewports": []
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1196,
+              "diagramWidth": 1166,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 52,
+                "diagramChromePx": 78,
+                "svgPx": 746,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 7.773333333333333,
+              "minimumProjectedNonEdgeTextPx": 8.745000000000001,
+              "minimumProjectedEdgeTextPx": 7.773333333333333,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1249,
+              "diagramWidth": 1219,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 780,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1374,
+              "diagramWidth": 1344,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 860,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1741,
+              "diagramWidth": 1691,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 68,
+                "diagramChromePx": 94,
+                "svgPx": 1082,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
         },
         "viewerChrome": {
-          "status": "skipped",
-          "viewports": []
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1196,
+              "diagramWidth": 1166,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 52,
+                "diagramChromePx": 78,
+                "svgPx": 746,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 7.773333333333333,
+              "minimumProjectedNonEdgeTextPx": 8.745000000000001,
+              "minimumProjectedEdgeTextPx": 7.773333333333333,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1249,
+              "diagramWidth": 1219,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 780,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1374,
+              "diagramWidth": 1344,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 860,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": "intrinsic-height",
+              "ok": true,
+              "readerWidth": 1741,
+              "diagramWidth": 1691,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 68,
+                "diagramChromePx": 94,
+                "svgPx": 1082,
+                "cardsPx": 0,
+                "viewBoxHeight": 768
+              },
+              "viewBoxWidth": 1200,
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 9,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "MQTT publish · TLS",
+              "minimumProjectedNodeTextDetail": "edge",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "edge",
+                "id": "remote-mqtt",
+                "from": "remote",
+                "to": "broker"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
         },
         "captures": {
           "status": "not-requested",
@@ -386,40 +1053,23 @@
         "sidecars": {
           "receipt": "architecture.browser-check.json",
           "files": []
-        },
-        "error": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path."
+        }
       }
     }
   },
   "browserCheck": {
     "requested": true,
-    "ran": false
+    "ran": true
   },
-  "diagnostics": [
-    {
-      "code": "viewer/chrome-unavailable",
-      "severity": "warning",
-      "message": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path.",
-      "subject": {
-        "artifact": "/home/scott/work/wol-ui/docs/architecture.html"
-      },
-      "evidence": {
-        "executable": null
-      },
-      "supportedFixes": [
-        "set ARCHIFY_CHROME to a Chrome/Chromium executable (or Microsoft Edge) and rerun browser-check"
-      ]
-    }
-  ],
+  "diagnostics": [],
   "evidence": {
-    "receipt": "/home/scott/work/wol-ui/docs/architecture.finalize.json",
-    "summaryReceipt": "/home/scott/work/wol-ui/docs/architecture.finalize-summary.json",
-    "browserCheckReceipt": "/home/scott/work/wol-ui/docs/architecture.browser-check.json"
+    "receipt": "/home/scott/work/wol-pages/docs/architecture.finalize.json",
+    "summaryReceipt": "/home/scott/work/wol-pages/docs/architecture.finalize-summary.json",
+    "browserCheckReceipt": "/home/scott/work/wol-pages/docs/architecture.browser-check.json"
   },
   "visualReview": "not-requested",
-  "failedStage": "browser-check",
-  "finishedAt": "2026-11-17T00:24:45.406Z",
-  "durationMs": 861,
+  "finishedAt": "2026-11-17T07:50:18.573Z",
+  "durationMs": 3925,
   "update": {
     "status": "current",
     "installedVersion": "3.2.0",
