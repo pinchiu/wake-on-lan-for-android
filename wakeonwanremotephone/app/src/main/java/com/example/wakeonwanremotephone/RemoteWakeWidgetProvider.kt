@@ -140,16 +140,8 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
                             }
                             return@launch
                         }
+                        // Blank secret = bare command; LAN/Tailscale accepts it directly.
                         val helperSecret = SecuritySettings(context).getHelperSecret()
-                        if (helperSecret.isBlank()) {
-                            val missing = localized.getString(R.string.widget_helper_secret_missing)
-                            views.setTextViewText(R.id.widget_remote_status, missing)
-                            appWidgetManager.updateAppWidget(componentName, views)
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(localized, missing, Toast.LENGTH_LONG).show()
-                            }
-                            return@launch
-                        }
                         resultMsg = RemoteNetworkUtil.sendTcpCommand(
                             helperIpv6,
                             "WAKE:${device.mac}",
