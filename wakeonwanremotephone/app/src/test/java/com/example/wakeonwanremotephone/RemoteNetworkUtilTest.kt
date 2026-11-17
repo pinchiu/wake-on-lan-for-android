@@ -3,9 +3,18 @@ package com.example.wakeonwanremotephone
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RemoteNetworkUtilTest {
+
+    @Test
+    fun directCommandWithoutSecretToPublicIpIsRejectedBeforeSending() {
+        runBlocking {
+            val result = RemoteNetworkUtil.sendDirectCommandToPC("8.8.8.8", "shutdown", "")
+            assertTrue(result.contains("public IP"))
+        }
+    }
 
     @Test
     fun macParsingKeepsLegacyBehaviour() {

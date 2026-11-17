@@ -111,6 +111,14 @@ object RemoteNetworkUtil {
                 return@withContext "PC IP or command cannot be empty!"
             }
             val command = "${action.trim().uppercase(Locale.ROOT)}:${pcIp.trim()}"
+            val address = try {
+                InetAddress.getByName(pcIp.trim())
+            } catch (e: Exception) {
+                return@withContext "Invalid PC IP: ${e.message}"
+            }
+            if (pcSecret.isBlank() && !CommandAuth.isTrustedAddress(address)) {
+                return@withContext "PC secret is required for a public IP; set it once for port forwarding"
+            }
             val wire = if (pcSecret.isBlank()) {
                 command
             } else {
@@ -119,12 +127,7 @@ object RemoteNetworkUtil {
             }
             try {
                 val commandBytes = wire.toByteArray(StandardCharsets.UTF_8)
-                val packet = DatagramPacket(
-                    commandBytes,
-                    commandBytes.size,
-                    InetAddress.getByName(pcIp.trim()),
-                    9877
-                )
+                val packet = DatagramPacket(commandBytes, commandBytes.size, address, 9877)
                 DatagramSocket().use { socket -> socket.send(packet) }
                 "Direct command '$command' sent to PC"
             } catch (e: Exception) {

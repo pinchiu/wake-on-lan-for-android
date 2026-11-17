@@ -111,6 +111,23 @@ object CommandAuth {
         return AuthResult.Ok
     }
 
+    /** Loopback, RFC1918, link-local, IPv6 ULA and Tailscale/CGNAT addresses. */
+    fun isTrustedAddress(address: java.net.InetAddress): Boolean {
+        if (address.isLoopbackAddress || address.isLinkLocalAddress || address.isSiteLocalAddress) {
+            return true
+        }
+        val bytes = address.address
+        if (bytes.size == 4) {
+            val first = bytes[0].toInt() and 0xFF
+            val second = bytes[1].toInt() and 0xFF
+            return first == 100 && second in 64..127
+        }
+        if (bytes.size == 16) {
+            return (bytes[0].toInt() and 0xFE) == 0xFC
+        }
+        return false
+    }
+
     /** Generates a 32-character lowercase hex secret from a CSPRNG. */
     fun generateSecret(): String {
         val bytes = ByteArray(16)
