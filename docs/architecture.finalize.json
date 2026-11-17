@@ -1,0 +1,433 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "finalize",
+  "status": "skipped",
+  "type": "architecture",
+  "quality": "showcase",
+  "startedAt": "2026-11-17T00:24:44.544Z",
+  "specification": {
+    "path": "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
+    "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
+    "bytes": 7972
+  },
+  "artifact": {
+    "path": "/home/scott/work/wol-ui/docs/architecture.html",
+    "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
+    "bytes": 848347
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "/usr/bin/node",
+        "/home/scott/.agents/skills/archify/bin/archify.mjs",
+        "deliver",
+        "architecture",
+        "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
+        "/home/scott/work/wol-ui/docs/architecture.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "/home/scott/work/wol-ui",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
+          "bytes": 7972
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 480,
+      "command": [
+        "/usr/bin/node",
+        "/home/scott/.agents/skills/archify/bin/archify.mjs",
+        "deliver",
+        "architecture",
+        "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
+        "/home/scott/work/wol-ui/docs/architecture.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "/home/scott/work/wol-ui",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "6573fa5c-9041-48fc-bfda-5d56c8501e37",
+        "ok": true,
+        "command": "deliver",
+        "type": "architecture",
+        "input": "/home/scott/work/wol-ui/.archify/architecture-wol-20261117-0825/candidate.json",
+        "output": "/home/scott/work/wol-ui/docs/architecture.html",
+        "specification": {
+          "sha256": "62d8dbaadf56fd98e5bbe7941b331ae81443efc693f5eb299b81304dbbf8e8bb",
+          "bytes": 7972
+        },
+        "artifact": {
+          "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
+          "bytes": 848347
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "evidence": {
+          "verified": true,
+          "repository": "https://github.com/pinchiu/wake-on-lan-for-android",
+          "revision": "25d9ec3d12e038f934555979060f2cce85596938",
+          "references": 14
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 208,
+      "command": [
+        "/usr/bin/node",
+        "/home/scott/.agents/skills/archify/bin/archify.mjs",
+        "check",
+        "/home/scott/work/wol-ui/docs/architecture.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "/home/scott/work/wol-ui/docs/architecture.html",
+        "artifact": {
+          "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
+          "bytes": 848347
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": [
+              "found 1 <svg> block(s)"
+            ]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 0,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 6,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 7.5,
+            "maxBends": 4,
+            "routesOverSuggestedBends": 2,
+            "maxStretch": 1.952,
+            "routesOverSuggestedStretch": 1,
+            "minSegmentPx": 16,
+            "minInteriorSegmentPx": 16,
+            "shortSegmentCount": 0,
+            "shortEndpointSegmentCount": 0,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [],
+            "detours": [
+              {
+                "relationship": {
+                  "id": "remote-mqtt",
+                  "from": "remote",
+                  "to": "broker",
+                  "label": "MQTT publish · TLS",
+                  "collectionIndex": 0,
+                  "artifactIndex": 1
+                },
+                "bends": 4,
+                "stretch": 1.172
+              },
+              {
+                "relationship": {
+                  "id": "helper-wol",
+                  "from": "helper",
+                  "to": "pc",
+                  "label": "WoL UDP 9",
+                  "collectionIndex": 5,
+                  "artifactIndex": 6
+                },
+                "bends": 2,
+                "stretch": 1.952,
+                "directCorridorBlockers": [
+                  {
+                    "id": "daemon",
+                    "label": "pc_onoff daemon",
+                    "box": [
+                      660,
+                      340,
+                      190,
+                      84
+                    ]
+                  }
+                ]
+              },
+              {
+                "relationship": {
+                  "id": "remote-direct",
+                  "from": "remote",
+                  "to": "daemon",
+                  "label": "LAN · UDP 9877 direct",
+                  "collectionIndex": 6,
+                  "artifactIndex": 7
+                },
+                "bends": 3,
+                "stretch": 1.202
+              }
+            ]
+          },
+          "leadingSpace": {
+            "measured": true,
+            "emptyTopPx": 20,
+            "emptyTopRatio": 0.029,
+            "occupiedTop": 20,
+            "viewBoxTop": 0,
+            "canvasHeight": 696,
+            "typicalNodeHeight": 72,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "recognized-declared-wide",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 1125,
+            "actualBudgetPx": 1125,
+            "actualReaderWidth": 1155,
+            "desiredReaderWidth": 1155,
+            "viewportCap": 1376,
+            "limit": "source-size",
+            "requestedTargetPx": 7.5,
+            "requestedTargetMet": true,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "edge",
+              "id": "remote-mqtt",
+              "from": "remote",
+              "to": "broker"
+            },
+            "minimumSourceTextPx": 8,
+            "minimumProjectedTextPx": 7.5,
+            "semanticTextCount": 24
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "6573fa5c-9041-48fc-bfda-5d56c8501e37"
+      }
+    },
+    "browser-check": {
+      "status": "skipped",
+      "exitCode": 2,
+      "durationMs": 40,
+      "command": [
+        "/usr/bin/node",
+        "/home/scott/.agents/skills/archify/bin/archify.mjs",
+        "browser-check",
+        "/home/scott/work/wol-ui/docs/architecture.html",
+        "--json",
+        "--require-provenance"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": false,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "skipped",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "6573fa5c-9041-48fc-bfda-5d56c8501e37",
+        "artifact": {
+          "path": "/home/scott/work/wol-ui/docs/architecture.html",
+          "sha256": "ed983856025caafb8f6e75fdf97072b2fccd5f4039dfa8e17e8a6756f7557e44",
+          "bytes": 848347
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "unavailable",
+          "executable": null
+        },
+        "diagnostics": [
+          {
+            "code": "viewer/chrome-unavailable",
+            "severity": "warning",
+            "message": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path.",
+            "subject": {
+              "artifact": "/home/scott/work/wol-ui/docs/architecture.html"
+            },
+            "evidence": {
+              "executable": null
+            },
+            "supportedFixes": [
+              "set ARCHIFY_CHROME to a Chrome/Chromium executable (or Microsoft Edge) and rerun browser-check"
+            ]
+          }
+        ],
+        "containment": {
+          "status": "skipped",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": []
+        },
+        "themeStates": {
+          "status": "skipped",
+          "viewports": []
+        },
+        "readability": {
+          "status": "skipped",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": []
+        },
+        "viewerChrome": {
+          "status": "skipped",
+          "viewports": []
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "architecture.browser-check.json",
+          "files": []
+        },
+        "error": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path."
+      }
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": false
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/chrome-unavailable",
+      "severity": "warning",
+      "message": "No supported browser found. Install Chrome/Chromium (or Microsoft Edge), or set ARCHIFY_CHROME to its executable path.",
+      "subject": {
+        "artifact": "/home/scott/work/wol-ui/docs/architecture.html"
+      },
+      "evidence": {
+        "executable": null
+      },
+      "supportedFixes": [
+        "set ARCHIFY_CHROME to a Chrome/Chromium executable (or Microsoft Edge) and rerun browser-check"
+      ]
+    }
+  ],
+  "evidence": {
+    "receipt": "/home/scott/work/wol-ui/docs/architecture.finalize.json",
+    "summaryReceipt": "/home/scott/work/wol-ui/docs/architecture.finalize-summary.json",
+    "browserCheckReceipt": "/home/scott/work/wol-ui/docs/architecture.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "failedStage": "browser-check",
+  "finishedAt": "2026-11-17T00:24:45.406Z",
+  "durationMs": 861,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-17T00:24:08.930Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

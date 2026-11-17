@@ -84,20 +84,9 @@ The Android apps adapt automatically and stay readable in both layouts. The dash
 
 ## System Architecture & Protocols
 
-```
-[Remote Phone (Client)]
-       │
-       ├─► (WAN: Public IPv6/IPv4) ── TCP Port 9876 ────┐
-       ├─► (WAN: Cloud Broker) ────── MQTT (TCP/TLS) ───┼─► [Home Phone Helper]
-       │                                                 │         │
-       │                                                 │   (Local Wi-Fi Subnet)
-       │                                                 │   WoL Broadcast: UDP 9
-       │                                                 │   PC Power: UDP 9877
-       │                                                 │         │
-       └─► (LAN: Same Wi-Fi) ──────── Direct UDP 9/9877 ─┴─────────▼
-                                                             [Target Computer]
-                                                             (`pc_onoff` daemon)
-```
+[Interactive architecture & protocol diagram](docs/architecture.html) · [PNG](docs/screenshots/architecture-frost.png)
+
+![Architecture & Protocols](docs/screenshots/architecture-frost.png)
 
 1. **Remote Phone -> Home Phone (WAN TCP Direct)**:
    - Connects via **TCP (Port 9876)** over public IPv6 / IPv4.
