@@ -56,11 +56,11 @@ because the publisher IP is not visible to the subscriber.
 SHUTDOWN:192.168.1.10|ts=1700000000|nonce=0011223344556677|sig=<hmac-sha256-hex>
 ```
 
-For a public port-forward, copy the values once:
+For a public port-forward, copy the values once. If each PC daemon has a different secret, set it on that computer's profile; the global value is used only when a profile leaves it blank.
 
 | Secret | Where to get it | Where to paste it |
 | :--- | :--- | :--- |
-| **PC secret** | `pc_onoff --status` → `Command Secret: ...` | Home Phone → Settings → Security → PC secret; Remote Phone → shield icon → PC secret |
+| **PC secret** | `pc_onoff --status` → `Command Secret: ...` | Per computer: add/edit target → PC secret. The Settings / shield value is only the fallback for targets that leave it blank. |
 | **Helper secret** | Home Phone → Settings → Security → Helper secret (Generate) | Remote Phone → shield icon → Helper secret |
 
 Timestamps must be within ±5 minutes (keep NTP enabled); nonces are remembered for 10 minutes.
