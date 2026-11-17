@@ -20,7 +20,7 @@ The system consists of three core subsystems:
 | System-wide (opt-in) | `sudo pc_onoff --install-system` | at boot, before login (root, `multi-user.target`) | `/var/lib/pc_onoff/` via `PC_ONOFF_DATA_DIR` | disables/removes per-user autostart and stops the old user instance |
 
 * `pc_onoff --service` is the internal unit entry point: it never touches per-user autostart.
-* A normal `pc_onoff` launch exits early when the system service is installed, so the two never fight over UDP 9877.
+* A normal `pc_onoff` launch exits early only when the system service is **active**, so a stopped/crash-looping unit does not block manual recovery.
 * `pc_onoff --status` reports the system service state; `--uninstall-system` removes the unit and binary but keeps `/var/lib/pc_onoff` data.
 
 ---

@@ -160,6 +160,7 @@ pc_onoff --uninstall             # Disable autostart on boot
 sudo pc_onoff --install-system   # Linux: boot-time system service (works before login)
 sudo pc_onoff --uninstall-system # Linux: remove the system service
 pc_onoff --web-ui                # Local Frost dashboard (http://127.0.0.1:9878)
+pc_onoff --forget-trusted         # Forget public TOFU peers
 pc_onoff --help                  # Show usage
 ```
 
