@@ -89,7 +89,7 @@ The Android apps adapt automatically and stay readable in both layouts. The dash
 
 ## System Architecture & Protocols
 
-[Interactive architecture & protocol diagram](docs/architecture.html) · [PNG](docs/screenshots/architecture-frost.png)
+**[▶ Open the interactive architecture & protocols diagram](https://pinchiu.github.io/wake-on-lan-for-android/architecture.html)** · [PNG](docs/screenshots/architecture-frost.png)
 
 ![Architecture & Protocols](docs/screenshots/architecture-frost.png)
 

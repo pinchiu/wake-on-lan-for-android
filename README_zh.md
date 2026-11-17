@@ -85,7 +85,7 @@ Android App 以淺色玻璃為主；網頁儀表板同時支援淺色與深色 (
 
 ## 通訊架構與協定說明
 
-[互動式系統架構與協定圖](docs/architecture.html) · [PNG](docs/screenshots/architecture-frost.png)
+**[▶ 開啟互動式系統架構與協定圖](https://pinchiu.github.io/wake-on-lan-for-android/architecture.html)** · [PNG](docs/screenshots/architecture-frost.png)
 
 ![系統架構與協定](docs/screenshots/architecture-frost.png)
 
