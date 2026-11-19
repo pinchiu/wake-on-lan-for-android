@@ -474,4 +474,3 @@ pc_reboot:
 
 * [Wire protocols & security](wiki/Wire-Protocols-and-Security.md) — exact packet formats, trusted CIDRs, HMAC envelope.
 * [Architecture & deep modules](wiki/Architecture-and-Deep-Modules.md) — how the HA layer fits the Rust daemon and Android apps.
-* [Build, test & guardrails](wiki/Build-Test-and-Guardrails.md) — running the integration test suite locally.

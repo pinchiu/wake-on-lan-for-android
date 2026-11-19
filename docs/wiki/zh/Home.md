@@ -17,7 +17,7 @@
 
 </details>
 
-<div class="archify-cta">✨ <a href="../archify-explainer.html"><strong>互動式 Archify 架構圖解</strong></a> — 五個章節的單頁視覺化導覽。</div>
+<div class="archify-cta">✨ <a href="../archify-explainer.html"><strong>互動式 Archify 架構圖解</strong></a> — 四個章節的單頁視覺化導覽。</div>
 
 ## 1.1 目的與核心子系統
 
@@ -81,8 +81,6 @@ Dashboard      http://127.0.0.1:9878  (loopback only, foreground --web-ui)
 | 修改 dispatcher、解析規則或接縫 | [架構與深層模組](Architecture-and-Deep-Modules.md) | 對應的 `.rs` / `.kt` / `.py` 檔案 |
 | 修改封包、錯誤行、信任規則或 HMAC 行為 | [網路協定與安全](Wire-Protocols-and-Security.md) | `computer/src/auth.rs`、`protocol.py`、`CommandAuth.kt` |
 | 找到唯一要修改的檔案，避免碰撞 | [子系統與檔案職責地圖](Subsystems-File-Map.md) | 子系統表格 |
-| 執行測試/lint/build，或監看 CI | [建置、測試與護欄](Build-Test-and-Guardrails.md) | `.github/workflows/ci.yml` |
-| 在四個子系統中新增電源動作 | [擴充食譜](Build-Test-and-Guardrails.md#54-end-to-end-extension-recipes) | 所有子系統表格 |
 | 新增/除錯 Home Assistant 或 Google Home | [Home Assistant 接縫](Architecture-and-Deep-Modules.md#24-home-assistant--google-home-integration-custom_componentspc_onoff) | `custom_components/pc_onoff/` |
 | 修改 Android UI 或 Frost 樣式 | [`docs/frost-ui.md`](../../frost-ui.md) | `ui/theme/`、`ui/components/` |
 | 設定語音控制或 HACS | [`docs/home-assistant.md`](../../home-assistant.md) | `switch.py`、`button.py` |
@@ -90,4 +88,3 @@ Dashboard      http://127.0.0.1:9878  (loopback only, foreground --web-ui)
 | 查詢領域詞彙 | [`CONTEXT.md`](../../../CONTEXT.md) | — |
 | 閱讀規範性流程文件 | [`AGENTS.md`](../../../AGENTS.md) | — |
 
-來源：[docs/wiki/Home.md:1-172](../Home.md#L1-L172)、[docs/wiki/Architecture-and-Deep-Modules.md:1-294](../Architecture-and-Deep-Modules.md#L1-L294)、[docs/wiki/Wire-Protocols-and-Security.md:1-336](../Wire-Protocols-and-Security.md#L1-L336)、[docs/wiki/Subsystems-File-Map.md:1-228](../Subsystems-File-Map.md#L1-L228)、[docs/wiki/Build-Test-and-Guardrails.md:1-239](../Build-Test-and-Guardrails.md#L1-L239)

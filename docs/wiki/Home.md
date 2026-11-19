@@ -17,7 +17,7 @@
 
 </details>
 
-<div class="archify-cta">✨ <a href="archify-explainer-en.html"><strong>Interactive Archify Explainer</strong></a> — the visual 1-page companion to these 5 chapters.</div>
+<div class="archify-cta">✨ <a href="archify-explainer-en.html"><strong>Interactive Archify Explainer</strong></a> — the visual 1-page companion to these 4 chapters.</div>
 
 ## 1.1 Purpose & Core Subsystems
 
@@ -85,8 +85,6 @@ Sources: [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/Wo
 | Change a dispatcher, parsing rule or seam | [Architecture & Deep Modules](Architecture-and-Deep-Modules.md) | The named `.rs` / `.kt` / `.py` file |
 | Change a packet, error line, trust rule or HMAC behavior | [Wire Protocols & Security](Wire-Protocols-and-Security.md) | `computer/src/auth.rs`, `protocol.py`, `CommandAuth.kt` |
 | Locate the one file to edit without collisions | [Repository Structure & File Ownership](Subsystems-File-Map.md) | The subsystem table |
-| Run tests/lint/builds, or watch CI | [Build, Test & Guardrails](Build-Test-and-Guardrails.md) | `.github/workflows/ci.yml` |
-| Add a power action across all four subsystems | [Extension Recipes](Build-Test-and-Guardrails.md#54-end-to-end-extension-recipes) | All subsystem tables |
 | Add/debug Home Assistant or Google Home | [Home Assistant seam](Architecture-and-Deep-Modules.md#24-home-assistant--google-home-integration-custom_componentspc_onoff) | `custom_components/pc_onoff/` |
 | Change Android UI or Frost styling | [`docs/frost-ui.md`](../frost-ui.md) | `ui/theme/`, `ui/components/` |
 | Set up voice control or HACS | [`docs/home-assistant.md`](../home-assistant.md) | `switch.py`, `button.py` |
@@ -95,4 +93,4 @@ Sources: [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/Wo
 | Read the normative process spec | [`AGENTS.md`](../../AGENTS.md) | — |
 
 
-Sources: [docs/wiki/Home.md:1-172](Home.md#L1-L172), [docs/wiki/Architecture-and-Deep-Modules.md:1-294](Architecture-and-Deep-Modules.md#L1-L294), [docs/wiki/Wire-Protocols-and-Security.md:1-336](Wire-Protocols-and-Security.md#L1-L336), [docs/wiki/Subsystems-File-Map.md:1-228](Subsystems-File-Map.md#L1-L228), [docs/wiki/Build-Test-and-Guardrails.md:1-239](Build-Test-and-Guardrails.md#L1-L239)
+Sources: [docs/wiki/Home.md:1-172](Home.md#L1-L172), [docs/wiki/Architecture-and-Deep-Modules.md:1-294](Architecture-and-Deep-Modules.md#L1-L294), [docs/wiki/Wire-Protocols-and-Security.md:1-336](Wire-Protocols-and-Security.md#L1-L336), [docs/wiki/Subsystems-File-Map.md:1-228](Subsystems-File-Map.md#L1-L228)

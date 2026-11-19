@@ -12,7 +12,6 @@ This document is the global specification and architectural guidelines for this 
 | [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) | Deep-module seams for the Rust daemon, both Android apps and the Home Assistant integration |
 | [`docs/wiki/Wire-Protocols-and-Security.md`](docs/wiki/Wire-Protocols-and-Security.md) | UDP 9 / TCP 9876 / UDP 9877 packet formats, trusted CIDRs, HMAC-SHA256 envelope |
 | [`docs/wiki/Subsystems-File-Map.md`](docs/wiki/Subsystems-File-Map.md) | File ownership map and parallel agent slice partitioning |
-| [`docs/wiki/Build-Test-and-Guardrails.md`](docs/wiki/Build-Test-and-Guardrails.md) | Verification commands, CI/release matrix, non-negotiable guardrails |
 
 The rest of this file is the normative specification: architecture rules, file responsibilities and the cross-platform build/test SOP. When the wiki and this file disagree, **this file wins**.
 

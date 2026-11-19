@@ -21,7 +21,6 @@
 > - [`docs/wiki/zh/Architecture-and-Deep-Modules.md`](docs/wiki/zh/Architecture-and-Deep-Modules.md) — 2. 系統架構與深層模組
 > - [`docs/wiki/zh/Wire-Protocols-and-Security.md`](docs/wiki/zh/Wire-Protocols-and-Security.md) — 3. 傳輸協定與安全模型
 > - [`docs/wiki/zh/Subsystems-File-Map.md`](docs/wiki/zh/Subsystems-File-Map.md) — 4. 子系統檔案地圖
-> - [`docs/wiki/zh/Build-Test-and-Guardrails.md`](docs/wiki/zh/Build-Test-and-Guardrails.md) — 5. 建置、測試與防護準則
 
 一套完整的跨平台遠端控制系統，利用備用 Android 手機作為「家用網關／助手」，透過行動網路、網際網路與區域網路，對電腦進行 Wake-on-LAN (WoL) 遠端喚醒、關機、重啟、睡眠、休眠與螢幕鎖定控制。
 
