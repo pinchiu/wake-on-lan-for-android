@@ -29,6 +29,7 @@ jobs:
       home-phone: ${{ steps.filter.outputs.home-phone }}
       remote-phone: ${{ steps.filter.outputs.remote-phone }}
       computer: ${{ steps.filter.outputs.computer }}
+      home-assistant: ${{ steps.filter.outputs.home-assistant }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -44,6 +45,10 @@ jobs:
               - 'wakeonwanremotephone/**'
             computer:
               - 'computer/**'
+            home-assistant:
+              - 'custom_components/pc_onoff/**'
+              - 'tests/homeassistant/**'
+              - 'hacs.json'
 
   build-home-phone:
     name: Build Home Phone (Wake-on-LAN Helper)
@@ -153,3 +158,24 @@ jobs:
           name: pc_onoff-linux-x86_64
           path: computer/target/release/pc_onoff
           retention-days: 14
+
+  test-home-assistant:
+    name: Test Home Assistant Integration (Python)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.home-assistant == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile Integration Modules
+        run: python -m py_compile custom_components/pc_onoff/*.py
+
+      - name: Run Home Assistant Integration Unit Tests
+        run: python -m unittest discover -s tests/homeassistant -v

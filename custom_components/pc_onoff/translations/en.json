@@ -1,0 +1,123 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a PC",
+        "description": "Set up a computer that Home Assistant can wake over the LAN and power off. The pc_onoff daemon must be running on the target PC for shutdown, reboot, sleep, hibernate and lock.",
+        "data": {
+          "name": "Name",
+          "mac": "MAC address",
+          "host": "IP address",
+          "udp_port": "Control port (UDP)",
+          "wol_port": "Wake-on-LAN port (UDP)",
+          "broadcast_ip": "Broadcast address",
+          "pc_secret": "PC secret",
+          "off_action": "Turn-off action",
+          "probe_mode": "Status probe",
+          "probe_port": "Probe TCP port",
+          "scan_interval": "Scan interval (seconds)"
+        },
+        "data_description": {
+          "name": "Friendly name for this PC. Google Home uses it for voice commands, for example: Hey Google, turn on Gaming PC.",
+          "mac": "MAC address of the wired network adapter that receives the Wake-on-LAN magic packet.",
+          "host": "LAN, Tailscale or public IP address of the PC. The pc_onoff daemon listens on UDP 9877.",
+          "udp_port": "UDP port of the pc_onoff daemon. Default: 9877.",
+          "wol_port": "UDP port for the magic packet. Default: 9.",
+          "broadcast_ip": "IPv4 broadcast address for the magic packet. Use 255.255.255.255 or a subnet broadcast such as 192.168.1.255.",
+          "pc_secret": "Optional on the LAN and Tailscale; required only for a public IP address. Copy it from pc_onoff --status (Command Secret). It is stored in the config entry and never logged.",
+          "off_action": "Action used when the switch is turned off. Shutdown is the default; sleep and hibernate keep the session.",
+          "probe_mode": "How to detect whether the PC is on. Ping needs an IP that answers ICMP, TCP checks only a port, and none assumes the last requested state.",
+          "probe_port": "TCP port checked in TCP probe mode. Default: 445 (SMB).",
+          "scan_interval": "Seconds between status checks (5-3600). Default: 30. Not used when the probe mode is none."
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "Invalid MAC address. Use the format AA:BB:CC:DD:EE:FF.",
+      "invalid_host": "Enter a valid unicast IPv4 or IPv6 address. Broadcast, multicast and unspecified addresses are not allowed.",
+      "invalid_broadcast_ip": "Enter a valid IPv4 broadcast address.",
+      "invalid_port": "Port must be a whole number between 1 and 65535.",
+      "invalid_scan_interval": "Scan interval must be a whole number between 5 and 3600 seconds.",
+      "invalid_off_action": "Choose a valid turn-off action.",
+      "invalid_probe_mode": "Choose a valid status probe.",
+      "secret_required_for_public_ip": "A public IP address requires the PC secret. Use the LAN or Tailscale instead, or copy the secret from pc_onoff --status.",
+      "invalid_secret": "The PC secret contains control characters. Paste it again without line breaks."
+    },
+    "abort": {
+      "already_configured": "This PC is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PC settings",
+        "description": "Update the network and power settings for this PC. The name and MAC address stay fixed so entity IDs and Google Home voice commands keep working.",
+        "data": {
+          "host": "IP address",
+          "udp_port": "Control port (UDP)",
+          "wol_port": "Wake-on-LAN port (UDP)",
+          "broadcast_ip": "Broadcast address",
+          "pc_secret": "PC secret",
+          "off_action": "Turn-off action",
+          "probe_mode": "Status probe",
+          "probe_port": "Probe TCP port",
+          "scan_interval": "Scan interval (seconds)"
+        },
+        "data_description": {
+          "host": "LAN, Tailscale or public IP address of the PC. The pc_onoff daemon listens on UDP 9877.",
+          "udp_port": "UDP port of the pc_onoff daemon. Default: 9877.",
+          "wol_port": "UDP port for the magic packet. Default: 9.",
+          "broadcast_ip": "IPv4 broadcast address for the magic packet. Use 255.255.255.255 or a subnet broadcast such as 192.168.1.255.",
+          "pc_secret": "Leave empty on the LAN or Tailscale. Required for a public IP address; copy it from pc_onoff --status (Command Secret). It is stored in the config entry and never logged.",
+          "off_action": "Action used when the switch is turned off. Shutdown is the default; sleep and hibernate keep the session.",
+          "probe_mode": "How to detect whether the PC is on. Ping needs an IP that answers ICMP, TCP checks only a port, and none assumes the last requested state.",
+          "probe_port": "TCP port checked in TCP probe mode. Default: 445 (SMB).",
+          "scan_interval": "Seconds between status checks (5-3600). Default: 30. Not used when the probe mode is none."
+        }
+      }
+    }
+  },
+  "selector": {
+    "off_action": {
+      "options": {
+        "shutdown": "Shutdown",
+        "sleep": "Sleep",
+        "hibernate": "Hibernate"
+      }
+    },
+    "probe_mode": {
+      "options": {
+        "ping": "Ping (ICMP)",
+        "tcp": "TCP port",
+        "none": "None (assume state)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connectivity": {
+        "name": "Connectivity"
+      }
+    },
+    "button": {
+      "wake": {
+        "name": "Wake"
+      },
+      "shutdown": {
+        "name": "Shutdown"
+      },
+      "reboot": {
+        "name": "Reboot"
+      },
+      "sleep": {
+        "name": "Sleep"
+      },
+      "hibernate": {
+        "name": "Hibernate"
+      },
+      "lock": {
+        "name": "Lock Screen"
+      }
+    }
+  }
+}

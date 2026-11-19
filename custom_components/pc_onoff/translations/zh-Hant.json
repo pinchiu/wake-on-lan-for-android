@@ -1,0 +1,123 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "新增電腦",
+        "description": "設定一台可透過區域網路喚醒並控制電源的電腦。目標電腦必須執行 pc_onoff 守護程式，才能關機、重新啟動、睡眠、休眠與鎖定螢幕。",
+        "data": {
+          "name": "名稱",
+          "mac": "MAC 位址",
+          "host": "IP 位址",
+          "udp_port": "控制連接埠（UDP）",
+          "wol_port": "Wake-on-LAN 連接埠（UDP）",
+          "broadcast_ip": "廣播位址",
+          "pc_secret": "PC 密鑰",
+          "off_action": "關機動作",
+          "probe_mode": "狀態探測方式",
+          "probe_port": "探測 TCP 連接埠",
+          "scan_interval": "掃描間隔（秒）"
+        },
+        "data_description": {
+          "name": "這台電腦的顯示名稱。Google Home 會用於語音指令，例如：Hey Google，開啟 Gaming PC。",
+          "mac": "接收 Wake-on-LAN Magic Packet 的有線網卡 MAC 位址。",
+          "host": "電腦的區域網路、Tailscale 或公開 IP 位址。pc_onoff 守護程式會監聽 UDP 9877。",
+          "udp_port": "pc_onoff 守護程式的 UDP 連接埠，預設 9877。",
+          "wol_port": "Magic Packet 使用的 UDP 連接埠，預設 9。",
+          "broadcast_ip": "Magic Packet 的 IPv4 廣播位址，可使用 255.255.255.255 或子網廣播（例如 192.168.1.255）。",
+          "pc_secret": "區域網路與 Tailscale 可留空，只有公開 IP 才需要填寫。請從 pc_onoff --status 的 Command Secret 複製；密鑰僅儲存在設定項目中，不會寫入日誌。",
+          "off_action": "關閉開關時要執行的動作。預設為關機；睡眠與休眠會保留目前的工作階段。",
+          "probe_mode": "偵測電腦是否開機的方式。Ping 需要會回應 ICMP 的 IP；TCP 只檢查連接埠；不偵測則沿用最後一次指令的狀態。",
+          "probe_port": "TCP 探測模式要檢查的連接埠，預設 445（SMB）。",
+          "scan_interval": "狀態檢查的間隔秒數（5–3600），預設 30；探測方式為「不偵測」時不會輪詢。"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "MAC 位址格式錯誤，請使用 AA:BB:CC:DD:EE:FF。",
+      "invalid_host": "請輸入有效的單播 IPv4 或 IPv6 位址；不可使用廣播、多播或未指定位址。",
+      "invalid_broadcast_ip": "請輸入有效的 IPv4 廣播位址。",
+      "invalid_port": "連接埠必須是 1 到 65535 之間的整數。",
+      "invalid_scan_interval": "掃描間隔必須是 5 到 3600 秒之間的整數。",
+      "invalid_off_action": "請選擇有效的關機動作。",
+      "invalid_probe_mode": "請選擇有效的狀態探測方式。",
+      "secret_required_for_public_ip": "公開 IP 位址必須提供 PC 密鑰。建議改用區域網路或 Tailscale，或從 pc_onoff --status 複製密鑰。",
+      "invalid_secret": "PC 密鑰含有控制字元，請重新貼上且不要包含換行。"
+    },
+    "abort": {
+      "already_configured": "這台電腦已經設定過了。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "電腦設定",
+        "description": "更新這台電腦的網路與電源設定。名稱與 MAC 位址固定不變，以確保實體 ID 與 Google Home 語音指令維持正常。",
+        "data": {
+          "host": "IP 位址",
+          "udp_port": "控制連接埠（UDP）",
+          "wol_port": "Wake-on-LAN 連接埠（UDP）",
+          "broadcast_ip": "廣播位址",
+          "pc_secret": "PC 密鑰",
+          "off_action": "關機動作",
+          "probe_mode": "狀態探測方式",
+          "probe_port": "探測 TCP 連接埠",
+          "scan_interval": "掃描間隔（秒）"
+        },
+        "data_description": {
+          "host": "電腦的區域網路、Tailscale 或公開 IP 位址。pc_onoff 守護程式會監聽 UDP 9877。",
+          "udp_port": "pc_onoff 守護程式的 UDP 連接埠，預設 9877。",
+          "wol_port": "Magic Packet 使用的 UDP 連接埠，預設 9。",
+          "broadcast_ip": "Magic Packet 的 IPv4 廣播位址，可使用 255.255.255.255 或子網廣播（例如 192.168.1.255）。",
+          "pc_secret": "區域網路與 Tailscale 可留空；公開 IP 必須填寫，請從 pc_onoff --status 的 Command Secret 複製。密鑰不會寫入日誌。",
+          "off_action": "關閉開關時要執行的動作。預設為關機；睡眠與休眠會保留目前的工作階段。",
+          "probe_mode": "偵測電腦是否開機的方式。Ping 需要會回應 ICMP 的 IP；TCP 只檢查連接埠；不偵測則沿用最後一次指令的狀態。",
+          "probe_port": "TCP 探測模式要檢查的連接埠，預設 445（SMB）。",
+          "scan_interval": "狀態檢查的間隔秒數（5–3600），預設 30；探測方式為「不偵測」時不會輪詢。"
+        }
+      }
+    }
+  },
+  "selector": {
+    "off_action": {
+      "options": {
+        "shutdown": "關機",
+        "sleep": "睡眠",
+        "hibernate": "休眠"
+      }
+    },
+    "probe_mode": {
+      "options": {
+        "ping": "Ping（ICMP 探測）",
+        "tcp": "TCP 連接埠",
+        "none": "不偵測（沿用上次狀態）"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connectivity": {
+        "name": "連線狀態"
+      }
+    },
+    "button": {
+      "wake": {
+        "name": "喚醒"
+      },
+      "shutdown": {
+        "name": "關機"
+      },
+      "reboot": {
+        "name": "重新啟動"
+      },
+      "sleep": {
+        "name": "睡眠"
+      },
+      "hibernate": {
+        "name": "休眠"
+      },
+      "lock": {
+        "name": "鎖定螢幕"
+      }
+    }
+  }
+}

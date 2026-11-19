@@ -1,6 +1,20 @@
 # Wake-on-LAN Home Phone Remote Control
 [中文說明 (Traditional Chinese)](README_zh.md)
 
+> [!TIP]
+> **Interactive Architecture Wiki & Documentation**
+>
+> Everything below is self-hosted from this repository — no external documentation service:
+>
+> 1. **[Interactive Architecture Wiki Website (GitHub Pages)](https://pinchiu.github.io/wake-on-lan-for-android/)** — a 3-pane interactive architecture wiki with Mermaid diagrams, bilingual “Why / Decision Context” explanations, search, and line-level source links ([local file: docs/wiki/index.html](docs/wiki/index.html)).
+> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html)** — a validated 1-page interactive visual architecture & decision explainer with animated diagrams, step-through walkthroughs, light/dark themes, and image/PDF export ([local file: docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)).
+> 3. **Markdown Architecture Wiki Chapters** (docs/wiki/):
+>    - [`docs/wiki/Home.md`](docs/wiki/Home.md) — 1. System Overview & Gateway Topology
+>    - [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) — 2. Architecture & Deep Modules
+>    - [`docs/wiki/Wire-Protocols-and-Security.md`](docs/wiki/Wire-Protocols-and-Security.md) — 3. Wire Protocols & Security
+>    - [`docs/wiki/Subsystems-File-Map.md`](docs/wiki/Subsystems-File-Map.md) — 4. Subsystems File Map
+>    - [`docs/wiki/Build-Test-and-Guardrails.md`](docs/wiki/Build-Test-and-Guardrails.md) — 5. Build, Test & Guardrails
+
 A complete cross-platform remote control system that turns an Android phone into a home gateway to perform Wake-on-LAN (WoL), shutdown, reboot, sleep, hibernate, and screen lock operations on your computers over mobile data, internet, or local Wi-Fi.
 
 ## Features
@@ -14,6 +28,7 @@ A complete cross-platform remote control system that turns an Android phone into
   - *Home Phone Widget*: 1-tap local Wake-on-LAN broadcast to wake the default PC.
   - *Remote Phone Widget*: 1-tap remote wake targeting the currently selected profile.
 - **Voice Assistant Integration**: Hands-free voice trigger via Google Assistant / Gemini routines using the static app shortcut (`wake_pc_shortcut`).
+- **Home Assistant & Google Home Integration**: A zero-dependency Home Assistant custom integration (`custom_components/pc_onoff/`, installable through HACS) exposes each PC as a Google Home on/off switch, six action buttons and a connectivity sensor — no YAML, no extra PyPI packages. See [`docs/home-assistant.md`](docs/home-assistant.md).
 - **Bilingual Interface**: Seamlessly switch between English and Traditional Chinese in the app settings.
 - **Command Security**: Private LAN and Tailscale require no secret; public IPv6/IPv4 port-forwards use HMAC-SHA256 envelopes with a timestamp and replay guard; MQTT relies on broker TLS, credentials, and topic ACLs.
 - **Frost Interface**: Both Android apps share a calm light-grey glass design — translucent cards, hairline borders, system typography and one iOS-blue accent — with **System / Light / Dark** appearance. The Rust daemon adds an optional local dashboard with the same design language.
@@ -36,6 +51,9 @@ Download the latest pre-built releases from the [GitHub Releases page](https://g
 - **Windows**: `pc_onoff-windows-x86_64.exe` (or `.zip`) — 64-bit standalone executable, runs immediately with zero dependencies.
 - **Linux**: `pc_onoff-linux-x86_64.AppImage` (or standalone binary `pc_onoff-linux-x86_64` / `.tar.gz`) — portable AppImage running on any modern Linux distribution.
 - **Apple macOS**: `pc_onoff-macos-universal.zip` (or `.tar.gz` / binary `pc_onoff-macos-universal`) — Universal Binary natively supporting Apple Silicon (M1/M2/M3/M4) and Intel Macs.
+
+### Home Assistant Custom Integration (`pc_onoff`)
+- `custom_components/pc_onoff/` — Home Assistant 2024.1+ custom integration with zero external PyPI dependencies. Add `https://github.com/pinchiu/wake-on-lan-for-android` as a **HACS custom repository** (category: Integration) or copy the folder into `/config/custom_components/`. Setup, entities and Google Home voice control: [`docs/home-assistant.md`](docs/home-assistant.md).
 
 ## Command Security (LAN/Tailscale first)
 
@@ -104,6 +122,9 @@ The Android apps adapt automatically and stay readable in both layouts. The dash
    - PC Power Commands: Sends UDP datagram via **UDP (Port 9877)** to the PC's local IP.
 4. **Remote Phone -> Target Computer (Local LAN Mode)**:
    - When on the same Wi-Fi network, commands are sent directly to the PC / subnet.
+5. **Google Home -> Home Assistant (`custom_components/pc_onoff`)**:
+   - Google Home routes *“turn on / turn off `<PC name>`”* to Home Assistant.
+   - Home Assistant sends the same **UDP (Port 9)** magic packet and **UDP (Port 9877)** power commands directly to the PC — an optional, zero-dependency alternative to the Android Home Phone gateway.
 
 ## Setup & Getting Started
 
@@ -201,6 +222,30 @@ Frost design system as the Android apps.
 #### C. Local LAN Mode
 1. When connected to the same Wi-Fi network as your computer, toggle **Local LAN Mode** on the Remote Phone.
 2. Commands are sent directly to the local subnet / computer IP without going through the Home Phone.
+
+### 4. Home Assistant & Google Home (Optional)
+
+Home Assistant can replace — or complement — the Home Phone as the LAN gateway, adding native
+Google Home voice control without any extra Python packages:
+
+1. **Install the integration**: in HACS, open **⋮ → Custom repositories**, add
+   `https://github.com/pinchiu/wake-on-lan-for-android` as an **Integration**, download
+   **Wake-on-LAN & PC Power (pc_onoff)**, then restart Home Assistant. (Manual alternative: copy
+   `custom_components/pc_onoff/` into `/config/custom_components/`.)
+2. **Add a PC**: **Settings → Devices & Services → Add Integration → Wake-on-LAN & PC Power
+   (pc_onoff)**. Enter the name, MAC address and LAN/Tailscale IP; the PC secret is only needed
+   for a public IP. The same form selects the turn-off action (`shutdown` / `sleep` /
+   `hibernate`), the status probe (`ping` / `tcp` / `none`) and the scan interval.
+3. **Expose to Google Home**: **Settings → Voice Assistants → Expose**, expose only
+   `switch.<pc_name>`, then say *“Hey Google, sync my devices”*. Voice commands become
+   *“Hey Google, turn on `<PC Name>`”* and *“Hey Google, turn off `<PC Name>`”*.
+4. **Docker users**: the Home Assistant container needs `network_mode: host` so the Wake-on-LAN
+   broadcast reaches the PC’s NIC.
+
+The integration also creates `button.<pc_name>_{wake,shutdown,reboot,sleep,hibernate,lock_screen}`
+and `binary_sensor.<pc_name>_connectivity`, and holds the requested switch state for 25 seconds so
+a booting PC does not bounce Google Home back to *off*. Full field reference, Google Home routines
+and troubleshooting: [`docs/home-assistant.md`](docs/home-assistant.md).
 
 ## Troubleshooting
 - **WoL Does Not Wake Computer**:

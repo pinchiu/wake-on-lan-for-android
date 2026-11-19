@@ -259,6 +259,11 @@ jobs:
           pattern: '*-assets'
           merge-multiple: true
 
+      - name: Package Home Assistant Integration Archive
+        run: |
+          mkdir -p release-assets
+          zip -r release-assets/pc_onoff-home-assistant.zip custom_components/pc_onoff hacs.json docs/home-assistant.md
+
       - name: Display Release Asset List
         run: |
           echo "=== Release Asset List ==="

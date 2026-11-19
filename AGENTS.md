@@ -2,15 +2,30 @@
 
 This document is the global specification and architectural guidelines for this project (supporting Linux Foundation / Agentic AI standards, as well as AI development agents such as Antigravity, Claude Code, Cursor, Windsurf, and human developers). It details the core system architecture, deep module design, command dispatch pipeline, file responsibilities, and **cross-platform (Linux, macOS, Windows) build, test, and verification standard operating procedures (SOP)**.
 
+## Context Pointers / Agent Wiki
+
+**Read [`docs/wiki/Home.md`](docs/wiki/Home.md) first (~2 minutes).** It gives the whole-system topology, the port/trust model and a router that sends each task to the right deep page:
+
+| Wiki page | Answers |
+| :--- | :--- |
+| [`docs/wiki/Home.md`](docs/wiki/Home.md) | Overview, subsystem topology, 60-second mental model, agent context router |
+| [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) | Deep-module seams for the Rust daemon, both Android apps and the Home Assistant integration |
+| [`docs/wiki/Wire-Protocols-and-Security.md`](docs/wiki/Wire-Protocols-and-Security.md) | UDP 9 / TCP 9876 / UDP 9877 packet formats, trusted CIDRs, HMAC-SHA256 envelope |
+| [`docs/wiki/Subsystems-File-Map.md`](docs/wiki/Subsystems-File-Map.md) | File ownership map and parallel agent slice partitioning |
+| [`docs/wiki/Build-Test-and-Guardrails.md`](docs/wiki/Build-Test-and-Guardrails.md) | Verification commands, CI/release matrix, non-negotiable guardrails |
+
+The rest of this file is the normative specification: architecture rules, file responsibilities and the cross-platform build/test SOP. When the wiki and this file disagree, **this file wins**.
+
 ---
 
 ## 1. System Architecture & Core Modules
 
-The system consists of three core subsystems:
+The system consists of four core subsystems:
 
 * [`wakeonlanhomephone/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonlanhomephone/): **Home Phone Helper Android Application**. Stationed at home and permanently connected to the local Wi-Fi network, serving as the gateway/bridge from WAN into the local LAN. Broadcasts Wake-on-LAN UDP Magic Packets (port 9), listens for incoming WAN TCP connections (port 9876), subscribes to MQTT brokers, receives voice shortcuts / routines, and handles home screen widgets, converging all commands through `PcActionDispatcher`.
 * [`wakeonwanremotephone/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/wakeonwanremotephone/): **Remote Phone Controller Android Application**. Carried by the user to send control commands to the Home Phone helper or directly to target computers via TCP (IPv6/IPv4), MQTT, or local LAN broadcast. Supports multi-host profile management and a 1-tap desktop wake-up widget.
 * [`computer/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/): **Target Computer Daemon (Rust Cross-Platform Service)**. Runs in the background on Windows, Linux, and Apple macOS listening on UDP port 9877. Receives power commands (`shutdown`, `reboot`, `sleep`, `hibernate`, `lock`) and executes safe OS transitions via native system calls (Win32 API / Linux systemd-logind / macOS AppleScript & pmset). Includes zero-admin per-user autostart (Windows Registry HKCU Run / Linux systemd user & XDG / macOS LaunchAgent), an opt-in Linux **system-wide service** (`sudo pc_onoff --install-system`) that works before anyone logs in, an optional local **Frost dashboard** (`pc_onoff --web-ui`), and automatic 5 MB log rotation.
+* [`custom_components/pc_onoff/`](custom_components/pc_onoff/): **Home Assistant Custom Integration (Python 3.11+, zero external dependencies)**. Optional LAN gateway that replaces or complements the Home Phone: exposes each PC as a Google Home on/off switch, six action buttons (wake, shutdown, reboot, sleep, hibernate, lock) and a connectivity sensor. Sends the same UDP 9 magic packet and UDP 9877 power commands (bare on LAN/Tailscale, HMAC-SHA256 envelope on public IPs) and holds the requested state for 25 s so a booting PC does not bounce Google Home back to off. Installable through HACS (`hacs.json`).
 
 ### 1.1 Linux System Service vs. Per-User Autostart
 
@@ -22,6 +37,19 @@ The system consists of three core subsystems:
 * `pc_onoff --service` is the internal unit entry point: it never touches per-user autostart.
 * A normal `pc_onoff` launch exits early only when the system service is **active**, so a stopped/crash-looping unit does not block manual recovery.
 * `pc_onoff --status` reports the system service state; `--uninstall-system` removes the unit and binary but keeps `/var/lib/pc_onoff` data.
+
+### 1.2 Home Assistant & Google Home Gateway (Optional)
+
+| Mode | Installed by | Starts | Reaches the PC via | Voice control |
+| :--- | :--- | :--- | :--- | :--- |
+| Home Phone (default) | Android APK on a spare phone | after **Start Service** is tapped | TCP 9876 relay from the Remote Phone or MQTT; local UDP 9 + UDP 9877 | Google Assistant shortcut (`wake_pc_shortcut`) |
+| Home Assistant (opt-in) | HACS custom repository or manual copy of `custom_components/pc_onoff/` | with Home Assistant | UDP 9 magic packet + UDP 9877 power commands, sent directly | Google Home switch (`switch.<pc>`) through Nabu Casa or the Google Assistant integration |
+
+* Setup, field reference, entity IDs and Google Home exposure: [`docs/home-assistant.md`](docs/home-assistant.md). HACS metadata: [`hacs.json`](hacs.json).
+* The HA layer never re-implements the wire protocol: `protocol.py` mirrors `computer/src/auth.rs` bit-for-bit, and `validation.py` enforces the same public-IP secret rule as the daemon.
+* `name` and `mac` are immutable after setup so entity IDs, unique IDs, the device registry entry and Google Home voice names stay stable.
+* Docker installs need `network_mode: host` (or macvlan) for the Wake-on-LAN broadcast to reach the PC's NIC.
+* `OPTIMISTIC_HOLD_SECONDS = 25.0` keeps the switch on (or off) while the PC boots or shuts down; one reconciliation poll runs at `+26 s`.
 
 ---
 
@@ -189,6 +217,13 @@ Private LAN and Tailscale are trusted; public IPv6/IPv4 signs every command auto
 | **PC Daemon UDP Server** | [`computer/src/server.rs`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/server.rs) | Listens on UDP 9877, verifies the auth envelope, passes authenticated datagrams to dispatcher, logs `auth_rejected`, resolves local IPv4. |
 | **PC Daemon Support Modules** | [`computer/src/`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/src/) | `config` (atomic INI persistence), `logging` (5 MB rotation), `instance` (single-instance mutex & stop), `cli` (CLI args & status). |
 | **PC Daemon Python Reference** | [`computer/pc_onoff.py`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/computer/pc_onoff.py) | Reference implementation supporting Windows, Linux, and macOS; checked for syntax in CI. |
+| **HA Integration Core (Layer 1)** | [`custom_components/pc_onoff/`](custom_components/pc_onoff/) | Pure-Python `const`, `protocol` (MAC validation, 102-byte magic packet, trusted CIDRs, HMAC-SHA256 envelope), `probe` (ICMP / TCP / none) and `state` (`OptimisticStateTracker`); stdlib only, zero `homeassistant` imports. |
+| **HA Config & Options Flow** | [`custom_components/pc_onoff/config_flow.py`](custom_components/pc_onoff/config_flow.py) | Thin UI adapter: renders the add/options forms and delegates every rule to `validation.py`. `name`/`mac` are immutable so entity IDs and Google Home names never change. |
+| **HA Runtime & Coordinator** | [`custom_components/pc_onoff/__init__.py`](custom_components/pc_onoff/__init__.py), [`custom_components/pc_onoff/coordinator.py`](custom_components/pc_onoff/coordinator.py) | ConfigEntry setup/unload with `entry.runtime_data`, `PcTargetConfig.from_mapping`, polling via `DataUpdateCoordinator`, 25 s optimistic hold and one delayed reconciliation poll. |
+| **HA Entity Adapters** | [`custom_components/pc_onoff/switch.py`](custom_components/pc_onoff/switch.py), [`custom_components/pc_onoff/button.py`](custom_components/pc_onoff/button.py), [`custom_components/pc_onoff/binary_sensor.py`](custom_components/pc_onoff/binary_sensor.py) | Google Home on/off switch, six action buttons (wake/shutdown/reboot/sleep/hibernate/lock) and a connectivity sensor; declarative adapters over the coordinator. |
+| **HA Test Suite** | [`tests/homeassistant/`](tests/homeassistant/) | Standard-library `unittest` suite (protocol, probe, validation, coordinator, entities, translations); runs without the 1 GB `homeassistant` package. |
+| **HACS Manifest** | [`hacs.json`](hacs.json) | HACS metadata (`render_readme: true`, `homeassistant: 2024.1.0`) so the repository installs as a custom Integration repository. |
+| **HA Setup Guide** | [`docs/home-assistant.md`](docs/home-assistant.md) | HACS/manual install, every config field, entity IDs, Google Home exposure and routines, Docker/VLAN networking, security model and troubleshooting (English + Traditional Chinese). |
 
 ---
 
@@ -261,6 +296,19 @@ Private LAN and Tailscale are trusted; public IPv6/IPv4 signs every command auto
   cd computer; cargo fmt --all -- --check; cargo clippy --all-targets -- -D warnings; cargo test
   ```
 
+#### F. Home Assistant Integration Tests (Python, Must Pass 100%)
+Runs with the Python standard library only; the `homeassistant` package is **not** required.
+* **Linux / macOS**:
+  ```bash
+  python3 -m py_compile custom_components/pc_onoff/*.py
+  python3 -m unittest discover -s tests/homeassistant -v
+  ```
+* **Windows (PowerShell)**:
+  ```powershell
+  Get-ChildItem custom_components/pc_onoff/*.py | ForEach-Object { python -m py_compile $_.FullName }
+  python -m unittest discover -s tests/homeassistant -v
+  ```
+
 ---
 
 ## 7. GitHub Actions CI/CD & Release Workflows
@@ -270,10 +318,11 @@ Private LAN and Tailscale are trusted; public IPv6/IPv4 signs every command auto
 * **Trigger Conditions**: `push` or `pull_request` to `master` / `main` (ignoring `**.md` and `.gitignore`), or manual `workflow_dispatch`.
 * **Subsystem Path Filtering & Conditional Execution**:
   Uses `dorny/paths-filter` to isolate subsystems so **unchanged components are never compiled redundantly**:
-  1. `detect-changes`: Inspects `home-phone` (`wakeonlanhomephone/**`), `remote-phone` (`wakeonwanremotephone/**`), and `computer` (`computer/**`).
+  1. `detect-changes`: Inspects `home-phone` (`wakeonlanhomephone/**`), `remote-phone` (`wakeonwanremotephone/**`), `computer` (`computer/**`), and `home-assistant` (`custom_components/pc_onoff/**`, `tests/homeassistant/**`, `hacs.json`).
   2. `build-home-phone`: Runs JDK 21 unit tests and APK packaging only when `wakeonlanhomephone/**` changes (skipped otherwise).
   3. `build-remote-phone`: Builds Release APK only when `wakeonwanremotephone/**` changes (skipped otherwise).
   4. `build-computer`: Runs `cargo fmt --check`, `cargo clippy`, `cargo test`, Linux release build, and Python syntax check only when `computer/**` changes (skipped otherwise).
+  5. `test-home-assistant`: Runs Python 3.12 `py_compile` over `custom_components/pc_onoff/*.py` and the stdlib `unittest` suite in `tests/homeassistant/` only when the integration, its tests, or `hacs.json` change (skipped otherwise).
 
 ### 7.2 Multi-Platform Release Pipeline (`release.yml`)
 * **Workflow Path**: [`.github/workflows/release.yml`](file:///home/scott/Documents/opencode/wake-on-lan-for-android/.github/workflows/release.yml)

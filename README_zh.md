@@ -1,6 +1,20 @@
 # Wake-on-LAN 家用手機遠端喚醒控制系統
 [English README](README.md)
 
+> [!TIP]
+> **互動式系統架構百科**
+>
+> 以下內容全部由本儲存庫自行託管，不依賴任何外部文件服務：
+>
+> 1. **[互動式架構百科網站（GitHub Pages）](https://pinchiu.github.io/wake-on-lan-for-android/)** — 三欄式互動架構百科，內含 Mermaid 圖表、雙語「Why／決策背景」說明、搜尋功能與行級原始碼連結（[本機檔案：docs/wiki/index.html](docs/wiki/index.html)）。
+> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html)** — 經校驗的單頁互動式視覺架構與決策說明，內含動畫圖表、逐步導覽、淺色／深色主題與圖片／PDF 匯出（[本機檔案：docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)）。
+> 3. **Markdown 架構百科章節**（docs/wiki/）：
+>    - [`docs/wiki/Home.md`](docs/wiki/Home.md) — 1. System Overview & Gateway Topology
+>    - [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) — 2. Architecture & Deep Modules
+>    - [`docs/wiki/Wire-Protocols-and-Security.md`](docs/wiki/Wire-Protocols-and-Security.md) — 3. Wire Protocols & Security
+>    - [`docs/wiki/Subsystems-File-Map.md`](docs/wiki/Subsystems-File-Map.md) — 4. Subsystems File Map
+>    - [`docs/wiki/Build-Test-and-Guardrails.md`](docs/wiki/Build-Test-and-Guardrails.md) — 5. Build, Test & Guardrails
+
 一套完整的跨平台遠端控制系統，利用備用 Android 手機作為「家用網關／助手」，透過行動網路、網際網路與區域網路，對電腦進行 Wake-on-LAN (WoL) 遠端喚醒、關機、重啟、睡眠、休眠與螢幕鎖定控制。
 
 ## 功能特色
@@ -14,6 +28,7 @@
   - *家用助手端小工具*：桌面單鍵發送內網 WoL 廣播，立即喚醒預設電腦並顯示時間戳記。
   - *外出遙控端小工具*：顯示當前選定之電腦名稱，單鍵發送遠端喚醒。
 - **語音助理整合**：支援 Google 助理 / Gemini 日常安排 (Routine) 語音捷徑 (`wake_pc_shortcut`)，說句語音指令立即喚醒。
+- **Home Assistant 與 Google Home 整合**：內建無外部相依的 Home Assistant 自訂整合（`custom_components/pc_onoff/`，可透過 HACS 安裝），將每台電腦變成 Google Home 開關，並提供六個動作按鈕與連線狀態感測器 — 無須修改 YAML、無須額外安裝 PyPI 套件。詳見 [`docs/home-assistant.md`](docs/home-assistant.md)。
 - **雙語介面支援**：手機 App 設定內建即時切換繁體中文與英文介面。
 - **指令安全**：內網／Tailscale 免密鑰；公開 port-forward 只需設定一次密鑰，之後自動簽章；MQTT 依賴 broker 帳密與主題權限。
 - **Frost 介面設計**：兩款 Android App 採用淺灰磨砂玻璃質感 — 半透明卡片、細緻描邊、系統字體與單一 iOS 藍色強調色，並支援 **系統／淺色／深色** 外觀；Rust 守護程式也提供相同風格的區域網頁儀表板。
@@ -36,6 +51,9 @@
 - **Windows**：`pc_onoff-windows-x86_64.exe` (或 `.zip`) — 64 位元獨立執行檔，免安裝直接執行。
 - **Linux**：`pc_onoff-linux-x86_64.AppImage` (或獨立二進位檔 `pc_onoff-linux-x86_64` / `.tar.gz`) — 免安裝 AppImage，隨點隨開，支援各大主流 Linux 發行版。
 - **Apple macOS**：`pc_onoff-macos-universal.zip` (或 `.tar.gz` / 獨立執行檔 `pc_onoff-macos-universal`) — 通用二進位檔 (Universal Binary)，原生支援 Apple Silicon (M1/M2/M3/M4) 與 Intel Mac。
+
+### Home Assistant 自訂整合 (`pc_onoff`)
+- `custom_components/pc_onoff/` — 支援 Home Assistant 2024.1 以上、無外部 PyPI 相依的整合。可將 `https://github.com/pinchiu/wake-on-lan-for-android` 新增為 **HACS 自訂儲存庫**（類別：Integration），或直接複製資料夾到 `/config/custom_components/`。安裝、實體與 Google Home 語音控制說明：[`docs/home-assistant.md`](docs/home-assistant.md)。
 
 ## 指令安全（內網／Tailscale 優先）
 
@@ -100,6 +118,9 @@ Android App 以淺色玻璃為主；網頁儀表板同時支援淺色與深色 (
    - 電腦控制：透過 **UDP (Port 9877)** 發送控制指令至執行 `pc_onoff` 之電腦 IP。
 4. **外出手機 -> 目標電腦 (內網直連模式)**：
    - 當外出手機連上家中 Wi-Fi 時，可直接對區域網路發送廣播與控制指令。
+5. **Google Home -> Home Assistant (`custom_components/pc_onoff`)**：
+   - Google Home 將「打開／關閉 `<電腦名稱>`」語音指令交給 Home Assistant。
+   - Home Assistant 直接對電腦發送相同的 **UDP (Port 9)** 魔術封包與 **UDP (Port 9877)** 電源指令，是 Android 家用手機網關之外零外部相依的替代方案。
 
 ## 安裝與設定流程
 
@@ -197,6 +218,29 @@ Frost 設計系統。
 #### C. 內網直連模式
 1. 當外出手機連上家中 Wi-Fi 時，於 App 內開啟 **Local LAN Mode**。
 2. 指令將直接透過本機廣播與 UDP 發送至電腦，無需經過助手手機。
+
+### 4. Home Assistant 與 Google Home（選用）
+
+Home Assistant 可以取代（或搭配）家用手機作為區域網路網關，直接提供 Google Home 語音控制，
+且不需安裝任何額外 Python 套件：
+
+1. **安裝整合**：在 HACS 開啟 **⋮ → 自訂儲存庫 (Custom repositories)**，將
+   `https://github.com/pinchiu/wake-on-lan-for-android` 新增為 **Integration**，下載
+   **Wake-on-LAN & PC Power (pc_onoff)** 後重新啟動 Home Assistant。（手動方式：將
+   `custom_components/pc_onoff/` 複製到 `/config/custom_components/`。）
+2. **新增電腦**：**設定 → 裝置與服務 → 新增整合 → Wake-on-LAN & PC Power (pc_onoff)**。
+   填寫名稱、MAC 位址與區域網路／Tailscale IP；只有公開 IP 才需要 PC 密鑰。同一張表單可選擇
+   關機動作（`shutdown` / `sleep` / `hibernate`）、狀態偵測（`ping` / `tcp` / `none`）與掃描間隔。
+3. **公開給 Google Home**：**設定 → 語音助理 → 公開 (Expose)**，只公開 `switch.<電腦名稱>`，
+   然後說「Ok Google，同步我的裝置」。語音指令即為「Ok Google，打開 `<電腦名稱>`」與
+   「Ok Google，關閉 `<電腦名稱>`」。
+4. **Docker 使用者**：Home Assistant 容器需使用 `network_mode: host`，Wake-on-LAN 廣播才能
+   抵達電腦網卡。
+
+整合也會建立 `button.<電腦名稱>_{wake,shutdown,reboot,sleep,hibernate,lock_screen}` 與
+`binary_sensor.<電腦名稱>_connectivity`，並將開關狀態保持 25 秒，避免開機中的電腦讓 Google Home
+又跳回關閉。完整欄位說明、Google Home 日常安排與疑難排解請見
+[`docs/home-assistant.md`](docs/home-assistant.md)。
 
 ## 疑難排解
 - **WoL 無法喚醒電腦**：

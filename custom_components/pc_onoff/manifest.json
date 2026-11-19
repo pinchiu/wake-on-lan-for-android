@@ -1,0 +1,12 @@
+{
+  "domain": "pc_onoff",
+  "name": "Wake-on-LAN & PC Power (pc_onoff)",
+  "version": "1.8.0",
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "integration_type": "device",
+  "requirements": [],
+  "documentation": "https://github.com/pinchiu/wake-on-lan-for-android/blob/master/docs/home-assistant.md",
+  "issue_tracker": "https://github.com/pinchiu/wake-on-lan-for-android/issues",
+  "codeowners": ["@pinchiu"]
+}
