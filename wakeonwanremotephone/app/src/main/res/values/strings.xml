@@ -41,6 +41,7 @@
     <string name="already_latest">已是最新版本</string>
     <string name="check_latest_version">檢查最新版本</string>
     <string name="view_on_github">在 GitHub 上查看發行版</string>
+    <string name="about_view_releases_failed">無法開啟瀏覽器</string>
     <string name="close">關閉</string>
 
     <!-- Language selector -->

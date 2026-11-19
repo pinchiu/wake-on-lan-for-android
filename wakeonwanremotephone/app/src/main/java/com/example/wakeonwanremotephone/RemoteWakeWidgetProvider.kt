@@ -12,6 +12,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,6 +29,7 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
         const val ACTION_REMOTE_WAKE = "com.example.wakeonwanremotephone.ACTION_REMOTE_WAKE"
         const val EXTRA_WIDGET_TOKEN = "com.example.wakeonwanremotephone.EXTRA_WIDGET_TOKEN"
         private const val KEY_WIDGET_TOKEN = "remote_widget_token"
+        private const val WIDGET_TIMEOUT_MS = 7_500L
 
         fun createPendingIntent(context: Context): PendingIntent {
             val intent = Intent(context, RemoteWakeWidgetProvider::class.java).apply {
@@ -58,6 +62,15 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
             val token = CommandAuth.generateSecret()
             prefs.edit().putString(KEY_WIDGET_TOKEN, token).apply()
             return token
+        }
+
+        /** Constant-time comparison so timing cannot be used to recover the token. */
+        private fun tokenMatches(provided: String?, expected: String): Boolean {
+            if (provided.isNullOrEmpty()) return false
+            return MessageDigest.isEqual(
+                provided.toByteArray(StandardCharsets.UTF_8),
+                expected.toByteArray(StandardCharsets.UTF_8)
+            )
         }
 
         fun updateWidgetViews(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
@@ -102,18 +115,18 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
         if (intent.action == ACTION_REMOTE_WAKE) {
             // Reject broadcasts from other apps: only our PendingIntent carries
             // the private per-install token.
-            if (intent.getStringExtra(EXTRA_WIDGET_TOKEN) != widgetToken(context)) {
+            if (!tokenMatches(intent.getStringExtra(EXTRA_WIDGET_TOKEN), widgetToken(context))) {
                 return
             }
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
+                val localized = AppLocale.wrap(context)
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                val componentName = ComponentName(context, RemoteWakeWidgetProvider::class.java)
+                val views = RemoteViews(context.packageName, R.layout.widget_remote_wake)
                 try {
-                    val localized = AppLocale.wrap(context)
                     val manager = DeviceProfileManager(context)
                     val device = manager.getSelectedDevice()
-                    val appWidgetManager = AppWidgetManager.getInstance(context)
-                    val componentName = ComponentName(context, RemoteWakeWidgetProvider::class.java)
-                    val views = RemoteViews(context.packageName, R.layout.widget_remote_wake)
                     val pendingIntent = createPendingIntent(context)
                     views.setOnClickPendingIntent(R.id.widget_remote_root, pendingIntent)
                     views.setOnClickPendingIntent(R.id.widget_remote_btn, pendingIntent)
@@ -130,23 +143,44 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
                     val isLocalLan = manager.isLocalLanMode()
                     val helperIpv6 = manager.getHelperIpv6()
 
-                    val resultMsg: String
-                    if (isLocalLan) {
-                        resultMsg = RemoteNetworkUtil.sendLocalMagicPacket(device.mac)
-                    } else {
-                        if (helperIpv6.isBlank()) {
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(localized, localized.getString(R.string.widget_no_helper_ipv6), Toast.LENGTH_LONG).show()
-                            }
-                            return@launch
+                    if (!isLocalLan && helperIpv6.isBlank()) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(localized, localized.getString(R.string.widget_no_helper_ipv6), Toast.LENGTH_LONG).show()
                         }
-                        // Blank secret = bare command; LAN/Tailscale accepts it directly.
-                        val helperSecret = SecuritySettings(context).getHelperSecret()
-                        resultMsg = RemoteNetworkUtil.sendTcpCommand(
-                            helperIpv6,
-                            "WAKE:${device.mac}",
-                            helperSecret
+                        return@launch
+                    }
+
+                    // Bound the work below Android's ~10 second BroadcastReceiver ANR limit.
+                    val resultMsg = withTimeout(WIDGET_TIMEOUT_MS) {
+                        if (isLocalLan) {
+                            RemoteNetworkUtil.sendLocalMagicPacket(device.mac)
+                        } else {
+                            // Blank secret = bare command; LAN/Tailscale accepts it directly.
+                            val helperSecret = SecuritySettings(context).getHelperSecret()
+                            RemoteNetworkUtil.sendTcpCommand(
+                                helperIpv6,
+                                "WAKE:${device.mac}",
+                                helperSecret,
+                                connectTimeoutMs = 3000,
+                                readTimeoutMs = 3000
+                            )
+                        }
+                    }
+
+                    if (RemoteNetworkUtil.isErrorResult(resultMsg)) {
+                        views.setTextViewText(
+                            R.id.widget_remote_status,
+                            localized.getString(R.string.widget_send_failed, resultMsg)
                         )
+                        appWidgetManager.updateAppWidget(componentName, views)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                localized,
+                                localized.getString(R.string.widget_send_failed, resultMsg),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        return@launch
                     }
 
                     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -168,11 +202,20 @@ class RemoteWakeWidgetProvider : AppWidgetProvider() {
                         ).show()
                     }
                 } catch (e: Exception) {
+                    val message = e.message ?: ""
+                    try {
+                        views.setTextViewText(
+                            R.id.widget_remote_status,
+                            localized.getString(R.string.widget_send_failed, message)
+                        )
+                        appWidgetManager.updateAppWidget(componentName, views)
+                    } catch (_: Exception) {
+                        // Widget update is best-effort; still surface the toast.
+                    }
                     withContext(Dispatchers.Main) {
-                        val localized = AppLocale.wrap(context)
                         Toast.makeText(
                             localized,
-                            localized.getString(R.string.widget_send_failed, e.message ?: ""),
+                            localized.getString(R.string.widget_send_failed, message),
                             Toast.LENGTH_SHORT
                         ).show()
                     }

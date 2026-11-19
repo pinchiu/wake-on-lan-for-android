@@ -7,7 +7,7 @@
         android:shortcutShortLabel="@string/shortcut_wake_pc_short"
         android:shortcutLongLabel="@string/shortcut_wake_pc_long">
         <intent
-            android:action="android.intent.action.VIEW"
+            android:action="com.example.wakeonlanhomephone.ACTION_VOICE_WAKE"
             android:targetPackage="com.example.wakeonlanhomephone"
             android:targetClass="com.example.wakeonlanhomephone.VoiceWakeActivity" />
         <categories android:name="android.shortcut.conversation" />

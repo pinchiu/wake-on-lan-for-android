@@ -1,13 +1,17 @@
 package com.example.wakeonlanhomephone
 
+import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.widget.Toast
@@ -22,7 +26,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Done
@@ -37,7 +40,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.example.wakeonlanhomephone.ui.components.*
 import com.example.wakeonlanhomephone.ui.theme.*
@@ -60,6 +63,7 @@ class MainActivity : ComponentActivity() {
 
     private var wolService by mutableStateOf<WolListenerService?>(null)
     private var isBound by mutableStateOf(false)
+    private var bindRequested = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
@@ -85,8 +89,11 @@ class MainActivity : ComponentActivity() {
         }
         val background = if (dark) 0xFF121214.toInt() else 0xFFF2F2F7.toInt()
         window.setBackgroundDrawable(ColorDrawable(background))
-        window.statusBarColor = background
-        window.navigationBarColor = if (dark) 0xFF1C1C1E.toInt() else 0xFFE9E9EF.toInt()
+        // Android 15+ enforces edge-to-edge and ignores these legacy colours.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            window.statusBarColor = background
+            window.navigationBarColor = if (dark) 0xFF1C1C1E.toInt() else 0xFFE9E9EF.toInt()
+        }
         WindowCompat.getInsetsController(window, window.decorView)
             .isAppearanceLightStatusBars = !dark
     }
@@ -95,8 +102,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         applyStartupWindowBackground()
 
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
         }
 
         setContent {
@@ -122,20 +132,25 @@ class MainActivity : ComponentActivity() {
                 isBound = isBound,
                 onStartService = {
                     Intent(this, WolListenerService::class.java).also { intent ->
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             startForegroundService(intent)
                         } else {
                             startService(intent)
                         }
-                        if (!isBound) {
-                            bindService(intent, connection, android.content.Context.BIND_AUTO_CREATE)
+                        if (!isBound && !bindRequested) {
+                            bindRequested = bindService(intent, connection, Context.BIND_AUTO_CREATE)
                         }
                     }
                 },
                 onStopService = {
                     Intent(this, WolListenerService::class.java).also { intent ->
-                        if (isBound) {
-                            unbindService(connection)
+                        if (bindRequested || isBound) {
+                            try {
+                                unbindService(connection)
+                            } catch (_: IllegalArgumentException) {
+                                // Not bound (anymore); nothing to release.
+                            }
+                            bindRequested = false
                             isBound = false
                             wolService = null
                         }
@@ -144,7 +159,7 @@ class MainActivity : ComponentActivity() {
                 },
                 onStartMqtt = {
                     Intent(this, MqttWolService::class.java).also { intent ->
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             startForegroundService(intent)
                         } else {
                             startService(intent)
@@ -158,14 +173,15 @@ class MainActivity : ComponentActivity() {
                 },
                 onRestartMqttService = {
                     Intent(this, MqttWolService::class.java).also { intent ->
-                        stopService(intent)
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                 startForegroundService(intent)
                             } else {
                                 startService(intent)
                             }
-                        }, 300)
+                        } catch (e: IllegalStateException) {
+                            android.util.Log.e("MainActivity", "Cannot restart MQTT service", e)
+                        }
                     }
                 },
                 configManager = configManager,
@@ -176,17 +192,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (!isBound) {
+        if (!isBound && !bindRequested) {
             Intent(this, WolListenerService::class.java).also { intent ->
-                bindService(intent, connection, 0)
+                bindRequested = bindService(intent, connection, 0)
             }
         }
     }
 
     override fun onStop() {
         super.onStop()
-        if (isBound) {
-            unbindService(connection)
+        if (bindRequested || isBound) {
+            try {
+                unbindService(connection)
+            } catch (_: IllegalArgumentException) {
+                // The binding was already released by the system.
+            }
+            bindRequested = false
             isBound = false
             wolService = null
         }
@@ -419,236 +440,6 @@ enum class Tab {
         
 
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SettingsScreen(
-    configManager: MqttConfigManager,
-    onSave: () -> Unit,
-    onBack: () -> Unit
-) {
-
-
-    // Config State
-    var brokerName by remember { mutableStateOf("") }
-    var host by remember { mutableStateOf("") }
-    var port by remember { mutableStateOf("") }
-    var clientId by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var topic by remember { mutableStateOf("") }
-    var targetMac by remember { mutableStateOf("") }
-    var useSsl by remember { mutableStateOf(true) }
-    var protocol by remember { mutableStateOf("TCP") }
-    var timeout by remember { mutableStateOf("30") }
-    var keepAlive by remember { mutableStateOf("60") }
-    var autoConnect by remember { mutableStateOf(true) }
-
-    // Load config on init
-    LaunchedEffect(Unit) {
-        val config = configManager.getConfig()
-        brokerName = config.brokerName
-        host = config.host
-        port = config.port.toString()
-        clientId = config.clientId
-        username = config.username
-        password = config.password
-        topic = config.topic
-        targetMac = config.targetMac
-        useSsl = config.useSsl
-        protocol = config.protocol
-        timeout = config.timeout.toString()
-        keepAlive = config.keepAlive.toString()
-        autoConnect = config.autoConnect
-    }
-
-    val backgroundColor = FrostBg
-    val cardBorderColor = FrostBorderStandard
-    val textColor = FrostTextPrimary
-    val labelColor = FrostTextSecondary
-    val accentColor = FrostAccent
-
-    Scaffold(
-        containerColor = backgroundColor,
-        topBar = {
-            TopAppBar(
-                title = { Text("MQTT Settings", color = textColor, style = FrostHeadline) },
-                navigationIcon = {
-                     IconButton(onClick = { onBack() }) { 
-                         Text("<", color = textColor, style = MaterialTheme.typography.titleLarge)
-                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = backgroundColor)
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                SectionCard(cardBorderColor) {
-                    StyledTextField("Name", brokerName, { brokerName = it }, textColor, labelColor)
-                    StyledTextField("Client ID", clientId, { clientId = it }, textColor, labelColor)
-                }
-            }
-
-            item {
-                SectionCard(cardBorderColor) {
-                    StyledTextField("URL", host, { host = it }, textColor, labelColor)
-                    StyledTextField("Port", port, { port = it }, textColor, labelColor)
-                    
-                    // Protocol & SSL
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("Protocol", color = labelColor, style = FrostCaption)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = protocol == "TCP", onClick = { protocol = "TCP" }, colors = RadioButtonDefaults.colors(selectedColor = accentColor, unselectedColor = labelColor))
-                                Text("TCP", color = textColor, modifier = Modifier.padding(end = 8.dp))
-                                RadioButton(selected = protocol == "WebSocket", onClick = { protocol = "WebSocket" }, colors = RadioButtonDefaults.colors(selectedColor = accentColor, unselectedColor = labelColor))
-                                Text("WS", color = textColor)
-                            }
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                             Text("SSL/TLS", color = labelColor, style = FrostCaption)
-                             Switch(
-                                 checked = useSsl,
-                                 onCheckedChange = { useSsl = it },
-                                 colors = SwitchDefaults.colors(
-                                     checkedThumbColor = Color.White,
-                                     checkedTrackColor = accentColor,
-                                     uncheckedThumbColor = Color.White,
-                                     uncheckedTrackColor = FrostSegmentTrack
-                                 )
-                             )
-                        }
-                    }
-
-                     StyledTextField("Connection Timeout", timeout, { timeout = it }, textColor, labelColor)
-                     StyledTextField("Keep Alive Interval", keepAlive, { keepAlive = it }, textColor, labelColor)
-                }
-            }
-
-            item {
-                SectionCard(cardBorderColor, title = "Authentication") {
-                    StyledTextField("Username", username, { username = it }, textColor, labelColor)
-                    StyledTextField("Password", password, { password = it }, textColor, labelColor, isPassword = true)
-                }
-            }
-
-             item {
-                 SectionCard(cardBorderColor) {
-                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                     ) {
-                        Text("Auto Connect", color = textColor, style = FrostBody)
-                        Switch(
-                            checked = autoConnect,
-                            onCheckedChange = { autoConnect = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = accentColor,
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = FrostSegmentTrack
-                            )
-                        )
-                    }
-                     StyledTextField("Topic", topic, { topic = it }, textColor, labelColor)
-                     StyledTextField("Target MAC", targetMac, { targetMac = it }, textColor, labelColor)
-                 }
-             }
-
-            item {
-                Button(
-                    onClick = {
-                        configManager.saveConfig(MqttConfig(
-                            brokerName, host, port.toIntOrNull() ?: 8883, clientId, username, password, useSsl, topic, targetMac, protocol,
-                            timeout.toIntOrNull() ?: 30, keepAlive.toIntOrNull() ?: 60, autoConnect
-                        ))
-                        onSave()
-                    },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                    shape = CircleShape
-                ) {
-                    Text("Save & Connect", color = Color.White, style = FrostCallout, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SectionCard(borderColor: Color, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        if (title != null) {
-            Text(
-                title,
-                color = FrostTextSecondary,
-                style = FrostCaption,
-                modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-            )
-        }
-        val shape = RoundedCornerShape(22.dp)
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(10.dp, shape, ambientColor = FrostShadow, spotColor = FrostShadow)
-                .border(1.dp, borderColor, shape)
-                .clip(shape),
-            color = FrostSurfaceGlass,
-            shape = shape,
-            tonalElevation = 0.dp
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                content()
-            }
-        }
-    }
-}
-
-@Composable
-fun StyledTextField(label: String, value: String, onValueChange: (String) -> Unit, textColor: Color, labelColor: Color, isPassword: Boolean = false) {
-    var passwordVisible by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-        Text(label, color = labelColor, style = FrostCaption)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
-                visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-                modifier = Modifier.weight(1f)
-            )
-            if (isPassword) {
-                IconButton(
-                    onClick = { passwordVisible = !passwordVisible },
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                        contentDescription = if (passwordVisible) stringResource(R.string.password_hide) else stringResource(R.string.password_show),
-                        tint = labelColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-        HorizontalDivider(color = FrostBorderSubtle)
-    }
-}
-
 /**
  * Refined Settings screen with precision dark hardware styling
  */
@@ -869,15 +660,17 @@ fun NewSettingsScreen(
                         val parsedPort = brokerPort.toIntOrNull() ?: if (useSsl) 8883 else 1883
                         // Keep scheme/port/path/IPv6; MqttEndpoint parses it.
                         val cleanHost = brokerHost.trim()
+                        // Read fresh: secrets may have been generated meanwhile.
+                        val freshConfig = configManager.getConfig()
 
                         configManager.saveConfig(
-                            currentConfig.copy(
+                            freshConfig.copy(
                                 host = cleanHost,
                                 port = parsedPort,
                                 username = brokerUser.trim(),
                                 password = brokerPass.trim(),
                                 useSsl = useSsl,
-                                topic = brokerTopic.trim().ifEmpty { currentConfig.topic },
+                                topic = brokerTopic.trim().ifEmpty { freshConfig.topic },
                                 autoConnect = autoConnect,
                                 helperSecret = helperSecret.trim(),
                                 pcSecret = pcSecret.trim()
@@ -947,12 +740,16 @@ fun NewSettingsScreen(
                                 TextButton(
                                     enabled = helperSecret.isNotBlank(),
                                     onClick = {
-                                        clipboard?.setPrimaryClip(
-                                            android.content.ClipData.newPlainText(
-                                                context.getString(R.string.settings_helper_secret_label),
-                                                helperSecret
-                                            )
+                                        val clip = android.content.ClipData.newPlainText(
+                                            context.getString(R.string.settings_helper_secret_label),
+                                            helperSecret
                                         )
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            clip.description.extras = android.os.PersistableBundle().apply {
+                                                putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
+                                            }
+                                        }
+                                        clipboard?.setPrimaryClip(clip)
                                         Toast.makeText(context, context.getString(R.string.toast_secret_copied), Toast.LENGTH_SHORT).show()
                                     }
                                 ) {
@@ -998,6 +795,43 @@ fun NewSettingsScreen(
                                     text = stringResource(R.string.security_pc_secret_missing_hint),
                                     color = FrostWarning,
                                     style = FrostCaption
+                                )
+                            }
+
+                            // Persist secrets without requiring the user to scroll back to
+                            // the MQTT "Save & reconnect" button.
+                            Button(
+                                onClick = {
+                                    val freshConfig = configManager.getConfig()
+                                    configManager.saveConfig(
+                                        freshConfig.copy(
+                                            helperSecret = helperSecret.trim(),
+                                            pcSecret = pcSecret.trim()
+                                        )
+                                    )
+                                    // Deliberately no onSave(): secrets are read fresh by
+                                    // WolListenerService/PcActionDispatcher, and TCP-only
+                                    // users must not start the MQTT foreground service.
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.toast_secrets_saved),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                modifier = Modifier.fillMaxWidth().height(44.dp),
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = FrostAccent,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(Icons.Default.Done, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    stringResource(R.string.settings_save_secrets),
+                                    color = Color.White,
+                                    style = FrostCaption,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -1116,8 +950,19 @@ fun NewSettingsScreen(
 
                         TextButton(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases"))
-                                context.startActivity(intent)
+                                try {
+                                    val intent = Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases")
+                                    )
+                                    context.startActivity(intent)
+                                } catch (_: ActivityNotFoundException) {
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.about_view_releases_failed),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
                         ) {
 

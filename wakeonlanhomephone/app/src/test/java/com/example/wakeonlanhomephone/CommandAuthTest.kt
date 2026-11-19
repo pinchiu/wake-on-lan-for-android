@@ -78,8 +78,40 @@ class CommandAuthTest {
 
         assertTrue(guard.checkAndRecord(fixedNonce, fixedTs))
         assertFalse(guard.checkAndRecord(fixedNonce, fixedTs + 599))
-        // Entry expires at fixedTs + 600; at fixedTs + 600 it is pruned first and accepted.
-        assertTrue(guard.checkAndRecord(fixedNonce, fixedTs + 600))
+        // Entry expires at fixedTs + 600; the TTL boundary is inclusive, so replaying at
+        // exactly fixedTs + 600 is still rejected and only pruned afterwards.
+        assertFalse(guard.checkAndRecord(fixedNonce, fixedTs + 600))
+        assertTrue(guard.checkAndRecord(fixedNonce, fixedTs + 601))
+    }
+
+    @Test
+    fun replayAtTheTtlBoundaryIsRejectedAcrossTheTimestampWindow() {
+        // Accepted at T-300 (the earliest accepted clock), the nonce expires at T+300.
+        // Replaying at exactly T+300 must fail even though the envelope is still "fresh".
+        val envelope = CommandAuth.signWithNonce(fixedCommand, fixedSecret, fixedTs, fixedNonce)!!
+        val guard = ReplayGuard(maxEntries = 1024, ttlSeconds = 600)
+
+        assertEquals(
+            AuthResult.Ok,
+            CommandAuth.verify(envelope, fixedSecret, fixedTs - CommandAuth.TIMESTAMP_WINDOW_SECONDS, guard)
+        )
+        assertEquals(
+            AuthResult.Replayed,
+            CommandAuth.verify(envelope, fixedSecret, fixedTs + CommandAuth.TIMESTAMP_WINDOW_SECONDS, guard)
+        )
+    }
+
+    @Test
+    fun signerRejectsControlCharactersAndSurroundingWhitespace() {
+        for (command in listOf(" shutdown", "shutdown ", "shut\ndown", "shut\rdown", "shut\tdown")) {
+            assertNull("accepted ${command.replace("\n", "\\n")}", CommandAuth.sign(command, fixedSecret))
+            assertNull(
+                "accepted ${command.replace("\n", "\\n")}",
+                CommandAuth.signWithNonce(command, fixedSecret, fixedTs, fixedNonce)
+            )
+        }
+        assertNull(CommandAuth.sign("shut|down", fixedSecret))
+        assertNotNull(CommandAuth.sign("SHUTDOWN:192.168.1.10", fixedSecret))
     }
 
     @Test
@@ -183,6 +215,8 @@ class CommandAuthTest {
         for (address in listOf("8.8.8.8", "203.0.113.5", "100.128.0.1", "2001:4860:4860::8888")) {
             assertFalse(address, CommandAuth.isTrustedAddress(java.net.InetAddress.getByName(address)))
         }
+        // Deprecated IPv6 site-local space (fec0::/10) is not RFC1918 and must not be trusted.
+        assertFalse(CommandAuth.isTrustedAddress(java.net.InetAddress.getByName("fec0::1")))
     }
 
 }

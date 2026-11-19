@@ -102,7 +102,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Check Kotlin & Assemble Release APK
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew testDebugUnitTest assembleRelease --stacktrace
 
       - name: Upload Remote Phone APK Artifact
         uses: actions/upload-artifact@v4

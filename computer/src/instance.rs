@@ -218,6 +218,10 @@ mod windows {
     }
 
     pub(super) fn request_stop() -> Result<StopOutcome, StopError> {
+        if !is_running() {
+            return Ok(StopOutcome::NotRunning);
+        }
+
         let executable = std::env::current_exe()
             .map_err(|error| StopError::new(format!("cannot get executable path: {error}")))?;
         let image_name = executable
@@ -374,6 +378,15 @@ mod unix {
             return Ok(StopOutcome::NotRunning);
         }
 
+        // The lock file is user-writable and PIDs are reused; never signal a process that
+        // is not one of ours.
+        #[cfg(target_os = "linux")]
+        {
+            if !is_pc_onoff_process(pid) {
+                return Ok(StopOutcome::NotRunning);
+            }
+        }
+
         let output = platform::command("kill")
             .args(["-TERM", &pid.to_string()])
             .output()
@@ -397,7 +410,31 @@ mod unix {
     }
 
     pub(super) fn read_pid(path: &Path) -> Option<u32> {
-        fs::read_to_string(path).ok()?.trim().parse().ok()
+        let pid = fs::read_to_string(path).ok()?.trim().parse::<u32>().ok()?;
+        // PID 0 / 1 and values outside the kernel's pid_t range must never reach `kill`:
+        // `kill -TERM 0` signals the whole process group.
+        (pid > 1 && pid <= i32::MAX as u32).then_some(pid)
+    }
+
+    /// Linux-only: confirm `/proc/{pid}` is one of this project's executables.
+    #[cfg(target_os = "linux")]
+    fn is_pc_onoff_process(pid: u32) -> bool {
+        let process = PathBuf::from(format!("/proc/{pid}"));
+        let exe_name = fs::read_link(process.join("exe")).ok().and_then(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        });
+        let comm = fs::read_to_string(process.join("comm")).ok();
+
+        exe_name.as_deref().is_some_and(is_pc_onoff_name)
+            || comm
+                .as_deref()
+                .is_some_and(|comm| is_pc_onoff_name(comm.trim()))
+    }
+
+    #[cfg(target_os = "linux")]
+    fn is_pc_onoff_name(name: &str) -> bool {
+        name == "pc_onoff" || name.starts_with("pc_onoff-")
     }
 
     pub(super) fn process_alive(pid: u32) -> bool {
@@ -468,6 +505,32 @@ mod unix {
                 !is_running(&path),
                 "should report not running after guard drop"
             );
+        }
+
+        #[test]
+        fn pid_files_with_unsafe_values_are_ignored() {
+            let dir = TempDir::new("instance-pid-bounds");
+            let path = dir.path().join("pc_onoff.lock");
+
+            for value in ["0", "1", "-1", "", "not-a-pid"] {
+                fs::write(&path, value).expect("write pid file");
+                assert_eq!(read_pid(&path), None, "accepted PID {value:?}");
+            }
+
+            fs::write(&path, (i32::MAX as u32 + 1).to_string()).expect("write oversized pid");
+            assert_eq!(read_pid(&path), None);
+
+            fs::write(&path, "4321").expect("write valid pid");
+            assert_eq!(read_pid(&path), Some(4321));
+        }
+
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn recognises_only_our_executables() {
+            assert!(is_pc_onoff_name("pc_onoff"));
+            assert!(is_pc_onoff_name("pc_onoff-linux-x86_64"));
+            assert!(!is_pc_onoff_name("pc_onoffd"));
+            assert!(!is_pc_onoff_name("bash"));
         }
     }
 }

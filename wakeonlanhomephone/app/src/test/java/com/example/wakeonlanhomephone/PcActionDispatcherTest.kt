@@ -164,6 +164,43 @@ class PcActionDispatcherTest {
         assertTrue((result as PcActionResult.Failure).error.contains("public IP"))
     }
 
+    @Test
+    fun testBlankOrNullResolverFallsBackToPcSecretProvider() = runBlocking {
+        val sharedSecret = "shared-fallback-secret-0123456789abcdef"
+        val resolvers = listOf<(String) -> String?>(
+            { null },
+            { "" },
+            { "   " }
+        )
+
+        DatagramSocket(0, InetAddress.getByName(validIp)).use { receiver ->
+            receiver.soTimeout = 2000
+            for (resolver in resolvers) {
+                val dispatcher = PcActionDispatcher(
+                    pcCommandPort = receiver.localPort,
+                    pcSecretProvider = { sharedSecret },
+                    pcSecretResolver = resolver
+                )
+
+                assertTrue(dispatcher.dispatch("SHUTDOWN:$validIp").isSuccess)
+                val payload = receive(receiver)
+                assertEquals(AuthResult.Ok, CommandAuth.verify(payload, sharedSecret))
+                assertEquals("shutdown", CommandAuth.commandOf(payload))
+            }
+        }
+    }
+
+    @Test
+    fun testNonUnicastTargetIpsAreRejected() = runBlocking {
+        val dispatcher = dispatcherWithSecret()
+
+        for (ip in listOf("0.0.0.0", "255.255.255.255", "224.0.0.1")) {
+            val result = dispatcher.dispatch("SHUTDOWN:$ip")
+            assertTrue("accepted non-unicast target $ip", result is PcActionResult.Failure)
+            assertEquals("ERROR: Invalid target IP '$ip'", result.toProtocolString())
+        }
+    }
+
     private fun receive(socket: DatagramSocket): String {
         val packet = DatagramPacket(ByteArray(1024), 1024)
         socket.receive(packet)

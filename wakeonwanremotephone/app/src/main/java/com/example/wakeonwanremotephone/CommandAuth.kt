@@ -55,7 +55,9 @@ object CommandAuth {
     ): String? {
         if (secret.isBlank()) return null
         if (command.isBlank()) return null
+        if (command.trim() != command) return null
         if (command.contains(FIELD_SEPARATOR)) return null
+        if (command.any { it.isISOControl() }) return null
         if (!NONCE_PATTERN.matches(nonce)) return null
 
         val signInput = "$command$FIELD_SEPARATOR$TS_PREFIX$nowSeconds" +
@@ -113,10 +115,16 @@ object CommandAuth {
 
     /** Loopback, RFC1918, link-local, IPv6 ULA and Tailscale/CGNAT addresses. */
     fun isTrustedAddress(address: java.net.InetAddress): Boolean {
-        if (address.isLoopbackAddress || address.isLinkLocalAddress || address.isSiteLocalAddress) {
+        val normalized = unwrapIpv4Mapped(address)
+        if (normalized.isLoopbackAddress || normalized.isLinkLocalAddress) {
             return true
         }
-        val bytes = address.address
+        // `isSiteLocalAddress` is true for deprecated IPv6 fec0::/10 as well; only
+        // the IPv4 RFC1918 interpretation is trusted here (matching Rust `net.rs`).
+        if (normalized is java.net.Inet4Address && normalized.isSiteLocalAddress) {
+            return true
+        }
+        val bytes = normalized.address
         if (bytes.size == 4) {
             val first = bytes[0].toInt() and 0xFF
             val second = bytes[1].toInt() and 0xFF
@@ -126,6 +134,18 @@ object CommandAuth {
             return (bytes[0].toInt() and 0xFE) == 0xFC
         }
         return false
+    }
+
+    /** Converts `::ffff:a.b.c.d` to the equivalent 4-byte address. */
+    private fun unwrapIpv4Mapped(address: java.net.InetAddress): java.net.InetAddress {
+        if (address !is java.net.Inet6Address) return address
+        val bytes = address.address
+        if (bytes.size != 16) return address
+        val mappedPrefix = (0..9).all { bytes[it].toInt() == 0 } &&
+            (bytes[10].toInt() and 0xFF) == 0xFF &&
+            (bytes[11].toInt() and 0xFF) == 0xFF
+        if (!mappedPrefix) return address
+        return java.net.InetAddress.getByAddress(bytes.copyOfRange(12, 16))
     }
 
     /** Generates a 32-character lowercase hex secret from a CSPRNG. */
@@ -237,7 +257,9 @@ class ReplayGuard(
     private fun pruneExpired(nowSeconds: Long) {
         val iterator = seen.entries.iterator()
         while (iterator.hasNext()) {
-            if (iterator.next().value <= nowSeconds) {
+            // Keep entries expiring exactly now: a packet accepted at T is valid until
+            // T + ttl inclusive, so a replay at exactly T + ttl must still be rejected.
+            if (iterator.next().value < nowSeconds) {
                 iterator.remove()
             }
         }

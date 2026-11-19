@@ -44,13 +44,22 @@ def hibernate_pc():
     else:  # Linux (needs configuration)
         subprocess.call(["systemctl", "hibernate"])
 
+def lock_pc():
+    if sys.platform == "win32":
+        subprocess.call("rundll32.exe user32.dll,LockWorkStation", shell=True)
+    elif sys.platform == "darwin":  # macOS
+        subprocess.call(["osascript", "-e", 'tell application "System Events" to keystroke "q" using {control down, command down}'])
+    else:  # Linux (requires an active session)
+        subprocess.call(["loginctl", "lock-session"])
+
 def main():
     print(f"Listening on {LISTEN_IP}:{LISTEN_PORT}, waiting for remote commands...")
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind((LISTEN_IP, LISTEN_PORT))
         while True:
             data, addr = sock.recvfrom(BUFFER_SIZE)
-            command = data.decode('utf-8').strip().lower()
+            # Non-UTF-8 bytes must never crash the reference listener.
+            command = data.decode('utf-8', errors='replace').strip().lower()
             print(f"Received command: '{command}' from {addr}")
 
             if command == "shutdown":
@@ -65,6 +74,9 @@ def main():
             elif command == "hibernate":
                 print("Executing hibernate...")
                 hibernate_pc()
+            elif command == "lock":
+                print("Executing lock...")
+                lock_pc()
             else:
                 print(f"Unknown command: {command}")
 

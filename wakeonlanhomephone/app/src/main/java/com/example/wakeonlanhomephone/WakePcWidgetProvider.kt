@@ -122,7 +122,7 @@ class WakePcWidgetProvider : AppWidgetProvider() {
                     val localized = AppLocale.wrap(context)
                     val deviceManager = DeviceProfileManager(context)
                     val selectedDevice = deviceManager.getSelectedDevice()
-                    val targetMac = selectedDevice?.mac?.trim()
+                    val targetMac = selectedDevice?.mac?.trim()?.ifBlank { null }
                         ?: MqttConfigManager(context).getConfig().targetMac.trim()
                     val deviceName = selectedDevice?.name ?: localized.getString(R.string.widget_default_target_name)
 
@@ -153,13 +153,32 @@ class WakePcWidgetProvider : AppWidgetProvider() {
 
                     val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
                     views.setTextViewText(R.id.widget_title, localized.getString(R.string.widget_wake_title, deviceName))
-                    views.setTextViewText(R.id.widget_status, localized.getString(R.string.widget_status_sent, timeFormat, targetMac))
-                    appWidgetManager.updateAppWidget(componentName, views)
-
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, localized.getString(R.string.widget_toast_sent, deviceName, targetMac), Toast.LENGTH_SHORT).show()
+                    when (result) {
+                        is PcActionResult.Success -> {
+                            views.setTextViewText(
+                                R.id.widget_status,
+                                localized.getString(R.string.widget_status_sent, timeFormat, targetMac)
+                            )
+                            appWidgetManager.updateAppWidget(componentName, views)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    localized.getString(R.string.widget_toast_sent, deviceName, targetMac),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            AppLogger.log("[WIDGET] Sent wake packet to $deviceName ($targetMac) (${result.toProtocolString()})")
+                        }
+                        is PcActionResult.Failure -> {
+                            val message = localized.getString(R.string.widget_toast_failed, result.error)
+                            views.setTextViewText(R.id.widget_status, message)
+                            appWidgetManager.updateAppWidget(componentName, views)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            }
+                            AppLogger.log("[WIDGET] Wake failed for $deviceName ($targetMac): ${result.error}")
+                        }
                     }
-                    AppLogger.log("[WIDGET] Sent wake packet to $deviceName ($targetMac) (${result.toProtocolString()})")
                 } catch (e: Exception) {
                     AppLogger.log("[WIDGET] Widget error: ${e.message}")
                     withContext(Dispatchers.Main) {

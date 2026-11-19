@@ -953,12 +953,15 @@
         time.textContent = match[1];
         category.textContent = match[2];
         message.textContent = match[3];
+        row.append(time, category, message);
       } else {
+        // Raw lines have no timestamp or category; rendering empty spans would leave
+        // stray gaps in the monospace layout.
         message.textContent = line;
         row.classList.add("log-line-raw");
+        row.append(message);
       }
 
-      row.append(time, category, message);
       log.append(row);
     }
 
@@ -1036,7 +1039,7 @@
     byId("confirm-ok").textContent = config.confirm;
     byId("confirm-sheet").hidden = false;
     document.body.classList.add("sheet-open");
-    window.setTimeout(() => byId("confirm-ok").focus(), 20);
+    window.setTimeout(() => byId("confirm-cancel").focus(), 20);
   }
 
   function closeConfirm() {

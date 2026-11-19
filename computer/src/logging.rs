@@ -122,7 +122,8 @@ fn append_line(path: &Path, line: &str, max_bytes: u64) -> io::Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    rotate_if_needed(path, line.len() as u64 + 1, max_bytes)?;
+    // Rotation is best effort: a failed rename must not drop the incoming line.
+    let _ = rotate_if_needed(path, line.len() as u64 + 1, max_bytes);
 
     let mut file = OpenOptions::new().create(true).append(true).open(path)?;
     writeln!(file, "{line}")
@@ -139,7 +140,7 @@ fn rotate_if_needed(path: &Path, incoming_bytes: u64, max_bytes: u64) -> io::Res
         Err(error) => return Err(error),
     };
 
-    if current_bytes == 0 || current_bytes + incoming_bytes <= max_bytes {
+    if current_bytes == 0 || current_bytes.saturating_add(incoming_bytes) <= max_bytes {
         return Ok(());
     }
 
@@ -211,10 +212,11 @@ fn local_civil_time() -> Option<CivilTime> {
     })
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, target_pointer_width = "64"))]
 fn local_civil_time() -> Option<CivilTime> {
     use std::os::raw::{c_char, c_int, c_long};
 
+    // On 64-bit Unix `time_t` is a signed 64-bit `c_long`, so `localtime_r` is safe here.
     // Matches glibc / musl / macOS struct tm layout; last two fields are BSD extensions.
     #[repr(C)]
     #[allow(dead_code)]
@@ -262,9 +264,62 @@ fn local_civil_time() -> Option<CivilTime> {
     })
 }
 
-#[cfg(not(any(windows, unix)))]
+/// 32-bit Unix and non-Unix/non-Windows platforms report UTC instead of local time.
+///
+/// On 32-bit Unix, `time_t` may be 32-bit or a 64-bit `_TIME_BITS` type whose ABI differs
+/// between glibc and musl; passing `*mut c_long` to `time`/`localtime_r` would then be
+/// undefined behaviour. Computing civil time from `SystemTime` avoids the C ABI entirely.
+#[cfg(any(all(unix, not(target_pointer_width = "64")), not(any(unix, windows))))]
 fn local_civil_time() -> Option<CivilTime> {
-    None
+    civil_from_epoch(unix_seconds()?)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn unix_seconds() -> Option<u64> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs())
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn civil_from_epoch(seconds: u64) -> Option<CivilTime> {
+    let days = i64::try_from(seconds / 86_400).ok()?;
+    let time_of_day = seconds % 86_400;
+    let (year, month, day) = civil_from_days(days);
+    if !(0..=9999).contains(&year) {
+        return None;
+    }
+
+    Some(CivilTime {
+        year: year as u16,
+        month: month as u16,
+        day: day as u16,
+        hour: (time_of_day / 3_600) as u16,
+        minute: ((time_of_day % 3_600) / 60) as u16,
+        second: (time_of_day % 60) as u16,
+    })
+}
+
+/// Howard Hinnant's `civil_from_days` (proleptic Gregorian calendar, no leap-second table).
+#[cfg_attr(not(test), allow(dead_code))]
+fn civil_from_days(days_since_epoch: i64) -> (i64, u32, u32) {
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let day_of_era = z - era * 146_097; // [0, 146096]
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = if month_prime < 10 {
+        month_prime + 3
+    } else {
+        month_prime - 9
+    };
+    let year = if month <= 2 { year + 1 } else { year };
+    (year, month as u32, day as u32)
 }
 
 #[cfg(test)]
@@ -382,5 +437,46 @@ mod tests {
             assert_eq!(&timestamp[4..5], "-");
             assert_eq!(&timestamp[10..11], " ");
         }
+    }
+
+    #[test]
+    fn civil_conversion_matches_known_utc_timestamps() {
+        assert!(unix_seconds().is_some(), "system clock must be after 1970");
+
+        let epoch = civil_from_epoch(0).expect("epoch");
+        assert_eq!(
+            (epoch.year, epoch.month, epoch.day, epoch.hour),
+            (1970, 1, 1, 0)
+        );
+
+        let modern = civil_from_epoch(1_700_000_000).expect("2023 timestamp");
+        assert_eq!(
+            (
+                modern.year,
+                modern.month,
+                modern.day,
+                modern.hour,
+                modern.minute,
+                modern.second
+            ),
+            (2023, 11, 14, 22, 13, 20)
+        );
+
+        let leap_day = civil_from_epoch(951_782_400).expect("2000-02-29");
+        assert_eq!((leap_day.year, leap_day.month, leap_day.day), (2000, 2, 29));
+    }
+
+    #[test]
+    fn rotation_failure_still_appends_the_line() {
+        let dir = TempDir::new("log-rotate-failure");
+        let path = dir.path().join("pc_onoff.log");
+        // A directory at the rotated path makes `rename` fail; the line must still land.
+        fs::create_dir_all(rotated_path(&path)).expect("block rotated path");
+        fs::write(&path, "x".repeat(120)).expect("write log");
+
+        append_line(&path, "[now] [test] kept", 100).expect("append despite rotation failure");
+
+        let content = fs::read_to_string(&path).expect("read log");
+        assert!(content.contains("[now] [test] kept"), "log was: {content}");
     }
 }

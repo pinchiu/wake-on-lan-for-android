@@ -2,9 +2,11 @@ package com.example.wakeonlanhomephone
 
 import android.app.*
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.*
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
@@ -70,7 +72,7 @@ class WolListenerService : Service() {
 
     private lateinit var serverThread: Thread
     private var wakeLock: PowerManager.WakeLock? = null
-    private var serverSocket: ServerSocket? = null
+    @Volatile private var serverSocket: ServerSocket? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
@@ -90,11 +92,20 @@ class WolListenerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!_isRunning.value) {
             _isRunning.value = true
-            AppLogger.clear()
             Log.d(TAG, "Service started")
 
             createNotificationChannel()
-            startForeground(NOTIFICATION_ID, createNotification(localized(R.string.service_wol_initializing)))
+            val foregroundType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            } else {
+                0
+            }
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                createNotification(localized(R.string.service_wol_initializing)),
+                foregroundType
+            )
 
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "WoLHelper::CpuWakeLock")
@@ -152,6 +163,16 @@ class WolListenerService : Service() {
                 serverSocket?.close()
             } catch (_: Exception) {}
             serverSocket = null
+            if (_isRunning.value) {
+                // The listener can only end unexpectedly (bind failure / socket error).
+                // Reflect reality in the UI and release the CPU lock instead of leaving a
+                // half-alive foreground service behind.
+                _isRunning.value = false
+                if (wakeLock?.isHeld == true) {
+                    wakeLock?.release()
+                }
+                mainHandler.post { stopSelf() }
+            }
             Log.d(TAG, "Listener thread finished")
         }
     }
@@ -278,6 +299,7 @@ class WolListenerService : Service() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .build()
     }
 

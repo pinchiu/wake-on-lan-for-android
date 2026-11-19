@@ -15,7 +15,7 @@ A complete cross-platform remote control system that turns an Android phone into
   - *Remote Phone Widget*: 1-tap remote wake targeting the currently selected profile.
 - **Voice Assistant Integration**: Hands-free voice trigger via Google Assistant / Gemini routines using the static app shortcut (`wake_pc_shortcut`).
 - **Bilingual Interface**: Seamlessly switch between English and Traditional Chinese in the app settings.
-- **Authenticated Commands**: TCP 9876, MQTT command topics and UDP 9877 use HMAC-SHA256 envelopes with a timestamp and replay guard. No unsigned power commands are accepted.
+- **Command Security**: Private LAN and Tailscale require no secret; public IPv6/IPv4 port-forwards use HMAC-SHA256 envelopes with a timestamp and replay guard; MQTT relies on broker TLS, credentials, and topic ACLs.
 - **Frost Interface**: Both Android apps share a calm light-grey glass design — translucent cards, hairline borders, system typography and one iOS-blue accent — with **System / Light / Dark** appearance. The Rust daemon adds an optional local dashboard with the same design language.
 - **Cross-Platform PC Daemon (`pc_onoff`)**: High-performance, zero-dependency standalone daemon written in Rust for Windows, Linux, and Apple macOS.
   - Automatic zero-admin autostart (Windows Registry `HKCU Run`, Linux `systemd --user` / XDG Autostart, macOS `LaunchAgent`).

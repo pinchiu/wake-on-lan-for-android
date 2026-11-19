@@ -1,5 +1,11 @@
 package com.example.wakeonwanremotephone
 
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -23,7 +29,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -135,7 +140,20 @@ fun SecuritySettingsDialog(onDismiss: () -> Unit) {
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } else {
-                                clipboardManager.setText(AnnotatedString(helperSecret))
+                                val clipboard =
+                                    context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                if (clipboard != null) {
+                                    val clip = ClipData.newPlainText(
+                                        context.getString(R.string.helper_secret_label),
+                                        helperSecret
+                                    )
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        clip.description.extras = PersistableBundle().apply {
+                                            putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                                        }
+                                    }
+                                    clipboard.setPrimaryClip(clip)
+                                }
                                 Toast.makeText(
                                     context,
                                     context.getString(R.string.secret_copied),

@@ -32,9 +32,9 @@ class PcActionDispatcher(
     /**
      * Optional per-target override for the PC secret. Callers pass a resolver that looks up the
      * [DeviceProfile] matching the command's target IP, so each `pc_onoff` daemon can have its
-     * own `secret=`. Returning null (or omitting the resolver) falls back to [pcSecretProvider].
+     * own `secret=`. Returning null or a blank value falls back to [pcSecretProvider].
      */
-    private val pcSecretResolver: ((String) -> String)? = null
+    private val pcSecretResolver: ((String) -> String?)? = null
 ) {
     companion object {
         private const val TAG = "PcActionDispatcher"
@@ -125,7 +125,7 @@ class PcActionDispatcher(
         }
 
         val secret = try {
-            (pcSecretResolver?.invoke(targetIp) ?: pcSecretProvider()).trim()
+            (pcSecretResolver?.invoke(targetIp)?.takeIf { it.isNotBlank() } ?: pcSecretProvider()).trim()
         } catch (_: Exception) {
             // A broken resolver/provider must fail closed, exactly like an unconfigured secret.
             ""
@@ -134,6 +134,14 @@ class PcActionDispatcher(
             InetAddress.getByName(targetIp)
         } catch (e: Exception) {
             return PcActionResult.Failure("Invalid target IP '$targetIp': ${e.message}")
+        }
+        // Only a unicast host can run the daemon: 0.0.0.0, multicast and the limited
+        // broadcast address would spray the command across the network (or loop it back).
+        if (address.isAnyLocalAddress ||
+            address.isMulticastAddress ||
+            targetIp.trim() == "255.255.255.255"
+        ) {
+            return PcActionResult.Failure("Invalid target IP '$targetIp'")
         }
         if (secret.isEmpty() && !CommandAuth.isTrustedAddress(address)) {
             return PcActionResult.Failure(

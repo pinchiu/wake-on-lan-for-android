@@ -8,6 +8,7 @@ use std::fmt;
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::DEFAULT_UDP_PORT;
 use crate::crypto;
@@ -64,7 +65,11 @@ impl AppConfig {
                         config.udp_port = port;
                     }
                 }
-                "autostart" => config.autostart = parse_bool(value.trim()),
+                "autostart" => {
+                    if let Some(autostart) = parse_bool(value.trim()) {
+                        config.autostart = autostart;
+                    }
+                }
                 "secret" => config.secret = value.trim().to_owned(),
                 _ => {}
             }
@@ -100,6 +105,16 @@ impl AppConfig {
 
     /// Atomically save configuration file.
     pub fn save(&self, path: &Path) -> Result<(), ConfigError> {
+        if self
+            .secret
+            .chars()
+            .any(|c| c == '\r' || c == '\n' || c == '\0')
+        {
+            return Err(ConfigError::new(
+                "command secret must not contain CR, LF, or NUL characters",
+            ));
+        }
+
         if let Some(parent) = path.parent()
             && !parent.as_os_str().is_empty()
         {
@@ -113,7 +128,9 @@ impl AppConfig {
 
         let temporary = temporary_path(path);
         let mut options = fs::OpenOptions::new();
-        options.write(true).create(true).truncate(true);
+        // `create_new` refuses to follow a pre-existing (possibly attacker-controlled)
+        // symlink at the predictable temporary path.
+        options.write(true).create_new(true);
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
@@ -125,28 +142,35 @@ impl AppConfig {
                 temporary.display()
             ))
         })?;
-        file.write_all(self.render().as_bytes()).map_err(|e| {
-            ConfigError::new(format!(
+        if let Err(e) = file.write_all(self.render().as_bytes()) {
+            // Close the handle before unlinking: Windows refuses to delete an open file
+            // (ERROR_SHARING_VIOLATION) and would leak the temporary file.
+            drop(file);
+            let _ = fs::remove_file(&temporary);
+            return Err(ConfigError::new(format!(
                 "cannot write temporary configuration file {}: {e}",
                 temporary.display()
-            ))
-        })?;
-        file.sync_all().map_err(|e| {
-            ConfigError::new(format!(
+            )));
+        }
+        if let Err(e) = file.sync_all() {
+            drop(file);
+            let _ = fs::remove_file(&temporary);
+            return Err(ConfigError::new(format!(
                 "cannot sync temporary configuration file {}: {e}",
                 temporary.display()
-            ))
-        })?;
+            )));
+        }
         drop(file);
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600)).map_err(|e| {
-                ConfigError::new(format!(
+            if let Err(e) = fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600)) {
+                let _ = fs::remove_file(&temporary);
+                return Err(ConfigError::new(format!(
                     "cannot set permissions on {}: {e}",
                     temporary.display()
-                ))
-            })?;
+                )));
+            }
         }
 
         fs::rename(&temporary, path).map_err(|e| {
@@ -176,16 +200,23 @@ pub fn generate_secret() -> Option<String> {
     Some(crypto::hex_encode(&bytes))
 }
 
-fn parse_bool(value: &str) -> bool {
-    matches!(
-        value.to_ascii_lowercase().as_str(),
-        "true" | "1" | "yes" | "on"
-    )
+fn parse_bool(value: &str) -> Option<bool> {
+    match value.to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" | "on" => Some(true),
+        "false" | "0" | "no" | "off" => Some(false),
+        _ => None,
+    }
 }
 
 fn temporary_path(path: &Path) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
     let mut name = path.file_name().unwrap_or_default().to_os_string();
-    name.push(format!(".{}.tmp", std::process::id()));
+    name.push(format!(
+        ".{}.{}.tmp",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
     path.with_file_name(name)
 }
 
@@ -261,7 +292,10 @@ autostart=maybe
 ";
         let config = AppConfig::parse(content);
         assert_eq!(config.udp_port, DEFAULT_UDP_PORT);
-        assert!(!config.autostart);
+        assert!(
+            config.autostart,
+            "an invalid autostart value must preserve the default (true)"
+        );
     }
 
     #[test]
@@ -269,8 +303,14 @@ autostart=maybe
         for value in ["true", "TRUE", "1", "yes", "on", "On"] {
             assert!(AppConfig::parse(&format!("autostart={value}")).autostart);
         }
-        for value in ["false", "FALSE", "0", "no", "off", ""] {
+        for value in ["false", "FALSE", "0", "no", "off"] {
             assert!(!AppConfig::parse(&format!("autostart={value}")).autostart);
+        }
+        for value in ["maybe", "", "2", "enabled"] {
+            assert!(
+                AppConfig::parse(&format!("autostart={value}")).autostart,
+                "invalid value {value:?} must preserve the default"
+            );
         }
     }
 
@@ -424,5 +464,37 @@ autostart=maybe
         assert_eq!(secret.len(), 32);
         assert!(secret.bytes().all(|byte| byte.is_ascii_hexdigit()));
         assert!(!secret.bytes().any(|byte| byte.is_ascii_uppercase()));
+    }
+
+    #[test]
+    fn temporary_paths_are_unique() {
+        let dir = TempDir::new("config-temp-unique");
+        let path = dir.path().join("config.ini");
+        let first = temporary_path(&path);
+        let second = temporary_path(&path);
+        assert_ne!(first, second);
+        assert!(
+            first
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .contains(".tmp")
+        );
+    }
+
+    #[test]
+    fn refuses_a_secret_with_line_breaks() {
+        let dir = TempDir::new("config-bad-secret");
+        let path = dir.path().join("config.ini");
+
+        for secret in ["abc\ndef", "abc\rdef", "abc\0def"] {
+            let config = AppConfig {
+                udp_port: 9877,
+                autostart: true,
+                secret: secret.to_owned(),
+            };
+            assert!(config.save(&path).is_err(), "accepted secret {secret:?}");
+            assert!(!path.exists(), "invalid config must not be written");
+        }
     }
 }

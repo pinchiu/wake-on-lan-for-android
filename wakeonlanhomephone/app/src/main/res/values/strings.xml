@@ -68,6 +68,8 @@
     <string name="security_copy">複製</string>
     <string name="security_paste">貼上</string>
     <string name="toast_secret_copied">密鑰已複製</string>
+    <string name="settings_save_secrets">儲存密鑰</string>
+    <string name="toast_secrets_saved">密鑰已儲存</string>
     <string name="security_pc_secret_missing_hint">選用：只有公開 port-forward 才需要</string>
 
     <!-- 關於與更新 -->
@@ -81,6 +83,7 @@
     <string name="update_latest">已是最新版本</string>
     <string name="update_check_button">檢查最新版本</string>
     <string name="about_view_releases">在 GitHub 查看發行版本</string>
+    <string name="about_view_releases_failed">無法開啟瀏覽器</string>
 
     <!-- 伺服器頁 -->
     <string name="server_title">家用喚醒助手</string>

@@ -168,10 +168,22 @@ mod unix {
         action: PowerAction,
     ) -> &'static [(&'static str, &'static [&'static str])] {
         match action {
-            PowerAction::Shutdown => &[("systemctl", &["poweroff"]), ("shutdown", &["-h", "now"])],
-            PowerAction::Reboot => &[("systemctl", &["reboot"]), ("reboot", &[])],
-            PowerAction::Sleep => &[("systemctl", &["suspend"]), ("pm-suspend", &[])],
-            PowerAction::Hibernate => &[("systemctl", &["hibernate"]), ("pm-hibernate", &[])],
+            PowerAction::Shutdown => &[
+                ("systemctl", &["--no-ask-password", "poweroff"]),
+                ("shutdown", &["-h", "now"]),
+            ],
+            PowerAction::Reboot => &[
+                ("systemctl", &["--no-ask-password", "reboot"]),
+                ("reboot", &[]),
+            ],
+            PowerAction::Sleep => &[
+                ("systemctl", &["--no-ask-password", "suspend"]),
+                ("pm-suspend", &[]),
+            ],
+            PowerAction::Hibernate => &[
+                ("systemctl", &["--no-ask-password", "hibernate"]),
+                ("pm-hibernate", &[]),
+            ],
             // `lock-session` needs the caller's own session; the system service (root,
             // no session) falls through to `lock-sessions`, which locks every session.
             PowerAction::Lock => &[
@@ -288,6 +300,22 @@ mod tests {
             for (prog, args) in macos {
                 assert!(!prog.is_empty());
                 let _ = args;
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn linux_systemctl_candidates_never_prompt_for_a_password() {
+        for action in PowerAction::ALL {
+            for (program, args) in unix::linux_candidates(action) {
+                if *program == "systemctl" {
+                    assert_eq!(
+                        args.first(),
+                        Some(&"--no-ask-password"),
+                        "systemctl {args:?} would wait for a polkit agent"
+                    );
+                }
             }
         }
     }

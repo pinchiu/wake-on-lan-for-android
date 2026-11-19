@@ -1,7 +1,9 @@
 package com.example.wakeonwanremotephone
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
 import android.content.Intent
@@ -71,6 +73,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -207,6 +210,7 @@ fun RemoteWakeMainScreen() {
     }
 
     fun sendCommand(command: String) {
+        if (isLoading) return
         syncCurrentDevice()
         deviceManager.setHelperIpv6(helperIpv6Address)
         deviceManager.setLocalLanMode(localLanMode)
@@ -237,10 +241,7 @@ fun RemoteWakeMainScreen() {
                 )
             }
             statusMessage = result
-            isStatusError = result.startsWith("Send failed") || result.startsWith("Address") ||
-                    result.startsWith("LAN WoL failed") || result.startsWith("Direct send failed") ||
-                    result.startsWith("Shared ") || result.startsWith("Failed to sign") ||
-                    result.startsWith("ERROR:")
+            isStatusError = RemoteNetworkUtil.isErrorResult(result)
             isLoading = false
         }
     }
@@ -626,6 +627,7 @@ fun RemoteWakeMainScreen() {
                 onDismiss = { showAddDeviceDialog = false },
                 onConfirm = { name, mac, ip, pcSecret ->
                     val newDev = deviceManager.addDevice(name, mac, ip, pcSecret)
+                    deviceManager.setSelectedDeviceId(newDev.id)
                     devices = deviceManager.getDevices()
                     selectedDeviceId = newDev.id
                     computerMacAddress = newDev.mac
@@ -1117,7 +1119,11 @@ private fun AboutGlassDialog(
                         Intent.ACTION_VIEW,
                         Uri.parse("https://github.com/pinchiu/wake-on-lan-for-android/releases")
                     )
-                    context.startActivity(intent)
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        Toast.makeText(context, R.string.about_view_releases_failed, Toast.LENGTH_SHORT).show()
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -1210,7 +1216,7 @@ private fun ThemeDialog(
                                 ThemePreference(context).mode = mode
                                 onDismiss()
                                 if (mode != currentMode) {
-                                    (context as? Activity)?.recreate()
+                                    findActivity(context)?.recreate()
                                 }
                             }
                             .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -1437,12 +1443,25 @@ private fun PrecisionSecretField(
  * Small helper so field persistence only runs on focus loss, matching the
  * previous onFocusChanged usage.
  */
-private fun Modifier.onFocusChangedCompat(onFocusLost: () -> Unit): Modifier =
+private fun Modifier.onFocusChangedCompat(onFocusLost: () -> Unit): Modifier = composed {
+    var hadFocus by remember { mutableStateOf(false) }
     this.then(
         Modifier.onFocusChanged { focusState ->
-            if (!focusState.isFocused) onFocusLost()
+            if (hadFocus && !focusState.isFocused) onFocusLost()
+            hadFocus = focusState.isFocused
         }
     )
+}
+
+/** Unwraps [context] (or a ContextWrapper chain) to the hosting Activity. */
+private fun findActivity(context: Context): Activity? {
+    var current: Context? = context
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
+}
 
 @Composable
 fun HardwareCommandCard(

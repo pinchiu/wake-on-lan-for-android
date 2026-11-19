@@ -175,7 +175,93 @@ class CommandAuthTest {
 
         assertTrue(guard.checkAndRemember(nonce, 1_000))
         assertFalse(guard.checkAndRemember(nonce, 1_599))
-        assertTrue(guard.checkAndRemember(nonce, 1_600))
+        // The TTL boundary is inclusive: a replay at exactly T + ttl is still rejected.
+        assertFalse(guard.checkAndRemember(nonce, 1_600))
+        assertTrue(guard.checkAndRemember(nonce, 1_601))
+    }
+
+    @Test
+    fun replayAtTheTtlBoundaryIsRejectedAcrossTheTimestampWindow() {
+        // Accepted at T-300 (the earliest accepted clock), the nonce expires at T+300.
+        // Replaying at exactly T+300 must fail even though the envelope is still fresh.
+        val guard = ReplayGuard()
+
+        assertSame(
+            AuthResult.Ok,
+            CommandAuth.verify(envelope, secret, timestamp - CommandAuth.TIMESTAMP_WINDOW_SECONDS, guard)
+        )
+        assertSame(
+            AuthResult.Replayed,
+            CommandAuth.verify(envelope, secret, timestamp + CommandAuth.TIMESTAMP_WINDOW_SECONDS, guard)
+        )
+    }
+
+    @Test
+    fun signerRejectsSurroundingWhitespaceAndControlCharacters() {
+        for (command in listOf(" SHUTDOWN:192.168.1.10", "SHUTDOWN:192.168.1.10 ", "SHUT\nDOWN", "SHUT\rDOWN", "SHUT\tDOWN")) {
+            assertNull("accepted ${command.replace("\n", "\\n")}", CommandAuth.sign(command, secret, timestamp, nonce))
+        }
+        assertNull(CommandAuth.sign("SHUT|DOWN", secret, timestamp, nonce))
+        assertNotNull(CommandAuth.sign("SHUTDOWN:192.168.1.10", secret, timestamp, nonce))
+    }
+
+    @Test
+    fun trustedAddresses_matchTheLanTailscaleFirstModel() {
+        val trusted = listOf(
+            "127.0.0.1",
+            "192.168.1.10",
+            "10.0.0.5",
+            "172.16.5.4",
+            "169.254.10.1",
+            "100.64.0.1",
+            "100.127.255.254",
+            "::1",
+            "fe80::1",
+            "fd7a:115c:a1e0::1",
+            "::ffff:192.168.1.1"
+        )
+        for (address in trusted) {
+            assertTrue(address, CommandAuth.isTrustedAddress(java.net.InetAddress.getByName(address)))
+        }
+
+        val untrusted = listOf(
+            "8.8.8.8",
+            "172.32.0.1",
+            "100.128.0.1",
+            "2001:4860:4860::8888",
+            "::ffff:8.8.8.8"
+        )
+        for (address in untrusted) {
+            assertFalse(address, CommandAuth.isTrustedAddress(java.net.InetAddress.getByName(address)))
+        }
+
+        // Deprecated IPv6 site-local space (fec0::/10) is not RFC1918 and must not be trusted.
+        assertFalse(CommandAuth.isTrustedAddress(java.net.InetAddress.getByName("fec0::1")))
+
+        // Explicitly constructed IPv4-mapped IPv6 addresses must be unwrapped before
+        // classification (`getByName` may already return an Inet4Address for them).
+        val mappedPrivate = java.net.Inet6Address.getByAddress(
+            null,
+            byteArrayOf(
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0xFF.toByte(), 0xFF.toByte(),
+                192.toByte(), 168.toByte(), 1, 10
+            ),
+            -1
+        )
+        assertTrue(mappedPrivate is java.net.Inet6Address)
+        assertTrue(CommandAuth.isTrustedAddress(mappedPrivate))
+
+        val mappedPublic = java.net.Inet6Address.getByAddress(
+            null,
+            byteArrayOf(
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0xFF.toByte(), 0xFF.toByte(),
+                8, 8, 8, 8
+            ),
+            -1
+        )
+        assertFalse(CommandAuth.isTrustedAddress(mappedPublic))
     }
 
     @Test

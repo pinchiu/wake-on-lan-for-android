@@ -68,6 +68,8 @@
     <string name="security_copy">Copy</string>
     <string name="security_paste">Paste</string>
     <string name="toast_secret_copied">Secret copied</string>
+    <string name="settings_save_secrets">Save secrets</string>
+    <string name="toast_secrets_saved">Secrets saved</string>
     <string name="security_pc_secret_missing_hint">Optional: only needed for public port forwarding</string>
 
     <!-- About and updates -->
@@ -81,6 +83,7 @@
     <string name="update_latest">You are on the latest version</string>
     <string name="update_check_button">Check for updates</string>
     <string name="about_view_releases">View releases on GitHub</string>
+    <string name="about_view_releases_failed">Could not open the browser</string>
 
     <!-- Server screen -->
     <string name="server_title">Home Wake Assistant</string>

@@ -13,6 +13,8 @@ use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, TcpListener, TcpStream, UdpSocket};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -33,6 +35,15 @@ pub const WEB_PORT_ENV: &str = "PC_ONOFF_WEB_PORT";
 
 /// Maximum request head + body accepted from one connection (64 KB).
 const MAX_REQUEST_BYTES: usize = 64 * 1024;
+
+/// Maximum number of simultaneously handled dashboard connections.
+const MAX_CONCURRENT_CONNECTIONS: usize = 32;
+
+/// Maximum nesting depth accepted by the tiny JSON reader.
+const MAX_JSON_DEPTH: usize = 32;
+
+/// How much of the end of the log file `/api/log` reads (keeps polling cheap).
+const LOG_TAIL_WINDOW_BYTES: u64 = 65_536;
 
 /// Socket read/write timeout. Browsers may open speculative idle connections.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -100,16 +111,65 @@ pub fn serve() -> Result<(), WebError> {
     println!("Press Ctrl+C to stop.");
     open_browser(port);
 
+    let active = Arc::new(AtomicUsize::new(0));
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => {
-                thread::spawn(move || handle_connection(stream, port));
-            }
+            Ok(stream) => spawn_connection(stream, port, &active),
             Err(error) => eprintln!("Dashboard: cannot accept connection: {error}"),
         }
     }
 
     Ok(())
+}
+
+/// Active connection counter; decrements when the handler finishes or its thread is dropped.
+struct ConnectionGuard(Arc<AtomicUsize>);
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// Handle one accepted connection on its own thread, refusing work above the cap.
+fn spawn_connection(stream: TcpStream, port: u16, active: &Arc<AtomicUsize>) {
+    if active.load(Ordering::SeqCst) >= MAX_CONCURRENT_CONNECTIONS {
+        let mut refused = stream;
+        let _ = write_response(
+            &mut refused,
+            &Response::error(503, "too many concurrent connections"),
+        );
+        return;
+    }
+
+    let Ok(cloned) = stream.try_clone() else {
+        let mut refused = stream;
+        let _ = write_response(
+            &mut refused,
+            &Response::error(503, "cannot clone connection"),
+        );
+        return;
+    };
+
+    active.fetch_add(1, Ordering::SeqCst);
+    let guard = ConnectionGuard(Arc::clone(active));
+    let spawned = thread::Builder::new()
+        .name("pc_onoff-web".to_owned())
+        .spawn(move || {
+            let _guard = guard;
+            handle_connection(cloned, port);
+        });
+
+    if let Err(error) = spawned {
+        // The closure (and its guard) is dropped by `spawn`, so the counter is already
+        // decremented; report the failure on the original stream.
+        let mut refused = stream;
+        let _ = write_response(
+            &mut refused,
+            &Response::error(503, "cannot start a connection handler"),
+        );
+        eprintln!("Dashboard: cannot spawn connection handler: {error}");
+    }
 }
 
 /// Open the dashboard in the platform browser. Failure is intentionally silent:
@@ -138,11 +198,19 @@ fn open_browser(port: u16) {
 
     #[cfg(any(windows, target_os = "macos", unix))]
     {
-        let _ = command
+        if let Ok(mut child) = command
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
-            .spawn();
+            .spawn()
+        {
+            // Reap the browser launcher so it cannot linger as a zombie.
+            let _ = thread::Builder::new()
+                .name("pc_onoff-browser-reaper".to_owned())
+                .spawn(move || {
+                    let _ = child.wait();
+                });
+        }
     }
 }
 
@@ -192,11 +260,11 @@ fn read_http_request(stream: &mut TcpStream) -> Result<Request, ReadError> {
         std::str::from_utf8(&buffer[..header_end]).map_err(|_| ReadError::BadRequest)?;
     let head = parse_request_head(head_text)?;
     let content_length = head.content_length()?;
-    if content_length > MAX_REQUEST_BYTES {
+    let body_start = header_end + delimiter_len;
+    if body_start.saturating_add(content_length) > MAX_REQUEST_BYTES {
         return Err(ReadError::TooLarge);
     }
 
-    let body_start = header_end + delimiter_len;
     let mut body = buffer[body_start..].to_vec();
     if body.len() > content_length {
         body.truncate(content_length);
@@ -223,17 +291,24 @@ fn map_read_error(error: io::Error) -> ReadError {
 }
 
 /// Locate the blank line ending the request head; returns (index, delimiter length).
+///
+/// Both CRLFCRLF and LFLF are accepted, and the earliest terminator wins so a request
+/// cannot smuggle a second boundary past the first one.
 fn find_header_boundary(buffer: &[u8]) -> Option<(usize, usize)> {
-    buffer
+    let crlf = buffer
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
-        .map(|index| (index, 4))
-        .or_else(|| {
-            buffer
-                .windows(2)
-                .position(|window| window == b"\n\n")
-                .map(|index| (index, 2))
-        })
+        .map(|index| (index, 4));
+    let lf = buffer
+        .windows(2)
+        .position(|window| window == b"\n\n")
+        .map(|index| (index, 2));
+
+    match (crlf, lf) {
+        (Some(crlf), Some(lf)) if lf.0 < crlf.0 => Some(lf),
+        (Some(crlf), _) => Some(crlf),
+        (None, lf) => lf,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -291,7 +366,20 @@ fn parse_request_head(text: &str) -> Result<RequestHead, ReadError> {
         if name.is_empty() || name.chars().any(char::is_whitespace) {
             return Err(ReadError::BadRequest);
         }
-        headers.push((name.to_ascii_lowercase(), value.trim().to_owned()));
+        let name = name.to_ascii_lowercase();
+        // Chunked bodies would need framing we deliberately do not implement, and duplicate
+        // security-relevant headers are a classic request-smuggling primitive.
+        if name == "transfer-encoding" {
+            return Err(ReadError::BadRequest);
+        }
+        if matches!(
+            name.as_str(),
+            "host" | "origin" | "content-length" | "content-type"
+        ) && headers.iter().any(|(existing, _)| existing == &name)
+        {
+            return Err(ReadError::BadRequest);
+        }
+        headers.push((name, value.trim().to_owned()));
         if headers.len() > 100 {
             return Err(ReadError::BadRequest);
         }
@@ -417,11 +505,19 @@ fn is_json_content_type(value: &str) -> bool {
 }
 
 fn origin_allowed(origin: &str, port: u16) -> bool {
-    origin == format!("http://127.0.0.1:{port}") || origin == format!("http://localhost:{port}")
+    if port == 80 {
+        // Browsers omit the default port from the Origin header.
+        matches!(
+            origin,
+            "http://127.0.0.1" | "http://localhost" | "http://127.0.0.1:80" | "http://localhost:80"
+        )
+    } else {
+        origin == format!("http://127.0.0.1:{port}") || origin == format!("http://localhost:{port}")
+    }
 }
 
 fn host_allowed(host: Option<&str>, port: u16) -> bool {
-    host.is_none_or(|host| authority_matches(host.trim(), port))
+    host.is_some_and(|host| authority_matches(host.trim(), port))
 }
 
 fn authority_matches(authority: &str, port: u16) -> bool {
@@ -511,10 +607,29 @@ fn log_json(lines: usize) -> String {
     )
 }
 
+/// Read the last `limit` lines without loading the whole (up to 5 MB) log every poll.
 fn read_log_tail(path: &Path, limit: usize) -> io::Result<Vec<String>> {
-    let bytes = std::fs::read(path)?;
+    use std::io::{Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(path)?;
+    let length = file.metadata()?.len();
+    let start = length.saturating_sub(LOG_TAIL_WINDOW_BYTES);
+    if start > 0 {
+        file.seek(SeekFrom::Start(start))?;
+    }
+
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
     let content = String::from_utf8_lossy(&bytes);
-    Ok(tail_lines(&content, limit))
+    // When the window starts mid-line, drop that partial line.
+    let content = if start > 0 {
+        content
+            .find('\n')
+            .map_or("", |newline| &content[newline + 1..])
+    } else {
+        content.as_ref()
+    };
+    Ok(tail_lines(content, limit))
 }
 
 fn tail_lines(content: &str, limit: usize) -> Vec<String> {
@@ -597,7 +712,7 @@ fn json_string_member(body: &[u8], key: &str) -> Result<String, &'static str> {
                 found = Some(value);
             } else {
                 parser
-                    .skip_value()
+                    .skip_value(0)
                     .map_err(|()| "request body contains invalid JSON")?;
             }
 
@@ -704,7 +819,10 @@ impl<'a> JsonParser<'a> {
         Ok(value)
     }
 
-    fn skip_value(&mut self) -> Result<(), ()> {
+    fn skip_value(&mut self, depth: usize) -> Result<(), ()> {
+        if depth > MAX_JSON_DEPTH {
+            return Err(());
+        }
         self.skip_whitespace();
         match self.peek().ok_or(())? {
             b'"' => {
@@ -723,7 +841,7 @@ impl<'a> JsonParser<'a> {
                     self.parse_string()?;
                     self.skip_whitespace();
                     self.expect(b':')?;
-                    self.skip_value()?;
+                    self.skip_value(depth + 1)?;
                     self.skip_whitespace();
                     match self.next() {
                         Some(b',') => continue,
@@ -740,7 +858,7 @@ impl<'a> JsonParser<'a> {
                     return Ok(());
                 }
                 loop {
-                    self.skip_value()?;
+                    self.skip_value(depth + 1)?;
                     self.skip_whitespace();
                     match self.next() {
                         Some(b',') => continue,
@@ -954,6 +1072,7 @@ fn reason_phrase(status: u16) -> &'static str {
         413 => "Content Too Large",
         415 => "Unsupported Media Type",
         502 => "Bad Gateway",
+        503 => "Service Unavailable",
         _ => "Internal Server Error",
     }
 }
@@ -1110,14 +1229,113 @@ mod tests {
     }
 
     #[test]
+    fn origin_check_accepts_default_port_forms_on_port_80() {
+        for origin in [
+            "http://127.0.0.1",
+            "http://localhost",
+            "http://127.0.0.1:80",
+            "http://localhost:80",
+        ] {
+            assert!(origin_allowed(origin, 80), "{origin} should be allowed");
+        }
+        assert!(!origin_allowed("http://127.0.0.1:8080", 80));
+        assert!(!origin_allowed("https://127.0.0.1", 80));
+        assert!(!origin_allowed("http://evil.example", 80));
+    }
+
+    #[test]
     fn host_check_rejects_foreign_authorities() {
-        assert!(host_allowed(None, 9878));
+        assert!(
+            !host_allowed(None, 9878),
+            "a request without a Host header must be rejected"
+        );
         assert!(host_allowed(Some("127.0.0.1:9878"), 9878));
         assert!(host_allowed(Some("LOCALHOST:9878"), 9878));
         assert!(!host_allowed(Some("evil.example:9878"), 9878));
         assert!(!host_allowed(Some("127.0.0.1:9999"), 9878));
         assert!(host_allowed(Some("127.0.0.1"), 80));
         assert!(host_allowed(Some("localhost"), 80));
+    }
+
+    #[test]
+    fn header_boundary_uses_the_earliest_terminator() {
+        assert_eq!(
+            find_header_boundary(b"GET / HTTP/1.1\r\n\r\n"),
+            Some((14, 4))
+        );
+        assert_eq!(find_header_boundary(b"GET / HTTP/1.1\n\n"), Some((14, 2)));
+        // A stray LF LF before the real CRLF CRLF must win, not be skipped over.
+        assert_eq!(
+            find_header_boundary(b"A: b\n\nHost: x\r\n\r\n"),
+            Some((4, 2))
+        );
+        assert_eq!(find_header_boundary(b"no terminator"), None);
+    }
+
+    #[test]
+    fn rejects_transfer_encoding_and_duplicate_security_headers() {
+        for text in [
+            "POST /api/action HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            "POST /api/action HTTP/1.1\r\nHost: 127.0.0.1:9878\r\nHost: 127.0.0.1:9878\r\n\r\n",
+            "POST /api/action HTTP/1.1\r\nOrigin: http://127.0.0.1:9878\r\nOrigin: http://127.0.0.1:9878\r\n\r\n",
+            "POST /api/action HTTP/1.1\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\n",
+            "POST /api/action HTTP/1.1\r\nContent-Type: application/json\r\nContent-Type: application/json\r\n\r\n",
+        ] {
+            assert!(parse_request_head(text).is_err(), "accepted {text:?}");
+        }
+    }
+
+    #[test]
+    fn deeply_nested_json_is_rejected() {
+        let depth = MAX_JSON_DEPTH * 4;
+        let body = format!("\"x\":{}{}", "[".repeat(depth), "]".repeat(depth));
+        let wrapped = format!("{{{body}}}");
+        assert!(
+            json_string_member(wrapped.as_bytes(), "action").is_err(),
+            "deeply nested JSON must not be walked recursively forever"
+        );
+
+        assert_eq!(
+            json_string_member(br#"{"meta":[[[{"a":[1,2,3]}]]],"action":"lock"}"#, "action"),
+            Ok("lock".to_owned())
+        );
+    }
+
+    #[test]
+    fn read_log_tail_reads_only_the_window_and_drops_partial_lines() {
+        use std::io::Write as _;
+
+        let dir = crate::test_support::TempDir::new("web-log-tail");
+        let path = dir.path().join("pc_onoff.log");
+        let mut file = std::fs::File::create(&path).expect("create log");
+        // 400 lines of ~200 bytes => ~80 KB, comfortably above the 64 KB window.
+        for index in 0..400 {
+            writeln!(
+                file,
+                "[2026-11-19 12:00:00] [test] line-{index:03}-{}",
+                "x".repeat(170)
+            )
+            .expect("write log");
+        }
+        drop(file);
+
+        let tail = read_log_tail(&path, 5).expect("read tail");
+        assert_eq!(tail.len(), 5);
+        assert!(
+            tail.last().expect("last").contains("line-399"),
+            "tail was: {tail:?}"
+        );
+        assert!(
+            tail.first().expect("first").starts_with("[2026-11-19"),
+            "first line must be complete, not a partial fragment: {tail:?}"
+        );
+
+        let all = read_log_tail(&path, 1000).expect("read all");
+        assert!(
+            (100..400).contains(&all.len()),
+            "windowed read should return only recent lines, got {}",
+            all.len()
+        );
     }
 
     #[test]

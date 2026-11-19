@@ -47,6 +47,8 @@ pub enum AuthError {
     Expired,
     /// The nonce was already accepted recently.
     Replayed,
+    /// The envelope was minted before this daemon process started.
+    PreStartReplay,
     /// No command secret is configured; unsigned fallback is not allowed.
     NotConfigured,
     /// Envelope structure is invalid (unknown/duplicate fields, bad hex, oversized, ...).
@@ -61,6 +63,7 @@ impl AuthError {
             Self::BadSignature => "bad_signature",
             Self::Expired => "expired",
             Self::Replayed => "replayed",
+            Self::PreStartReplay => "pre_start_replay",
             Self::NotConfigured => "not_configured",
             Self::Malformed => "malformed",
         }
@@ -74,6 +77,7 @@ impl fmt::Display for AuthError {
             Self::BadSignature => "authentication signature mismatch",
             Self::Expired => "authentication timestamp outside the allowed window",
             Self::Replayed => "authentication nonce already used",
+            Self::PreStartReplay => "authentication envelope predates daemon startup",
             Self::NotConfigured => "command secret is not configured",
             Self::Malformed => "malformed authentication envelope",
         })
@@ -87,7 +91,8 @@ impl std::error::Error for AuthError {}
 /// `nonce` must be 16 hex characters (see [`generate_nonce`]); `timestamp` is Unix seconds.
 /// A blank secret is an error, never a request to send unsigned.
 pub fn sign(command: &str, secret: &str, timestamp: u64, nonce: &str) -> Result<String, AuthError> {
-    if secret.trim().is_empty() {
+    let secret = secret.trim();
+    if secret.is_empty() {
         return Err(AuthError::NotConfigured);
     }
     if command.is_empty()
@@ -122,7 +127,23 @@ pub fn verify(
     now: u64,
     replay: &mut ReplayGuard,
 ) -> Result<String, AuthError> {
-    if secret.trim().is_empty() {
+    verify_since(envelope, secret, now, 0, replay)
+}
+
+/// Verify `envelope`, additionally rejecting envelopes minted before `not_before`.
+///
+/// The signature is verified before the clock-window and pre-start checks, so a forged
+/// timestamp cannot be used to probe the daemon's state. The pre-start check runs before
+/// [`ReplayGuard::accept`], so a rejected old envelope never poisons the replay cache.
+pub fn verify_since(
+    envelope: &str,
+    secret: &str,
+    now: u64,
+    not_before: u64,
+    replay: &mut ReplayGuard,
+) -> Result<String, AuthError> {
+    let secret = secret.trim();
+    if secret.is_empty() {
         return Err(AuthError::NotConfigured);
     }
 
@@ -135,15 +156,22 @@ pub fn verify(
     }
 
     let parsed = ParsedEnvelope::parse(envelope)?;
-    if now.abs_diff(parsed.timestamp) > TIMESTAMP_WINDOW_SECONDS {
-        return Err(AuthError::Expired);
-    }
 
     let message = sign_input(parsed.command, parsed.timestamp, parsed.nonce);
     let expected = crypto::hmac_sha256(secret.as_bytes(), message.as_bytes());
     let provided = crypto::hex_decode(parsed.signature).ok_or(AuthError::Malformed)?;
     if !crypto::constant_time_eq(&expected, &provided) {
         return Err(AuthError::BadSignature);
+    }
+
+    if now.abs_diff(parsed.timestamp) > TIMESTAMP_WINDOW_SECONDS {
+        return Err(AuthError::Expired);
+    }
+
+    // A captured envelope from before this process started is a replay, even though its
+    // timestamp is still inside the ±5 minute window (e.g. a reboot envelope after boot).
+    if parsed.timestamp < not_before {
+        return Err(AuthError::PreStartReplay);
     }
 
     if !replay.accept(parsed.nonce, now) {
@@ -193,7 +221,7 @@ fn sign_input(command: &str, timestamp: u64, nonce: &str) -> String {
 /// Command inside a structurally valid envelope, without verifying the signature.
 /// Trusted LAN/Tailscale transports may accept the command directly.
 pub fn command(envelope: &str) -> Option<&str> {
-    ParsedEnvelope::parse(envelope)
+    ParsedEnvelope::parse(envelope.trim())
         .ok()
         .map(|parsed| parsed.command)
 }
@@ -201,13 +229,16 @@ pub fn command(envelope: &str) -> Option<&str> {
 /// Timestamp of a structurally valid envelope. Used by transports that need to reject
 /// envelopes minted before the current process (e.g. a captured reboot replayed after boot).
 pub fn timestamp(envelope: &str) -> Option<u64> {
-    ParsedEnvelope::parse(envelope)
+    ParsedEnvelope::parse(envelope.trim())
         .ok()
         .map(|parsed| parsed.timestamp)
 }
 
 fn is_hex_of_length(value: &str, length: usize) -> bool {
-    value.len() == length && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    value.len() == length
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 struct ParsedEnvelope<'a> {
@@ -300,7 +331,7 @@ impl ReplayGuard {
 
     /// Remember `nonce` until `now + ttl`. Returns `false` when it was already present.
     pub fn accept(&mut self, nonce: &str, now: u64) -> bool {
-        self.entries.retain(|_, expires_at| *expires_at > now);
+        self.entries.retain(|_, expires_at| *expires_at >= now);
 
         if self.entries.contains_key(nonce) {
             return false;
@@ -473,6 +504,94 @@ mod tests {
     }
 
     #[test]
+    fn secrets_are_trimmed_on_both_sides() {
+        let padded_secret = format!("  {SECRET}\n");
+        let envelope = sign("shutdown", &padded_secret, NOW, NONCE).expect("sign");
+        assert_eq!(
+            verify_at(&envelope, &padded_secret, NOW),
+            Ok("shutdown".to_owned())
+        );
+        assert_eq!(
+            verify_at(&envelope, SECRET, NOW),
+            Ok("shutdown".to_owned()),
+            "signing with a padded secret must match the trimmed secret"
+        );
+        assert_eq!(
+            verify_at(&signed("shutdown", NOW, NONCE), &padded_secret, NOW),
+            Ok("shutdown".to_owned())
+        );
+    }
+
+    #[test]
+    fn envelopes_are_trimmed_and_uppercase_hex_is_rejected() {
+        let envelope = signed("shutdown", NOW, NONCE);
+        assert_eq!(
+            verify_at(&format!("  {envelope}\r\n"), SECRET, NOW),
+            Ok("shutdown".to_owned())
+        );
+        assert_eq!(command(&format!("{envelope}\r\n")), Some("shutdown"));
+
+        let letter_nonce = "00aabbccddeeff11";
+        let letter_envelope =
+            sign("shutdown", SECRET, NOW, letter_nonce).expect("sign with letter nonce");
+        let uppercase =
+            letter_envelope.replacen(letter_nonce, &letter_nonce.to_ascii_uppercase(), 1);
+        assert_eq!(
+            verify_at(&uppercase, SECRET, NOW),
+            Err(AuthError::Malformed),
+            "nonces must be lowercase hex"
+        );
+
+        let uppercase_signature = {
+            let (prefix, signature) = letter_envelope.rsplit_once("sig=").expect("signature");
+            format!("{prefix}sig={}", signature.to_ascii_uppercase())
+        };
+        assert_eq!(
+            verify_at(&uppercase_signature, SECRET, NOW),
+            Err(AuthError::Malformed),
+            "signatures must be lowercase hex"
+        );
+    }
+
+    #[test]
+    fn pre_start_envelopes_are_rejected_without_poisoning_the_replay_guard() {
+        let timestamp = NOW - 100;
+        let envelope = signed("shutdown", timestamp, NONCE);
+        let mut replay = ReplayGuard::new();
+
+        assert_eq!(
+            verify_since(&envelope, SECRET, NOW, NOW - 50, &mut replay),
+            Err(AuthError::PreStartReplay)
+        );
+        // The rejected envelope must not have consumed its nonce.
+        assert_eq!(
+            verify_since(&envelope, SECRET, NOW, NOW - 200, &mut replay),
+            Ok("shutdown".to_owned())
+        );
+        assert_eq!(
+            verify_since(&envelope, SECRET, NOW, 0, &mut replay),
+            Err(AuthError::Replayed)
+        );
+    }
+
+    #[test]
+    fn replay_guard_keeps_entries_until_the_ttl_boundary() {
+        // ts = NOW + 300 (the newest timestamp the verifier accepts at NOW) is stored until
+        // NOW + 600. Replaying it exactly at NOW + 600 must fail, not succeed.
+        let envelope = signed("shutdown", NOW + TIMESTAMP_WINDOW_SECONDS, NONCE);
+        let mut replay = ReplayGuard::new();
+
+        assert_eq!(
+            verify(&envelope, SECRET, NOW, &mut replay),
+            Ok("shutdown".to_owned())
+        );
+        assert_eq!(
+            verify(&envelope, SECRET, NOW + NONCE_TTL_SECONDS, &mut replay),
+            Err(AuthError::Replayed)
+        );
+    }
+
+    #[test]
     fn blank_secret_never_falls_back_to_unsigned() {
         let envelope = signed("shutdown", NOW, NONCE);
         assert_eq!(verify_at(&envelope, "", NOW), Err(AuthError::NotConfigured));
@@ -641,7 +760,12 @@ mod tests {
         assert_eq!(AuthError::BadSignature.reason(), "bad_signature");
         assert_eq!(AuthError::Expired.reason(), "expired");
         assert_eq!(AuthError::Replayed.reason(), "replayed");
+        assert_eq!(AuthError::PreStartReplay.reason(), "pre_start_replay");
         assert_eq!(AuthError::NotConfigured.reason(), "not_configured");
         assert_eq!(AuthError::Malformed.reason(), "malformed");
+        assert_eq!(
+            AuthError::PreStartReplay.to_string(),
+            "authentication envelope predates daemon startup"
+        );
     }
 }

@@ -219,7 +219,7 @@ fn show_status() -> i32 {
 }
 
 fn show_logs() -> i32 {
-    let path = paths::log_path();
+    let path = active_log_path(&active_config_path());
 
     let Ok(content) = fs::read_to_string(&path) else {
         println!("Log file does not exist yet: {}", path.display());
@@ -452,10 +452,13 @@ fn print_help() {
     println!("  Also accepts SHUTDOWN:<IP> format; the :<IP> part is ignored.");
     println!();
     println!("Command authentication:");
-    println!("  Every command must carry a signed envelope:");
+    println!("  LAN and Tailscale sources (private, link-local, CGNAT, ULA, loopback) may send");
+    println!("  bare commands such as `shutdown` or `reboot` without a secret.");
+    println!("  Public IPv4/IPv6 sources must sign every command with HMAC-SHA256:");
     println!("  <command>|ts=<unix>|nonce=<16 hex>|sig=<64 hex>");
     println!("  Run `{exe} --status` to show the shared command secret to paste into the apps.");
-    println!("  Unsigned commands are rejected; clocks must agree within 5 minutes.");
+    println!("  Clocks must agree within 5 minutes; expired and replayed envelopes are rejected.");
+    println!("  Prefer Tailscale over exposing UDP 9877 on a public port.");
     println!();
     println!(
         "Config file: {} (udp_port, autostart, secret)",

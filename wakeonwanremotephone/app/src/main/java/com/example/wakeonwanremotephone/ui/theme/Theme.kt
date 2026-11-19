@@ -1,6 +1,8 @@
 package com.example.wakeonwanremotephone.ui.theme
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -99,7 +101,7 @@ fun WakeOnWanRemotePhoneTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
+            val window = findActivity(view.context)?.window ?: return@SideEffect
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
@@ -113,4 +115,14 @@ fun WakeOnWanRemotePhoneTheme(
         typography = Typography,
         content = content
     )
+}
+
+/** Unwraps a (possibly wrapped) Compose context to the hosting Activity. */
+private fun findActivity(context: Context): Activity? {
+    var current: Context? = context
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
 }

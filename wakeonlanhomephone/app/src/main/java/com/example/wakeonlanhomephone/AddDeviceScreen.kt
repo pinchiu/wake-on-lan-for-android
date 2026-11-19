@@ -79,17 +79,21 @@ fun AddDeviceScreen(
                                 val parsedPort = port.toIntOrNull() ?: if (useSsl) 8883 else 1883
                                 // Keep scheme/port/path (e.g. wss://host:443/mqtt); MqttEndpoint parses it.
                                 val cleanHost = brokerUrl.trim()
+                                // Read fresh so a concurrently-saved global topic/secret is not clobbered.
+                                val freshConfig = configManager.getConfig()
 
                                 configManager.saveConfig(
-                                    currentConfig.copy(
-                                        brokerName = name.ifEmpty { currentConfig.brokerName },
+                                    freshConfig.copy(
+                                        brokerName = name.ifEmpty { freshConfig.brokerName },
                                         host = cleanHost,
                                         port = parsedPort,
                                         username = username.trim(),
                                         password = password.trim(),
                                         useSsl = useSsl,
                                         protocol = protocol,
-                                        topic = if (topic.isNotEmpty()) topic.trim() else currentConfig.topic
+                                        // Adding a status device must not replace the global
+                                        // command topic that already exists.
+                                        topic = if (freshConfig.topic.isBlank()) topic.trim() else freshConfig.topic
                                     )
                                 )
 
@@ -319,7 +323,7 @@ private fun SegmentOption(
                     Modifier
                 }
             )
-            .background(if (selected) Color.White else Color.Transparent, shape)
+            .background(if (selected) FrostSurfaceElevated else Color.Transparent, shape)
             .clickable(onClick = onClick)
     ) {
         Text(

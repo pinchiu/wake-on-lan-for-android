@@ -2,6 +2,8 @@ package com.example.wakeonwanremotephone
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -12,46 +14,109 @@ import java.util.Locale
 
 object RemoteNetworkUtil {
 
+    private const val TCP_PORT = 9876
+    private const val UDP_PORT = 9877
+    private const val CONNECT_TIMEOUT_MS = 5000
+    private const val READ_TIMEOUT_MS = 5000
+    private const val MAX_RESPONSE_BYTES = 1024
+
+    private val MAC_COLON_PATTERN = Regex("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+    private val MAC_DASH_PATTERN = Regex("^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$")
+
+    /**
+     * Every failure string returned by this utility (or by the helper over TCP).
+     * Anything else is treated as a success by the UI and the widget.
+     */
+    private val ERROR_PREFIXES = listOf(
+        "Send failed",
+        "Address",
+        "LAN WoL failed",
+        "Direct send failed",
+        "Shared ",
+        "PC secret is required",
+        "Helper secret is required",
+        "Failed to sign",
+        "Invalid ",
+        "PC IP or command cannot be empty",
+        "Command sent, but no response",
+        "ERROR:"
+    )
 
     /**
      * Sends [command] to the Home Phone helper over TCP 9876.
      *
-     * The command is always wrapped in a signed envelope using [helperSecret].
-     * There is intentionally no unsigned fallback: a blank secret is a local
-     * configuration error, reported before any connection is attempted.
+     * The command is wrapped in a signed envelope when [helperSecret] is set.
+     * LAN/Tailscale bare commands remain accepted; a public target without a
+     * secret is rejected locally, before any connection is attempted.
      */
-    suspend fun sendTcpCommand(host: String, command: String, helperSecret: String): String {
+    suspend fun sendTcpCommand(
+        host: String,
+        command: String,
+        helperSecret: String,
+        connectTimeoutMs: Int = CONNECT_TIMEOUT_MS,
+        readTimeoutMs: Int = READ_TIMEOUT_MS
+    ): String {
         return withContext(Dispatchers.IO) {
-            if (host.isBlank() || command.isBlank()) {
+            if (command.contains('\r') || command.contains('\n')) {
+                return@withContext "Invalid command format"
+            }
+            val trimmedHost = host.trim()
+            val trimmedCommand = command.trim()
+            if (trimmedHost.isEmpty() || trimmedCommand.isEmpty()) {
                 return@withContext "Address or command cannot be empty!"
             }
-            // LAN/Tailscale accepts a bare command; a public port-forward requires the
-            // stored secret, and every command is then signed automatically.
+
+            val targetAddr = try {
+                InetAddress.getByName(trimmedHost)
+            } catch (e: Exception) {
+                return@withContext "Invalid helper address: ${e.message}"
+            }
+            if (helperSecret.isBlank() && !CommandAuth.isTrustedAddress(targetAddr)) {
+                return@withContext "Helper secret is required for a public IP; configure it in Shared secrets"
+            }
+
             val wire = if (helperSecret.isBlank()) {
-                command.trim()
+                trimmedCommand
             } else {
-                CommandAuth.sign(command.trim(), helperSecret)
+                CommandAuth.sign(trimmedCommand, helperSecret)
                     ?: return@withContext "Failed to sign command"
             }
+
             try {
-                val targetAddr = InetAddress.getByName(host.trim())
-                val socket = Socket()
-                val socketAddress = InetSocketAddress(targetAddr, 9876)
-                socket.connect(socketAddress, 5000)
-                socket.soTimeout = 5000
-                socket.use { s ->
-                    val writer = s.getOutputStream().bufferedWriter()
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress(targetAddr, TCP_PORT), connectTimeoutMs)
+                    socket.soTimeout = readTimeoutMs
+
+                    val writer = socket.getOutputStream().bufferedWriter(StandardCharsets.UTF_8)
                     writer.write(wire + "\n")
                     writer.flush()
 
-                    val reader = s.getInputStream().bufferedReader()
-                    val response = reader.readLine()
-                    response ?: "Command sent, but no response from server."
+                    readBoundedLine(socket.getInputStream())
+                        ?: "Command sent, but no response from server."
                 }
             } catch (e: Exception) {
                 "Send failed: ${e.message}"
             }
         }
+    }
+
+    /**
+     * Reads one response line without trusting the peer for a length limit:
+     * at most [MAX_RESPONSE_BYTES] UTF-8 bytes, stopping on `\n` and dropping
+     * a trailing `\r`.
+     */
+    private fun readBoundedLine(input: InputStream): String? {
+        val buffer = ByteArrayOutputStream()
+        while (buffer.size() < MAX_RESPONSE_BYTES) {
+            val next = input.read()
+            if (next == -1 || next == '\n'.code) break
+            buffer.write(next)
+        }
+        val bytes = buffer.toByteArray()
+        if (bytes.isEmpty()) return null
+        val length = if (bytes.last() == '\r'.code.toByte()) bytes.size - 1 else bytes.size
+        if (length == 0) return null
+        return String(bytes, 0, length, StandardCharsets.UTF_8)
     }
 
     /**
@@ -84,10 +149,17 @@ object RemoteNetworkUtil {
         }
     }
 
+    /**
+     * Parses a strict six-octet MAC address. Surrounding whitespace is ignored;
+     * mixed separators, shorthand octets and stray characters are rejected.
+     */
     fun getMacBytes(macStr: String): ByteArray? {
+        val trimmed = macStr.trim()
+        if (!MAC_COLON_PATTERN.matches(trimmed) && !MAC_DASH_PATTERN.matches(trimmed)) {
+            return null
+        }
         val bytes = ByteArray(6)
-        val hex = macStr.split(':', '-')
-        if (hex.size != 6) return null
+        val hex = trimmed.split(':', '-')
         try {
             for (i in 0..5) {
                 bytes[i] = hex[i].toInt(16).toByte()
@@ -103,7 +175,7 @@ object RemoteNetworkUtil {
      *
      * The signed command is the legacy `ACTION:IP` string, wrapped in a signed
      * envelope using [pcSecret] (the daemon's Command Secret). A blank secret
-     * is rejected locally before any datagram is sent.
+     * is rejected locally for public targets before any datagram is sent.
      */
     suspend fun sendDirectCommandToPC(pcIp: String, action: String, pcSecret: String): String {
         return withContext(Dispatchers.IO) {
@@ -127,12 +199,18 @@ object RemoteNetworkUtil {
             }
             try {
                 val commandBytes = wire.toByteArray(StandardCharsets.UTF_8)
-                val packet = DatagramPacket(commandBytes, commandBytes.size, address, 9877)
+                val packet = DatagramPacket(commandBytes, commandBytes.size, address, UDP_PORT)
                 DatagramSocket().use { socket -> socket.send(packet) }
                 "Direct command '$command' sent to PC"
             } catch (e: Exception) {
                 "Direct send failed: ${e.message}"
             }
         }
+    }
+
+    /** Returns `true` when [result] is one of the known failure strings. */
+    fun isErrorResult(result: String): Boolean {
+        val trimmed = result.trim()
+        return ERROR_PREFIXES.any { trimmed.startsWith(it) }
     }
 }

@@ -145,13 +145,17 @@ mod linux {
             return Err(error);
         }
 
-        fs::create_dir_all(DATA_DIR)
-            .map_err(|error| ServiceError::new(format!("cannot create {DATA_DIR}: {error}")))?;
+        fs::create_dir_all(DATA_DIR).map_err(|error| {
+            restore_binary(binary_backup.as_deref(), target);
+            ServiceError::new(format!("cannot create {DATA_DIR}: {error}"))
+        })?;
         let invoking_home = invoking_user_home();
         migrate_user_config(invoking_home.as_deref(), &current);
 
-        fs::write(UNIT_PATH, unit_file(target))
-            .map_err(|error| ServiceError::new(format!("cannot write {UNIT_PATH}: {error}")))?;
+        fs::write(UNIT_PATH, unit_file(target)).map_err(|error| {
+            restore_binary(binary_backup.as_deref(), target);
+            ServiceError::new(format!("cannot write {UNIT_PATH}: {error}"))
+        })?;
 
         // Roll back the unit if systemd cannot take it, so user launches keep working.
         if let Err(error) =
@@ -264,7 +268,10 @@ mod linux {
                 target.display()
             )));
         }
-        if source.canonicalize().ok() == target.canonicalize().ok() {
+        if matches!(
+            (source.canonicalize(), target.canonicalize()),
+            (Ok(source), Ok(target)) if source == target
+        ) {
             return Ok(());
         }
 
@@ -327,6 +334,12 @@ mod linux {
             return;
         }
         let mut candidates: Vec<PathBuf> = Vec::new();
+        if let Some(directory) = platform::launcher_executable()
+            .ok()
+            .and_then(|path| path.parent().map(Path::to_path_buf))
+        {
+            candidates.push(directory.join("config.ini"));
+        }
         if let Some(directory) = current_exe.parent() {
             candidates.push(directory.join("config.ini"));
         }
@@ -355,11 +368,12 @@ mod linux {
         let user = std::env::var("SUDO_USER")
             .ok()
             .filter(|user| !user.is_empty());
+        let mut stopped = false;
 
         if let Some(user) = &user {
             // `.host` is required to address the local machine's user manager.
             let machine = format!("{user}@.host");
-            let _ = platform::command("systemctl")
+            stopped = platform::command("systemctl")
                 .args([
                     "--user",
                     "--machine",
@@ -368,7 +382,8 @@ mod linux {
                     "--now",
                     user_autostart::SERVICE_NAME,
                 ])
-                .output();
+                .output()
+                .is_ok_and(|output| output.status.success());
         }
 
         let lock = home.join(".config/pc_onoff/pc_onoff.lock");
@@ -388,11 +403,15 @@ mod linux {
                 }
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
+            stopped = stopped || !is_users_pc_onoff(pid, home);
         }
-        true
+        stopped
     }
 
     /// Delete the invoking user's autostart entries after the system service is healthy.
+    ///
+    /// Runs as root, so refuse to follow a symlinked directory component on the way to a
+    /// user-controlled file.
     fn remove_user_autostart_files(home: Option<&Path>) -> Option<String> {
         let home = home?;
         let mut removed = false;
@@ -401,6 +420,9 @@ mod linux {
             user_autostart::service_path(home),
             user_autostart::service_wants_link(home),
         ] {
+            if has_symlinked_ancestor(home, &path) {
+                continue;
+            }
             if fs::symlink_metadata(&path).is_ok() && fs::remove_file(&path).is_ok() {
                 removed = true;
             }
@@ -413,12 +435,40 @@ mod linux {
         })
     }
 
+    /// Whether any directory between `home` and `path` is a symlink.
+    fn has_symlinked_ancestor(home: &Path, path: &Path) -> bool {
+        let Ok(relative) = path.strip_prefix(home) else {
+            return true;
+        };
+        let mut current = home.to_path_buf();
+        for component in relative.components() {
+            current.push(component);
+            if current == path {
+                break;
+            }
+            if fs::symlink_metadata(&current)
+                .is_ok_and(|metadata| metadata.file_type().is_symlink())
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     /// `systemctl restart` succeeds as soon as the unit is queued for a `Type=simple`
-    /// service, so verify the daemon actually stayed up with a live MainPID.
+    /// service, so verify the daemon actually stayed up with the same live MainPID.
     fn wait_until_healthy() -> Result<(), ServiceError> {
         for _ in 0..25 {
-            if state() == ServiceState::Active && main_pid_running() {
-                return Ok(());
+            if state() == ServiceState::Active
+                && let Some(pid) = main_pid()
+            {
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                if state() == ServiceState::Active
+                    && main_pid() == Some(pid)
+                    && Path::new(&format!("/proc/{pid}")).exists()
+                {
+                    return Ok(());
+                }
             }
             std::thread::sleep(std::time::Duration::from_millis(200));
         }
@@ -428,17 +478,17 @@ mod linux {
         )))
     }
 
-    fn main_pid_running() -> bool {
+    fn main_pid() -> Option<u32> {
         let output = platform::command("systemctl")
             .args(["show", "-p", "MainPID", "--value", UNIT_NAME])
-            .output();
-        let Some(output) = output.ok().filter(|output| output.status.success()) else {
-            return false;
-        };
-        let pid = String::from_utf8_lossy(&output.stdout)
+            .output()
+            .ok()
+            .filter(|output| output.status.success())?;
+        String::from_utf8_lossy(&output.stdout)
             .trim()
-            .parse::<u32>();
-        pid.is_ok_and(|pid| pid > 0 && Path::new(&format!("/proc/{pid}")).exists())
+            .parse::<u32>()
+            .ok()
+            .filter(|pid| *pid > 0)
     }
 
     /// Copy the currently installed binary aside so a failed upgrade can restore it.
@@ -475,7 +525,7 @@ mod linux {
 
     fn restore_binary(backup: Option<&Path>, target: &Path) {
         if let Some(backup) = backup {
-            let _ = fs::remove_file(target);
+            // Rename replaces atomically; removing first would leave a window without a binary.
             let _ = fs::rename(backup, target);
         } else {
             let _ = fs::remove_file(target);
@@ -728,6 +778,34 @@ mod linux {
                 install_binary(&source, &link).is_err(),
                 "must refuse to install over a symlink"
             );
+        }
+
+        #[test]
+        fn refuses_to_remove_files_through_symlinked_directories() {
+            use std::os::unix::fs::symlink;
+
+            use crate::test_support::TempDir;
+
+            let dir = TempDir::new("symlink-ancestor");
+            let home = dir.path().join("home");
+            let real = home.join("real");
+            fs::create_dir_all(&real).expect("create real directory");
+            symlink(&real, home.join("link")).expect("create symlink");
+
+            assert!(!has_symlinked_ancestor(&home, &real.join("file")));
+            assert!(has_symlinked_ancestor(
+                &home,
+                &home.join("link").join("file")
+            ));
+            assert!(
+                has_symlinked_ancestor(&home, Path::new("/tmp/outside")),
+                "paths outside home must be refused"
+            );
+        }
+
+        #[test]
+        fn stopping_without_a_home_or_user_instance_reports_false() {
+            assert!(!stop_user_instance(None));
         }
     }
 }

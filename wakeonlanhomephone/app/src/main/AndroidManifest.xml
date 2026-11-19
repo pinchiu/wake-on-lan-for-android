@@ -13,8 +13,6 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
-        android:usesCleartextTraffic="true"
-
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -47,18 +45,25 @@
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.example.wakeonlanhomephone.ACTION_VOICE_WAKE" />
             </intent-filter>
         </activity>
         <service 
             android:name=".WolListenerService"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Local network Wake-on-LAN TCP command listener" />
+        </service>
         <service 
             android:name=".MqttWolService" 
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Persistent MQTT Wake-on-LAN command subscriber" />
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -29,7 +29,12 @@ object AppGlobalState {
 
     fun updateState(state: MqttConnectionState, error: String? = null, url: String? = null) {
         _connectionState.value = state
-        if (error != null) _lastErrorMessage.value = error
+        if (state == MqttConnectionState.CONNECTED || state == MqttConnectionState.CONNECTING) {
+            // A new attempt/connection makes the previous failure message stale.
+            _lastErrorMessage.value = null
+        } else if (error != null) {
+            _lastErrorMessage.value = error
+        }
         if (url != null) _brokerUrl.value = url
     }
     

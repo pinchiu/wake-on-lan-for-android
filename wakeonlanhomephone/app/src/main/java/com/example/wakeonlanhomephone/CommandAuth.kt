@@ -70,7 +70,11 @@ object CommandAuth {
     fun signWithNonce(command: String, secret: String, ts: Long, nonce: String): String? {
         val trimmedSecret = secret.trim()
         if (trimmedSecret.isEmpty()) return null
-        if (command.isEmpty() || command.contains('|')) return null
+        if (command.isEmpty() ||
+            command.trim() != command ||
+            command.contains('|') ||
+            command.any { it.isISOControl() }
+        ) return null
         if (!nonceRegex.matches(nonce)) return null
         val signInput = signInput(command, ts, nonce)
         val signature = hmacSha256Hex(trimmedSecret, signInput) ?: return null
@@ -133,7 +137,12 @@ object CommandAuth {
      * Private LAN and Tailscale commands do not need an HMAC envelope.
      */
     fun isTrustedAddress(address: java.net.InetAddress): Boolean {
-        if (address.isLoopbackAddress || address.isLinkLocalAddress || address.isSiteLocalAddress) {
+        if (address.isLoopbackAddress || address.isLinkLocalAddress) {
+            return true
+        }
+        // `isSiteLocalAddress` is true for deprecated IPv6 fec0::/10 as well; only the IPv4
+        // RFC1918 interpretation is trusted here (matching Rust `net.rs`).
+        if (address is java.net.Inet4Address && address.isSiteLocalAddress) {
             return true
         }
         val bytes = address.address
@@ -276,7 +285,9 @@ open class ReplayGuard(
     private fun pruneExpired(nowSeconds: Long) {
         val iterator = entries.entries.iterator()
         while (iterator.hasNext()) {
-            if (iterator.next().value <= nowSeconds) iterator.remove()
+            // Keep entries expiring exactly now: a packet accepted at T is valid until
+            // T + ttl inclusive, so a replay at exactly T + ttl must still be rejected.
+            if (iterator.next().value < nowSeconds) iterator.remove()
         }
     }
 }

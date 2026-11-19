@@ -186,7 +186,25 @@ pub fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; SHA256_DIGEST_BYTES] {
     let mut outer_message = Vec::with_capacity(HMAC_BLOCK_BYTES + SHA256_DIGEST_BYTES);
     outer_message.extend_from_slice(&outer_pad);
     outer_message.extend_from_slice(&inner_digest);
-    sha256(&outer_message)
+    let digest = sha256(&outer_message);
+
+    // Remove key-derived material from the stack/heap before returning.
+    volatile_zeroize(&mut normalized_key);
+    volatile_zeroize(&mut inner_pad);
+    volatile_zeroize(&mut outer_pad);
+    volatile_zeroize(&mut inner_message);
+    volatile_zeroize(&mut outer_message);
+
+    digest
+}
+
+/// Overwrite `buffer` in a way the optimizer may not elide.
+fn volatile_zeroize(buffer: &mut [u8]) {
+    for byte in buffer.iter_mut() {
+        // SAFETY: `byte` is a valid, exclusive reference into the caller's buffer.
+        unsafe { std::ptr::write_volatile(byte, 0) };
+    }
+    std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
 }
 
 /// Encode bytes as lowercase hexadecimal.
@@ -236,7 +254,7 @@ pub fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     for (left_byte, right_byte) in left.iter().zip(right.iter()) {
         difference |= left_byte ^ right_byte;
     }
-    difference == 0
+    std::hint::black_box(difference) == 0
 }
 
 /// Fill `buffer` with random bytes from the operating system.
@@ -318,7 +336,9 @@ fn os_random(buffer: &mut [u8]) -> bool {
         buffer[offset..offset + take].copy_from_slice(&output[..take]);
         offset += take;
     }
-    true
+    // Not a CSPRNG: report failure so callers generate a secret from a real OS source
+    // or fall back to the documented unique-nonce path.
+    false
 }
 
 #[cfg(test)]

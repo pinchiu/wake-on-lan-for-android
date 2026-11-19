@@ -34,6 +34,10 @@ scripts/
 # Kotlin incremental session data
 .kotlin/
 
+# Stale build artifacts
+build_log.txt
+*/app/release/
+
 # Archify working candidates
 .archify/
 

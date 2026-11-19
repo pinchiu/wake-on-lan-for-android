@@ -5,17 +5,25 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- Gson models -----------------------------------------------------------
+# Field names are the persisted/wire format. Keep them even if minification is
+# enabled later; @SerializedName is the authoritative name.
+-keep class com.example.wakeonlanhomephone.DeviceProfile { *; }
+-keep class com.example.wakeonlanhomephone.MqttDevice { *; }
+-keep class com.example.wakeonlanhomephone.GithubRelease { *; }
+-keep class com.example.wakeonlanhomephone.GithubAsset { *; }
+-keep interface com.example.wakeonlanhomephone.GithubService { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# --- Retrofit --------------------------------------------------------------
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,RuntimeVisibleTypeAnnotations
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
