@@ -6,15 +6,19 @@ on:
       - master
       - main
     paths-ignore:
-      - '**.md'
-      - '.gitignore'
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
   pull_request:
     branches:
       - master
       - main
     paths-ignore:
-      - '**.md'
-      - '.gitignore'
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
   workflow_dispatch:
 
 concurrency:

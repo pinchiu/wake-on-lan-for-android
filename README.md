@@ -1,19 +1,27 @@
 # Wake-on-LAN Home Phone Remote Control
 [中文說明 (Traditional Chinese)](README_zh.md)
 
+[![Architecture Wiki](https://img.shields.io/badge/Architecture_Wiki-Live-0A84FF?style=for-the-badge&logo=githubpages&logoColor=white)](https://pinchiu.github.io/wake-on-lan-for-android/)
+[![Archify Interactive Diagrams](https://img.shields.io/badge/Archify-Interactive_Diagrams-7B61FF?style=for-the-badge&logo=svg&logoColor=white)](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html)
+[![Home Assistant HACS Install](https://img.shields.io/badge/Home_Assistant-HACS_Install-18BCF2?style=for-the-badge&logo=homeassistant&logoColor=white)](#4-home-assistant--google-home-optional)
+[![Latest Release](https://img.shields.io/badge/Latest_Release-v1.8.0-34C759?style=for-the-badge&logo=github&logoColor=white)](https://github.com/pinchiu/wake-on-lan-for-android/releases/latest)
+
 > [!TIP]
-> **Interactive Architecture Wiki & Documentation**
+> **Interactive Architecture & Documentation Portal**
 >
-> Everything below is self-hosted from this repository — no external documentation service:
+> | Portal | Open Online | Description |
+> | :--- | :--- | :--- |
+> | 🖥️ **Architecture Wiki (`opencode.ai` Terminal UI)** | [**pinchiu.github.io/wake-on-lan-for-android/**](https://pinchiu.github.io/wake-on-lan-for-android/) | 3-pane interactive architecture wiki (`#0c0c0c` terminal theme), embedded Archify interactive diagrams, full English / 繁體中文 switching, instant search, and line-level source links |
+> | ✨ **Archify Interactive Explainer** | [**.../archify-explainer.html**](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html) | Validated 1-page interactive explainer with 4 animated diagrams (Topology, 25s Google Home Hold Sequence, HMAC Trust Workflow, Deep-Module Tree), step-by-step walkthroughs, and PNG/SVG/PDF export |
+> | 🗺️ **Protocol & System Map** | [**.../architecture.html**](https://pinchiu.github.io/wake-on-lan-for-android/architecture.html) | Full-canvas interactive component and wire-protocol map |
+> | 🏠 **Home Assistant & Google Home Guide** | [**§4 Install Guide**](#4-home-assistant--google-home-optional) · [`docs/home-assistant.md`](docs/home-assistant.md) | Bilingual HACS setup, config fields, 25s optimistic hold, and Google Home voice control guide |
 >
-> 1. **[Interactive Architecture Wiki Website (GitHub Pages)](https://pinchiu.github.io/wake-on-lan-for-android/wiki/)** — a 3-pane interactive architecture wiki with Mermaid diagrams, bilingual “Why / Decision Context” explanations, search, and line-level source links ([local file: docs/wiki/index.html](docs/wiki/index.html)).
-> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/wiki/archify-explainer.html)** — a validated 1-page interactive visual architecture & decision explainer with animated diagrams, step-through walkthroughs, light/dark themes, and image/PDF export ([local file: docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)).
-> 3. **Markdown Architecture Wiki Chapters** (docs/wiki/):
->    - [`docs/wiki/Home.md`](docs/wiki/Home.md) — 1. System Overview & Gateway Topology
->    - [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) — 2. Architecture & Deep Modules
->    - [`docs/wiki/Wire-Protocols-and-Security.md`](docs/wiki/Wire-Protocols-and-Security.md) — 3. Wire Protocols & Security
->    - [`docs/wiki/Subsystems-File-Map.md`](docs/wiki/Subsystems-File-Map.md) — 4. Subsystems File Map
->    - [`docs/wiki/Build-Test-and-Guardrails.md`](docs/wiki/Build-Test-and-Guardrails.md) — 5. Build, Test & Guardrails
+> **Markdown Architecture Wiki Chapters** (docs/wiki/):
+> - [`docs/wiki/Home.md`](docs/wiki/Home.md) — 1. System Overview & Gateway Topology
+> - [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) — 2. Architecture & Deep Modules
+> - [`docs/wiki/Wire-Protocols-and-Security.md`](docs/wiki/Wire-Protocols-and-Security.md) — 3. Wire Protocols & Security
+> - [`docs/wiki/Subsystems-File-Map.md`](docs/wiki/Subsystems-File-Map.md) — 4. Subsystems File Map
+> - [`docs/wiki/Build-Test-and-Guardrails.md`](docs/wiki/Build-Test-and-Guardrails.md) — 5. Build, Test & Guardrails
 
 A complete cross-platform remote control system that turns an Android phone into a home gateway to perform Wake-on-LAN (WoL), shutdown, reboot, sleep, hibernate, and screen lock operations on your computers over mobile data, internet, or local Wi-Fi.
 
@@ -226,26 +234,73 @@ Frost design system as the Android apps.
 ### 4. Home Assistant & Google Home (Optional)
 
 Home Assistant can replace — or complement — the Home Phone as the LAN gateway, adding native
-Google Home voice control without any extra Python packages:
+Google Home voice control without any extra Python packages.
 
-1. **Install the integration**: in HACS, open **⋮ → Custom repositories**, add
-   `https://github.com/pinchiu/wake-on-lan-for-android` as an **Integration**, download
-   **Wake-on-LAN & PC Power (pc_onoff)**, then restart Home Assistant. (Manual alternative: copy
-   `custom_components/pc_onoff/` into `/config/custom_components/`.)
-2. **Add a PC**: **Settings → Devices & Services → Add Integration → Wake-on-LAN & PC Power
-   (pc_onoff)**. Enter the name, MAC address and LAN/Tailscale IP; the PC secret is only needed
-   for a public IP. The same form selects the turn-off action (`shutdown` / `sleep` /
-   `hibernate`), the status probe (`ping` / `tcp` / `none`) and the scan interval.
-3. **Expose to Google Home**: **Settings → Voice Assistants → Expose**, expose only
-   `switch.<pc_name>`, then say *“Hey Google, sync my devices”*. Voice commands become
-   *“Hey Google, turn on `<PC Name>`”* and *“Hey Google, turn off `<PC Name>`”*.
-4. **Docker users**: the Home Assistant container needs `network_mode: host` so the Wake-on-LAN
-   broadcast reaches the PC’s NIC.
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=pinchiu&repository=wake-on-lan-for-android&category=integration)
 
-The integration also creates `button.<pc_name>_{wake,shutdown,reboot,sleep,hibernate,lock_screen}`
-and `binary_sensor.<pc_name>_connectivity`, and holds the requested switch state for 25 seconds so
-a booting PC does not bounce Google Home back to *off*. Full field reference, Google Home routines
-and troubleshooting: [`docs/home-assistant.md`](docs/home-assistant.md).
+#### Step 1 — Install the Integration
+
+**Option A — Install via HACS (Recommended)**
+
+1. Open **HACS** in the Home Assistant sidebar.
+2. Open the **⋮** menu (top-right) and choose **Custom repositories**.
+3. Enter `https://github.com/pinchiu/wake-on-lan-for-android`, choose Category **`Integration`**, and click **Add**.
+4. Search HACS for **Wake-on-LAN & PC Power (pc_onoff)**.
+5. Click **Download**.
+6. **Restart Home Assistant** (**Settings → System → Restart**).
+
+**Option B — Install via GitHub Release ZIP (`pc_onoff-home-assistant.zip`)**
+
+Download the archive from the [latest release](https://github.com/pinchiu/wake-on-lan-for-android/releases/latest) and unzip it into your Home Assistant configuration directory:
+
+```bash
+cd /config
+curl -L -o /tmp/pc_onoff-home-assistant.zip \
+  https://github.com/pinchiu/wake-on-lan-for-android/releases/latest/download/pc_onoff-home-assistant.zip
+unzip -o /tmp/pc_onoff-home-assistant.zip 'custom_components/*' -d /config
+# → /config/custom_components/pc_onoff/
+```
+
+Restart Home Assistant after the files are in place.
+
+**Option C — Manual Copy from Repository**
+
+```bash
+cp -r custom_components/pc_onoff /config/custom_components/pc_onoff
+```
+
+Restart Home Assistant. No `configuration.yaml` editing is required.
+
+#### Step 2 — Add Target PC in Home Assistant UI
+
+1. Go to **Settings → Devices & Services**.
+2. Click **+ Add Integration**.
+3. Search for and select **Wake-on-LAN & PC Power (pc_onoff)**.
+4. Fill in the fields below and click **Submit**.
+
+| Field | Example | Notes |
+| :--- | :--- | :--- |
+| **Name** | `Gaming PC` | Google Home voice name; immutable after setup. |
+| **MAC Address** | `AA:BB:CC:DD:EE:FF` | Wired NIC that receives the Wake-on-LAN packet. |
+| **Host IP** | `192.168.1.50` | Static LAN IP; Tailscale or a public IP also works. |
+| **PC Secret** | *(blank)* | Leave blank on private LAN / Tailscale; required only for public IPs. |
+| **Turn-off Action** | `shutdown` | `shutdown`, `sleep`, or `hibernate`. |
+| **Status Probe** | `daemon` (UDP 9877 `ping → pong`), `tcp`, or `none` | How Home Assistant decides the PC is on; `none` keeps the switch optimistic-only. |
+
+#### Step 3 — Expose to Google Home Voice Control
+
+1. Go to **Settings → Voice Assistants → Expose** (Home Assistant Cloud / Nabu Casa or the Google Assistant integration must be configured first).
+2. Expose **only** `switch.<pc_name>` (e.g. `switch.gaming_pc`).
+3. In the Google Home app, say **“Hey Google, sync my devices”**.
+4. Control the PC with **“Hey Google, turn on `<PC Name>`”** / **“Hey Google, turn off `<PC Name>`”**.
+
+> [!TIP]
+> The switch holds the requested state for 25 seconds (`OPTIMISTIC_HOLD_SECONDS = 25.0`) while the PC BIOS boots, so Google Home does not bounce back to off.
+
+> [!WARNING]
+> **Docker users:** run the Home Assistant container with `network_mode: host` so the UDP 9 Wake-on-LAN broadcast reaches the PC's NIC.
+
+For custom voice routines (reboot / sleep / lock) and full troubleshooting, see [`docs/home-assistant.md`](docs/home-assistant.md).
 
 ## Troubleshooting
 - **WoL Does Not Wake Computer**:

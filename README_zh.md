@@ -1,19 +1,27 @@
 # Wake-on-LAN 家用手機遠端喚醒控制系統
 [English README](README.md)
 
+[![Architecture Wiki](https://img.shields.io/badge/Architecture_Wiki-Live-0A84FF?style=for-the-badge&logo=githubpages&logoColor=white)](https://pinchiu.github.io/wake-on-lan-for-android/)
+[![Archify Interactive Diagrams](https://img.shields.io/badge/Archify-Interactive_Diagrams-7B61FF?style=for-the-badge&logo=svg&logoColor=white)](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html)
+[![Home Assistant HACS Install](https://img.shields.io/badge/Home_Assistant-HACS_Install-18BCF2?style=for-the-badge&logo=homeassistant&logoColor=white)](#4-home-assistant-與-google-home-整合選用)
+[![Latest Release](https://img.shields.io/badge/Latest_Release-v1.8.0-34C759?style=for-the-badge&logo=github&logoColor=white)](https://github.com/pinchiu/wake-on-lan-for-android/releases/latest)
+
 > [!TIP]
-> **互動式系統架構百科**
+> **互動式架構與視覺化導覽入口**
 >
-> 以下內容全部由本儲存庫自行託管，不依賴任何外部文件服務：
+> | 導覽入口 | 線上開啟 | 說明 |
+> | :--- | :--- | :--- |
+> | 🖥️ **架構百科（`opencode.ai` 終端介面）** | [**pinchiu.github.io/wake-on-lan-for-android/**](https://pinchiu.github.io/wake-on-lan-for-android/) | 三欄式互動架構百科（`#0c0c0c` 終端機主題）、內嵌 Archify 互動式架構圖、完整中／英文切換、即時搜尋與行級原始碼連結 |
+> | ✨ **Archify 互動式說明** | [**.../archify-explainer.html**](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html) | 經校驗的單頁互動式說明，內含 4 張動畫圖（拓撲、25 秒 Google Home 保持時序、HMAC 信任流程、深層模組樹）、逐步導覽與 PNG／SVG／PDF 匯出 |
+> | 🗺️ **協定與系統地圖** | [**.../architecture.html**](https://pinchiu.github.io/wake-on-lan-for-android/architecture.html) | 全畫布互動式元件與傳輸協定地圖 |
+> | 🏠 **Home Assistant 與 Google Home 指南** | [**§4 安裝指南**](#4-home-assistant-與-google-home-整合選用) · [`docs/home-assistant.md`](docs/home-assistant.md) | 雙語 HACS 安裝、設定欄位、25 秒樂觀保持與 Google Home 語音控制指南 |
 >
-> 1. **[互動式架構百科網站（GitHub Pages）](https://pinchiu.github.io/wake-on-lan-for-android/wiki/)** — 三欄式互動架構百科，內含 Mermaid 圖表、雙語「Why／決策背景」說明、搜尋功能與行級原始碼連結（[本機檔案：docs/wiki/index.html](docs/wiki/index.html)）。
-> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/wiki/archify-explainer.html)** — 經校驗的單頁互動式視覺架構與決策說明，內含動畫圖表、逐步導覽、淺色／深色主題與圖片／PDF 匯出（[本機檔案：docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)）。
-> 3. **Markdown 架構百科章節**（docs/wiki/）：
->    - [`docs/wiki/Home.md`](docs/wiki/Home.md) — 1. System Overview & Gateway Topology
->    - [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) — 2. Architecture & Deep Modules
->    - [`docs/wiki/Wire-Protocols-and-Security.md`](docs/wiki/Wire-Protocols-and-Security.md) — 3. Wire Protocols & Security
->    - [`docs/wiki/Subsystems-File-Map.md`](docs/wiki/Subsystems-File-Map.md) — 4. Subsystems File Map
->    - [`docs/wiki/Build-Test-and-Guardrails.md`](docs/wiki/Build-Test-and-Guardrails.md) — 5. Build, Test & Guardrails
+> **Markdown 架構百科章節**（docs/wiki/zh/）：
+> - [`docs/wiki/zh/Home.md`](docs/wiki/zh/Home.md) — 1. 系統總覽與網關拓撲
+> - [`docs/wiki/zh/Architecture-and-Deep-Modules.md`](docs/wiki/zh/Architecture-and-Deep-Modules.md) — 2. 系統架構與深層模組
+> - [`docs/wiki/zh/Wire-Protocols-and-Security.md`](docs/wiki/zh/Wire-Protocols-and-Security.md) — 3. 傳輸協定與安全模型
+> - [`docs/wiki/zh/Subsystems-File-Map.md`](docs/wiki/zh/Subsystems-File-Map.md) — 4. 子系統檔案地圖
+> - [`docs/wiki/zh/Build-Test-and-Guardrails.md`](docs/wiki/zh/Build-Test-and-Guardrails.md) — 5. 建置、測試與防護準則
 
 一套完整的跨平台遠端控制系統，利用備用 Android 手機作為「家用網關／助手」，透過行動網路、網際網路與區域網路，對電腦進行 Wake-on-LAN (WoL) 遠端喚醒、關機、重啟、睡眠、休眠與螢幕鎖定控制。
 
@@ -219,28 +227,76 @@ Frost 設計系統。
 1. 當外出手機連上家中 Wi-Fi 時，於 App 內開啟 **Local LAN Mode**。
 2. 指令將直接透過本機廣播與 UDP 發送至電腦，無需經過助手手機。
 
-### 4. Home Assistant 與 Google Home（選用）
+### 4. Home Assistant 與 Google Home 整合（選用）
 
 Home Assistant 可以取代（或搭配）家用手機作為區域網路網關，直接提供 Google Home 語音控制，
-且不需安裝任何額外 Python 套件：
+且不需安裝任何額外 Python 套件。
 
-1. **安裝整合**：在 HACS 開啟 **⋮ → 自訂儲存庫 (Custom repositories)**，將
-   `https://github.com/pinchiu/wake-on-lan-for-android` 新增為 **Integration**，下載
-   **Wake-on-LAN & PC Power (pc_onoff)** 後重新啟動 Home Assistant。（手動方式：將
-   `custom_components/pc_onoff/` 複製到 `/config/custom_components/`。）
-2. **新增電腦**：**設定 → 裝置與服務 → 新增整合 → Wake-on-LAN & PC Power (pc_onoff)**。
-   填寫名稱、MAC 位址與區域網路／Tailscale IP；只有公開 IP 才需要 PC 密鑰。同一張表單可選擇
-   關機動作（`shutdown` / `sleep` / `hibernate`）、狀態偵測（`ping` / `tcp` / `none`）與掃描間隔。
-3. **公開給 Google Home**：**設定 → 語音助理 → 公開 (Expose)**，只公開 `switch.<電腦名稱>`，
-   然後說「Ok Google，同步我的裝置」。語音指令即為「Ok Google，打開 `<電腦名稱>`」與
-   「Ok Google，關閉 `<電腦名稱>`」。
-4. **Docker 使用者**：Home Assistant 容器需使用 `network_mode: host`，Wake-on-LAN 廣播才能
-   抵達電腦網卡。
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=pinchiu&repository=wake-on-lan-for-android&category=integration)
 
-整合也會建立 `button.<電腦名稱>_{wake,shutdown,reboot,sleep,hibernate,lock_screen}` 與
-`binary_sensor.<電腦名稱>_connectivity`，並將開關狀態保持 25 秒，避免開機中的電腦讓 Google Home
-又跳回關閉。完整欄位說明、Google Home 日常安排與疑難排解請見
-[`docs/home-assistant.md`](docs/home-assistant.md)。
+#### 步驟 1 — 安裝整合
+
+**方式 A — 透過 HACS 安裝（推薦）**
+
+1. 在 Home Assistant 側邊欄開啟 **HACS**。
+2. 點擊右上角 **⋮** 選單，選擇 **自訂儲存庫 (Custom repositories)**。
+3. 輸入 `https://github.com/pinchiu/wake-on-lan-for-android`，類別選擇 **`Integration`**，按 **Add**。
+4. 在 HACS 搜尋 **Wake-on-LAN & PC Power (pc_onoff)**。
+5. 點擊 **Download**。
+6. **重新啟動 Home Assistant**（**設定 → 系統 → 重新啟動**）。
+
+**方式 B — 透過 GitHub Release ZIP 安裝（`pc_onoff-home-assistant.zip`）**
+
+從[最新發行頁面](https://github.com/pinchiu/wake-on-lan-for-android/releases/latest)下載整合壓縮檔，解壓縮到 Home Assistant 設定目錄：
+
+```bash
+cd /config
+curl -L -o /tmp/pc_onoff-home-assistant.zip \
+  https://github.com/pinchiu/wake-on-lan-for-android/releases/latest/download/pc_onoff-home-assistant.zip
+unzip -o /tmp/pc_onoff-home-assistant.zip 'custom_components/*' -d /config
+# → /config/custom_components/pc_onoff/
+```
+
+完成後重新啟動 Home Assistant。
+
+**方式 C — 從儲存庫手動複製**
+
+```bash
+cp -r custom_components/pc_onoff /config/custom_components/pc_onoff
+```
+
+重新啟動 Home Assistant，無須修改 `configuration.yaml`。
+
+#### 步驟 2 — 在 Home Assistant 介面新增目標電腦
+
+1. 前往 **設定 → 裝置與服務**。
+2. 點擊 **+ 新增整合**。
+3. 搜尋並選擇 **Wake-on-LAN & PC Power (pc_onoff)**。
+4. 填寫下列欄位後按 **提交**。
+
+| 欄位 | 範例 | 說明 |
+| :--- | :--- | :--- |
+| **名稱 (Name)** | `Gaming PC` | Google Home 語音名稱；設定後不可修改。 |
+| **MAC 位址** | `AA:BB:CC:DD:EE:FF` | 接收 Wake-on-LAN 封包的有線網卡。 |
+| **主機 IP (Host IP)** | `192.168.1.50` | 靜態區域網路 IP；也支援 Tailscale 或公開 IP。 |
+| **PC 密鑰 (PC Secret)** | *(留空)* | 私有內網／Tailscale 可留空；只有公開 IP 必填。 |
+| **關機動作** | `shutdown` | `shutdown`、`sleep` 或 `hibernate`。 |
+| **狀態偵測** | `daemon`（UDP 9877 `ping → pong`）、`tcp` 或 `none` | Home Assistant 判斷電腦是否開機的方式；`none` 僅維持樂觀狀態。 |
+
+#### 步驟 3 — 公開給 Google Home 語音控制
+
+1. 前往 **設定 → 語音助理 → 公開 (Expose)**（需先設定 Home Assistant Cloud／Nabu Casa 或 Google Assistant 整合）。
+2. **只公開** `switch.<pc_name>`（例如 `switch.gaming_pc`）。
+3. 在 Google Home App 說 **「Ok Google，同步我的裝置」**。
+4. 使用 **「Ok Google，打開 `<電腦名稱>`」**／**「Ok Google，關閉 `<電腦名稱>`」** 控制電腦。
+
+> [!TIP]
+> 開關會在電腦 BIOS 開機期間保持要求狀態 25 秒（`OPTIMISTIC_HOLD_SECONDS = 25.0`），避免 Google Home 跳回關閉。
+
+> [!WARNING]
+> **Docker 使用者：** Home Assistant 容器必須使用 `network_mode: host`，UDP 9 的 Wake-on-LAN 廣播才能抵達電腦網卡。
+
+若要設定重新啟動／睡眠／鎖定的語音日常安排與完整疑難排解，請參閱 [`docs/home-assistant.md`](docs/home-assistant.md)。
 
 ## 疑難排解
 - **WoL 無法喚醒電腦**：

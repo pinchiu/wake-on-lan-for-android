@@ -17,7 +17,7 @@
 
 </details>
 
-<div class="archify-cta">✨ <a href="archify-explainer.html"><strong>Interactive Archify Explainer (互動式架構圖解)</strong></a> — the visual 1-page companion to these 5 chapters.</div>
+<div class="archify-cta">✨ <a href="archify-explainer-en.html"><strong>Interactive Archify Explainer</strong></a> — the visual 1-page companion to these 5 chapters.</div>
 
 ## 1.1 Purpose & Core Subsystems
 
@@ -35,63 +35,17 @@ The **Remote Phone** (`wakeonwanremotephone/`) can use either gateway over TCP 9
 | Home Assistant gateway | `custom_components/pc_onoff/` | Python 3.11+, HA 2024.1+, zero PyPI deps | Outbound UDP **9** + **9877**; Google Home switch/buttons | [`protocol.py`](../../custom_components/pc_onoff/protocol.py#L69-L440) |
 | Remote Phone | `wakeonwanremotephone/` | Android, Kotlin/Compose | TCP **9876** relay, or direct LAN UDP **9** + **9877** | [`RemoteNetworkUtil.kt`](../../wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt#L15-L216) |
 
-```mermaid
-flowchart LR
-  subgraph "Remote Phone"
-    RUI["MainActivity.sendCommand"]
-    RNET["RemoteNetworkUtil"]
-  end
-  subgraph "Home Phone"
-    TCP["WolListenerService (TCP 9876)"]
-    MQTT["MqttWolService"]
-    DSP["PcActionDispatcher"]
-    WOL["WolUtil (UDP 9)"]
-  end
-  subgraph "Home Assistant"
-    HA["switch.py / button.py"]
-    HAP["protocol.py"]
-    HAC["PcOnOffCoordinator"]
-  end
-  subgraph "Target PC"
-    SRV["server.rs (UDP 9877)"]
-    AUTH["auth.rs + net.rs"]
-    DIS["Dispatcher"]
-    OS["power.rs"]
-  end
-  RUI --> RNET
-  RNET -->|"TCP 9876"| TCP
-  RNET -->|"UDP 9 / 9877 on LAN"| SRV
-  TCP --> DSP
-  MQTT --> DSP
-  DSP -->|"UDP 9 magic packet"| WOL
-  DSP -->|"UDP 9877 action"| SRV
-  HA --> HAP
-  HAP -->|"UDP 9 / UDP 9877"| SRV
-  HAC --> HA
-  SRV --> AUTH
-  AUTH --> DIS
-  DIS --> OS
-```
 
 <div class="decision-context">
-<div class="decision-title">Why It Works This Way / 設計決策背景 <span>(Decision Context)</span></div>
+<div class="decision-title">Why It Works This Way <span>(Decision Context)</span></div>
 <div class="lang-en">
 <p><strong>The PC does not need IPv6 or a cloud account.</strong> The target daemon only has to accept one authenticated UDP 9877 datagram and execute the OS power call. The Home Phone or Home Assistant acts as the LAN bridge: WAN/Google Home terminates at the gateway, which re-emits the LAN-native UDP 9 magic packet and UDP 9877 action. Keeping the target simple reduces OS firewall, driver and sleep-state failure modes.</p>
 <p><strong>LAN and Tailscale are secret-free; public IPs fail closed.</strong> A trusted source already proves local-network or Tailscale membership, so demanding a shared secret there would add friction without a meaningful boundary. A public packet has no such proof, so it must carry HMAC-SHA256; a missing, invalid or replayed envelope is rejected instead of falling back to plaintext.</p>
 </div>
-<div class="lang-zh">
-<p><strong>目標 PC 不需要 IPv6 或雲端帳號。</strong> 目標常駐程式只需要接收一個已驗證的 UDP 9877 datagram，然後執行作業系統電源指令。WAN / Google Home 的連線由 Home Phone 或 Home Assistant 這個 LAN 閘道終結，再由閘道發出 LAN 原生的 UDP 9 magic packet 與 UDP 9877 指令。目標端保持簡單，可減少防火牆、網卡驅動與睡眠狀態造成的失敗模式。</p>
-<p><strong>LAN 與 Tailscale 免密鑰；公網一律 fail closed。</strong> 信任來源已證明自己位於區域網路或 Tailscale，強制共享密鑰只會增加摩擦，卻沒有實質邊界。公網封包沒有這種證明，因此必須攜帶 HMAC-SHA256；缺少、錯誤或重放的 envelope 一律拒絕，絕不回退成明文。</p>
-</div>
 </div>
 
-<div class="zh-summary lang-zh">
-<strong>繁體中文決策摘要</strong>
-<ul>
-<li>目標 PC 只需監聽 UDP 9877，並由網卡處理 UDP 9 喚醒；IPv6 與雲端連線由閘道負責。</li>
-<li>Home Phone 與 Home Assistant 是 WAN / Google Home 到 LAN 廣播域的橋接器。</li>
-<li>LAN / Tailscale 信任來源可送明文指令；公網必須使用 HMAC-SHA256，且失敗時關閉。</li>
-</ul>
+<div class="archify-embed" data-src="diagrams/system-topology.html" data-title-en="Dual-Gateway 4-Subsystem Ecosystem Topology" data-title-zh="雙網關與四大子系統通訊拓撲 (Archify 互動圖)">
+  <p><a href="diagrams/system-topology.html">Open Interactive Archify Diagram: Dual-Gateway 4-Subsystem Ecosystem Topology ↗</a></p>
 </div>
 
 Sources: [computer/src/lib.rs:1-35](../../computer/src/lib.rs#L1-L35), [computer/src/server.rs:54-118](../../computer/src/server.rs#L54-L118), [custom_components/pc_onoff/const.py:1-36](../../custom_components/pc_onoff/const.py#L1-L36), [docs/home-assistant.md:1-60](../home-assistant.md#L1-L60)
@@ -107,21 +61,6 @@ There are three transport stories, but only two wire payload families: the 102-b
 | Remote Phone → PC (LAN) | Local UI / widget | No gateway; direct sockets | UDP 9 or UDP 9877 | None |
 | MQTT publisher → Home Phone → PC | MQTT topic | Broker ACL/TLS is the boundary; retained commands ignored | UDP 9 or UDP 9877 | MQTT QoS 1, not a PC ack |
 
-```mermaid
-sequenceDiagram
-  autonumber
-  actor User
-  participant GH as Google Home
-  participant HA as Home Assistant pc_onoff
-  participant PC as pc_onoff daemon
-  User->>GH: "Hey Google, turn on Gaming PC"
-  GH->>HA: switch.turn_on on switch.gaming_pc
-  HA->>PC: UDP 9 102-byte magic packet
-  HA->>HA: OptimisticStateTracker.record_intent(true)
-  Note over HA: hold 25 s then reconcile once at 26 s
-  PC-->>HA: later probe returns True
-  HA->>HA: reconcile(True) clears the hold
-```
 
 ```text
 WoL            UDP 9    102 bytes = 6 x 0xFF + 16 x MAC; no ack
@@ -155,18 +94,5 @@ Sources: [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/Wo
 | Decode a domain term | [`CONTEXT.md`](../../CONTEXT.md) | — |
 | Read the normative process spec | [`AGENTS.md`](../../AGENTS.md) | — |
 
-```mermaid
-flowchart TB
-  Q{"What are you changing?"}
-  Q -->|"wire / auth / trust"| W["3. Wire Protocols & Security"]
-  Q -->|"seam / dispatcher / coordinator"| A["2. Deep-Module Architecture & Seams"]
-  Q -->|"which file?"| F["4. Repository Structure & File Ownership"]
-  Q -->|"tests / CI / release"| B["5. Build, Test & Guardrails"]
-  Q -->|"system overview"| H["1. Overview & System Topology"]
-  W --> SRC["Open the cited source range"]
-  A --> SRC
-  F --> SRC
-  B --> CMD["Run the subsystem command"]
-```
 
 Sources: [docs/wiki/Home.md:1-172](Home.md#L1-L172), [docs/wiki/Architecture-and-Deep-Modules.md:1-294](Architecture-and-Deep-Modules.md#L1-L294), [docs/wiki/Wire-Protocols-and-Security.md:1-336](Wire-Protocols-and-Security.md#L1-L336), [docs/wiki/Subsystems-File-Map.md:1-228](Subsystems-File-Map.md#L1-L228), [docs/wiki/Build-Test-and-Guardrails.md:1-239](Build-Test-and-Guardrails.md#L1-L239)

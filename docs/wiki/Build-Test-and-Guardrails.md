@@ -25,7 +25,7 @@
 | `wakeonlanhomephone/**` | `./gradlew testDebugUnitTest` | 100% pass |
 | `wakeonwanremotephone/**` | `./gradlew testDebugUnitTest` | 100% pass |
 | `custom_components/pc_onoff/**`, `tests/homeassistant/**` | `py_compile` + `unittest discover` | 100% pass, no HA install |
-| `docs/**` only | link/table/Mermaid checks + `git diff --check` | no broken files |
+| `docs/**` only | link/table/diagram checks + `git diff --check` | no broken files |
 
 ```bash
 # Rust daemon — must be 100% clean
@@ -73,20 +73,6 @@ python -m unittest discover -s tests/homeassistant -v
 | `... -p "test_coordinator.py" -v` | Fake-clock tracker, config, coordinator |
 | `... -p "test_entities.py" -v` | Switch, six buttons, sensor |
 
-```mermaid
-flowchart LR
-  CHANGE["Changed paths"] --> Q{"Which subsystem?"}
-  Q -->|"computer/**"| RUST["cargo fmt + clippy + test"]
-  Q -->|"wakeonlanhomephone/**"| HOME["gradlew testDebugUnitTest"]
-  Q -->|"wakeonwanremotephone/**"| REMOTE["gradlew testDebugUnitTest"]
-  Q -->|"custom_components/** or tests/homeassistant/**"| HA["py_compile + unittest discover"]
-  Q -->|"docs/wiki/**"| DOC["link + table + Mermaid checks"]
-  RUST --> GREEN["all green before commit"]
-  HOME --> GREEN
-  REMOTE --> GREEN
-  HA --> GREEN
-  DOC --> GREEN
-```
 
 Sources: [.github/workflows/ci.yml:1-181](../../.github/workflows/ci.yml#L1-L181), [computer/Cargo.toml:1-20](../../computer/Cargo.toml#L1-L20), [wakeonlanhomephone/app/build.gradle.kts:1-60](../../wakeonlanhomephone/app/build.gradle.kts#L1-L60), [tests/homeassistant/test_protocol.py:1-593](../../tests/homeassistant/test_protocol.py#L1-L593)
 
@@ -109,33 +95,7 @@ Sources: [.github/workflows/ci.yml:1-181](../../.github/workflows/ci.yml#L1-L181
 | Android | `wakeonlan-home-phone.apk`, `wakeonwan-remote-phone.apk` |
 | Publish | All assets attached to the GitHub Release at the built commit |
 
-```mermaid
-flowchart LR
-  PUSH["push / pull_request"] --> DET{"detect-changes"}
-  DET -->|"home-phone"| HP["build-home-phone"]
-  DET -->|"remote-phone"| RP["build-remote-phone"]
-  DET -->|"computer"| PC["build-computer"]
-  DET -->|"home-assistant"| HA["test-home-assistant"]
-  HP --> ART["APK artifacts"]
-  RP --> ART
-  PC --> BIN["Linux binary artifact"]
-  HA --> TESTS["test log"]
-  TAG["v* tag / manual dispatch"] --> REL["release.yml matrix"]
-  REL --> ASSETS["Windows / Linux / macOS / Android assets"]
-  ASSETS --> GH["GitHub Release"]
-```
 
-```mermaid
-stateDiagram-v2
-  [*] --> LocalChecks
-  LocalChecks --> Commit: all subsystem checks pass
-  Commit --> Push
-  Push --> CIWatch: gh run watch RunID
-  CIWatch --> Green: every executed job passes
-  CIWatch --> Fix: any job fails
-  Fix --> LocalChecks: gh run view --log-failed
-  Green --> [*]
-```
 
 Sources: [.github/workflows/ci.yml:1-181](../../.github/workflows/ci.yml#L1-L181), [.github/workflows/release.yml:1-285](../../.github/workflows/release.yml#L1-L285)
 
@@ -159,14 +119,10 @@ Sources: [.github/workflows/ci.yml:1-181](../../.github/workflows/ci.yml#L1-L181
 | 14 | Never skip a failing test to make CI green | Hides real regressions | review + CI |
 
 <div class="decision-context">
-<div class="decision-title">Why It Works This Way / 設計決策背景 <span>(Decision Context)</span></div>
+<div class="decision-title">Why It Works This Way <span>(Decision Context)</span></div>
 <div class="lang-en">
 <p><strong>Verification is layered like the architecture.</strong> Pure Layer 1 logic runs without Home Assistant, entity tests use small stubs, Rust uses a mock `PowerController`, and the fixed HMAC vector catches cross-language drift. This is why the project can test security-sensitive behavior in seconds instead of booting a full HA instance or shutting down a real PC.</p>
 <p><strong>The post-push watch is part of the definition of done.</strong> A green local run does not prove CI's JDK, Python, clippy or release packaging. The mandated `gh run watch` loop catches environment-specific failures before they become a broken release.</p>
-</div>
-<div class="lang-zh">
-<p><strong>驗證方式與架構分層一致。</strong> 純 Layer 1 邏輯不需 Home Assistant 就能跑；entity 測試使用小型 stub；Rust 使用 mock `PowerController`；固定 HMAC vector 捕捉跨語言漂移。因此專案能在幾秒內測試安全敏感行為，不必啟動完整 HA 或真的關閉一台 PC。</p>
-<p><strong>Push 後監看 CI 是完成定義的一部分。</strong> 本機全綠不代表 CI 的 JDK、Python、clippy 或 release 打包會成功。強制的 `gh run watch` 迴圈會在環境特定失敗變成損壞的 release 之前抓到問題。</p>
 </div>
 </div>
 
@@ -184,15 +140,6 @@ Adding a power action is a five-step, four-subsystem change. The transport does 
 | 4. Surface | tests | tile/strings | tile/strings | button description + translations |
 | 5. Verify | `cargo test` | `gradlew testDebugUnitTest` | `gradlew testDebugUnitTest` | `py_compile` + unittest |
 
-```mermaid
-flowchart LR
-  C["1. Contract keyword"] --> R["2. action.rs + power.rs"]
-  R --> K["3. Kotlin dispatcher + UI"]
-  K --> H["4. HA PowerAction + button + i18n"]
-  H --> V["5. Run all four suites + fixed vector"]
-  V --> DOC["Update wiki + user docs"]
-  DOC --> CI["Push + gh run watch"]
-```
 
 ```bash
 # Step 2 — Rust

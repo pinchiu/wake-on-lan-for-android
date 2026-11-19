@@ -29,47 +29,12 @@ All four subsystems expose a small interface and hide parsing, sockets, OS calls
 | Home Assistant | Layer 1 + `PcOnOffCoordinator` | `async_wake`, `async_turn_off`, `async_power(action)` | switch, button, binary sensor, config flow |
 | Remote Phone | `RemoteNetworkUtil` | `sendTcpCommand` / `sendDirectCommandToPC` / `sendLocalMagicPacket` | app UI and widget |
 
-```mermaid
-flowchart TB
-  subgraph "Home Phone (Kotlin)"
-    KT_AD["TCP 9876 / MQTT / Voice / Widget"]
-    KT_CORE["PcActionDispatcher"]
-    KT_OUT["WolUtil UDP 9 / DatagramSocket UDP 9877"]
-    KT_AD --> KT_CORE --> KT_OUT
-  end
-  subgraph "Target PC (Rust)"
-    RS_SRV["server.rs UDP 9877"]
-    RS_CORE["Dispatcher (dispatch.rs)"]
-    RS_POW["PowerController (power.rs)"]
-    RS_SRV --> RS_CORE --> RS_POW
-  end
-  subgraph "Home Assistant (Python)"
-    HA_L3["Layer 3 entities"]
-    HA_L2["Layer 2 coordinator / config_flow / __init__"]
-    HA_L1["Layer 1 const / protocol / probe / state / validation"]
-    HA_L3 --> HA_L2 --> HA_L1
-  end
-  subgraph "Remote Phone (Kotlin)"
-    RP_UI["MainActivity / widget"]
-    RP_NET["RemoteNetworkUtil"]
-    RP_OUT["TCP 9876 / UDP 9 / UDP 9877"]
-    RP_UI --> RP_NET --> RP_OUT
-  end
-  KT_OUT --> RS_SRV
-  HA_L1 -->|"UDP 9 / UDP 9877"| RS_SRV
-  RP_OUT -->|"TCP 9876 to helper"| KT_AD
-  RP_OUT -->|"direct LAN"| RS_SRV
-```
 
 <div class="decision-context">
-<div class="decision-title">Why It Works This Way / 設計決策背景 <span>(Decision Context)</span></div>
+<div class="decision-title">Why It Works This Way <span>(Decision Context)</span></div>
 <div class="lang-en">
 <p><strong>Every transport is replaceable; the domain is not.</strong> TCP 9876, MQTT, Google Home and Android widgets all express the same five power actions. If syntax, auth, MAC parsing or optimistic state lived inside each adapter, a change would need four rewrites and four test suites. The seam makes the wire contract testable once and keeps the adapters declarative.</p>
 <p><strong>Home Assistant Layer 1 is deliberately framework-free.</strong> The protocol, probe, state machine and validation rules are plain Python, so CI can run them without installing Home Assistant. Layer 2 owns Home Assistant types and scheduling; Layer 3 owns entities and names. That is why the optimistic state machine is testable with a fake monotonic clock and why entity tests only need small `sys.modules` stubs.</p>
-</div>
-<div class="lang-zh">
-<p><strong>傳輸層可替換，領域核心不可替換。</strong> TCP 9876、MQTT、Google Home 與 Android 小工具都只是表達同樣五種電源動作。若把語法、驗證、MAC 解析或樂觀狀態塞進每個 adapter，一次變更就要改四份程式與四套測試。集中到 seam 後，wire contract 只需測一次，adapter 保持宣告式。</p>
-<p><strong>Home Assistant Layer 1 刻意不依賴框架。</strong> protocol、probe、state machine 與 validation 都是純 Python，CI 不必安裝 Home Assistant 就能執行。Layer 2 負責 Home Assistant 型別與排程；Layer 3 只負責 entity 與名稱。因此樂觀狀態機可以用假單調時鐘測試，entity 測試也只需少量 `sys.modules` stub。</p>
 </div>
 </div>
 
@@ -89,29 +54,6 @@ The daemon is the only subsystem that touches OS power APIs. Its dependency dire
 | `authenticate_datagram` | [`server.rs:303-385`](../../computer/src/server.rs#L303-L385) | Trusted source or verified envelope; returns bare command |
 | `status_json` | [`web.rs:560-598`](../../computer/src/web.rs#L560-L598) | Dashboard status + last 8 log lines |
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant UDP as server.rs recv_from
-  participant NET as net.rs is_trusted_source
-  participant AUTH as auth.rs verify_since
-  participant DIS as dispatch.rs Dispatcher
-  participant POW as power.rs SystemPower
-  UDP->>NET: source IP
-  alt trusted LAN / Tailscale
-    NET-->>UDP: true
-    UDP->>DIS: bare command (envelope field if present)
-  else public IP
-    NET-->>UDP: false
-    UDP->>AUTH: envelope + daemon secret + now + not_before
-    AUTH-->>UDP: bare command or AuthError
-    UDP->>DIS: command only after verification
-  end
-  DIS->>DIS: PowerAction::parse
-  DIS->>POW: execute(action)
-  POW-->>DIS: Ok / PowerError
-  DIS-->>UDP: Ok(PowerAction) / DispatchError
-```
 
 The daemon does not write logs from `dispatch.rs`; `server.rs` maps `DispatchError::Rejected` to `warning` and `DispatchError::Execution` to `command_failed`. Auth failures are logged only as stable reasons, never with the envelope or signature.
 
@@ -130,79 +72,18 @@ The Kotlin dispatcher is the Home Phone's domain core. It parses `WAKE` / `ON` /
 | `MqttWolService` | [`MqttWolService.kt:232-458`](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt#L232-L458) | Clean-session connect, QoS 1, ignore retained, dispatch |
 | `MqttReconnectPolicy` | [`MqttSupport.kt:134-150`](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttSupport.kt#L134-L150) | Exponential backoff 1, 2, 4 ... capped at 120 s |
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant RP as Remote Phone
-  participant TCP as WolListenerService
-  participant AUTH as CommandAuth
-  participant DSP as PcActionDispatcher
-  participant PC as pc_onoff daemon
-  RP->>TCP: "SHUTDOWN:192.168.1.10" + newline
-  alt source is trusted
-    TCP->>DSP: bare command (or envelope command field)
-  else source is public
-    TCP->>AUTH: verify(envelope, helperSecret, replayGuard)
-    AUTH-->>TCP: Ok / Missing / Failed / NotConfigured
-    TCP->>DSP: command only on Ok
-  end
-  DSP->>PC: UDP 9877 shutdown (bare or signed)
-  DSP-->>TCP: PcActionResult
-  TCP-->>RP: "SUCCESS: ..." or "ERROR: ..." + newline
-```
 
-```mermaid
-stateDiagram-v2
-  [*] --> Disconnected
-  Disconnected --> Connecting: service start / network available
-  Connecting --> Subscribed: CONNACK + SUBACK
-  Connecting --> Backoff: connect or subscribe error
-  Subscribed --> Backoff: connection lost
-  Backoff --> Connecting: delaySeconds(attempt)
-  note right of Backoff
-    1, 2, 4, ... seconds
-    capped at 120 s
-  end note
-  Subscribed --> Subscribed: retained ignored / empty ignored
-```
 
 Sources: [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/PcActionDispatcher.kt:10-175](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/PcActionDispatcher.kt#L10-L175), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt:36-280](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt#L36-L280), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt:81-300](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt#L81-L300), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt:232-458](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt#L232-L458)
 
 ## 2.4 Home Assistant & Google Home Integration (custom_components/pc_onoff/)
 
+<div class="archify-embed" data-src="diagrams/ha-optimistic-sequence.html" data-title-en="Google Home Wake + 25s Optimistic Hold & Reconciliation Sequence" data-title-zh="Google Home 喚醒與 25 秒樂觀狀態保持時序圖 (Archify 互動圖)">
+  <p><a href="diagrams/ha-optimistic-sequence.html">Open Interactive Archify Diagram: Google Home 25s Optimistic Hold Sequence ↗</a></p>
+</div>
+
 Home Assistant is split into three strict layers. Layer 1 has zero `homeassistant` imports; Layer 2 owns the runtime and scheduling; Layer 3 is an entity adapter layer that never touches sockets.
 
-```mermaid
-flowchart TB
-  subgraph "custom_components/pc_onoff/ — Layer 3"
-    SW["switch.py PcPowerSwitch"]
-    BTN["button.py PcActionButton x6"]
-    BIN["binary_sensor.py PcConnectivitySensor"]
-  end
-  subgraph "custom_components/pc_onoff/ — Layer 2"
-    INIT["__init__.py entry setup/unload"]
-    COORD["coordinator.py PcOnOffCoordinator"]
-    CF["config_flow.py ConfigFlow / OptionsFlow"]
-  end
-  subgraph "custom_components/pc_onoff/ — Layer 1 (pure stdlib)"
-    CONST["const.py"]
-    PROTO["protocol.py"]
-    PROBE["probe.py"]
-    STATE["state.py OptimisticStateTracker"]
-    VAL["validation.py"]
-  end
-  SW --> COORD
-  BTN --> COORD
-  BIN --> COORD
-  INIT --> COORD
-  CF --> VAL
-  COORD --> PROBE
-  COORD --> STATE
-  COORD --> PROTO
-  PROTO --> CONST
-  PROBE --> CONST
-  STATE --> CONST
-```
 
 | Class / function | File / lines | Contract |
 | :--- | :--- | :--- |
@@ -215,34 +96,12 @@ flowchart TB
 | `PcActionButton` | [`button.py:105-128`](../../custom_components/pc_onoff/button.py#L105-L128) | Six buttons; `action=None` means Wake |
 | `PcConnectivitySensor` | [`binary_sensor.py:41-65`](../../custom_components/pc_onoff/binary_sensor.py#L41-L65) | Mirrors `coordinator.data` |
 
-```mermaid
-stateDiagram-v2
-  [*] --> Unknown
-  Unknown --> OptimisticOn: record_intent(true)
-  Unknown --> OptimisticOff: record_intent(false)
-  OptimisticOn --> On: reconcile(true) before hold expires
-  OptimisticOff --> Off: reconcile(false) before hold expires
-  OptimisticOn --> Off: hold expired + reconcile(false)
-  OptimisticOff --> On: hold expired + reconcile(true)
-  OptimisticOn --> On: hold expired + reconcile(true)
-  OptimisticOff --> Off: hold expired + reconcile(false)
-  On --> Off: reconcile(false) no pending
-  Off --> On: reconcile(true) no pending
-  note right of OptimisticOn
-    25 s hold window
-    one reconcile at +26 s
-  end note
-```
 
 <div class="decision-context">
-<div class="decision-title">Why It Works This Way / 設計決策背景 <span>(Decision Context)</span></div>
+<div class="decision-title">Why It Works This Way <span>(Decision Context)</span></div>
 <div class="lang-en">
 <p><strong>Google Home must not see a booting PC as OFF.</strong> A BIOS/UEFI boot takes 15–35 seconds before ping or TCP answers. Without an optimistic hold, a routine poll at +5 s sees `False` and flips the switch back, making a successful voice command look broken. `OptimisticStateTracker` holds the requested state for 25 s, clears early when the probe reaches the target, and schedules exactly one +26 s reconciliation.</p>
 <p><strong>Layer 1 exists so the logic is testable without Home Assistant.</strong> Protocol encoding, reachability, validation and state transitions are pure Python. Layer 2 owns `DataUpdateCoordinator`, `hass`, `async_call_later` and unload. Layer 3 owns only entity metadata and method forwarding. The dependency arrows point down only: Layer 3 → Layer 2 → Layer 1, never the reverse.</p>
-</div>
-<div class="lang-zh">
-<p><strong>Google Home 不能把正在開機的 PC 看成 OFF。</strong> BIOS/UEFI 開機通常需要 15–35 秒才會回應 ping 或 TCP。若沒有樂觀保留，+5 秒的背景輪詢會看到 `False`，把開關翻回 OFF，讓成功的語音指令看起來像失敗。`OptimisticStateTracker` 會保留請求狀態 25 秒，探測到目標狀態就提早清除，並只安排一次 +26 秒的對帳。</p>
-<p><strong>Layer 1 的存在是為了讓邏輯不必安裝 Home Assistant 也能測試。</strong> protocol 編碼、可達性、validation 與狀態轉移都是純 Python。Layer 2 負責 `DataUpdateCoordinator`、`hass`、`async_call_later` 與 unload；Layer 3 只負責 entity metadata 與方法轉送。依賴箭頭只能向下：Layer 3 → Layer 2 → Layer 1，絕不反向。</p>
 </div>
 </div>
 
@@ -260,35 +119,6 @@ The Remote Phone has no protocol parser and no MQTT client. It chooses a transpo
 | `sendDirectCommandToPC` | [`RemoteNetworkUtil.kt:180-207`](../../wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt#L180-L207) | Direct UDP 9877, bare or signed |
 | `isErrorResult` | [`RemoteNetworkUtil.kt:212-216`](../../wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt#L212-L216) | Prefix contract for UI error detection |
 
-```mermaid
-flowchart LR
-  CMD["sendCommand(command)"]
-  MODE{"localLanMode?"}
-  WAKE{"command starts with WAKE:"}
-  TCP["RemoteNetworkUtil.sendTcpCommand (9876)"]
-  MAGIC["sendLocalMagicPacket (UDP 9)"]
-  DIRECT["sendDirectCommandToPC (UDP 9877)"]
-  CMD --> MODE
-  MODE -->|"false"| TCP
-  MODE -->|"true"| WAKE
-  WAKE -->|"yes"| MAGIC
-  WAKE -->|"no"| DIRECT
-```
 
-```mermaid
-sequenceDiagram
-  autonumber
-  actor User
-  participant APP as Remote Phone MainActivity
-  participant NET as RemoteNetworkUtil
-  participant HP as Home Phone TCP 9876
-  participant PC as pc_onoff UDP 9877
-  User->>APP: tap "Shutdown"
-  APP->>NET: sendTcpCommand(helper, "SHUTDOWN:192.168.1.10")
-  NET->>HP: one UTF-8 line + newline
-  HP->>PC: UDP 9877 shutdown
-  HP-->>NET: "SUCCESS: Command 'shutdown' sent ..."
-  NET-->>APP: status string
-```
 
 Sources: [wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/MainActivity.kt:212-245](../../wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/MainActivity.kt#L212-L245), [wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt:52-216](../../wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt#L52-L216)

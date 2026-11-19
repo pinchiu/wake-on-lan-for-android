@@ -40,11 +40,21 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Previous Release Tag
+        id: prev
+        run: |
+          git fetch --tags --force
+          PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD | tail -n 1)
+          echo "base=$PREV" >> "$GITHUB_OUTPUT"
 
       - name: Filter Changed Paths
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ steps.prev.outputs.base }}
           filters: |
             android:
               - 'wakeonlanhomephone/**'
@@ -55,7 +65,7 @@ jobs:
   build-windows:
     name: Build Windows (exe & zip)
     needs: detect-changes
-    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true' || startsWith(github.ref, 'refs/tags/')
+    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true'
     runs-on: windows-latest
     defaults:
       run:
@@ -93,7 +103,7 @@ jobs:
   build-linux:
     name: Build Linux (AppImage & tar.gz)
     needs: detect-changes
-    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true' || startsWith(github.ref, 'refs/tags/')
+    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -156,7 +166,7 @@ jobs:
   build-macos:
     name: Build Apple macOS Universal Binary (zip & tar.gz)
     needs: detect-changes
-    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true' || startsWith(github.ref, 'refs/tags/')
+    if: needs.detect-changes.outputs.computer == 'true' || github.event.inputs.build_rust == 'true'
     runs-on: macos-latest
     defaults:
       run:
@@ -203,7 +213,7 @@ jobs:
   build-android:
     name: Build Android APKs (Home & Remote)
     needs: detect-changes
-    if: needs.detect-changes.outputs.android == 'true' || github.event.inputs.build_apk == 'true' || startsWith(github.ref, 'refs/tags/')
+    if: needs.detect-changes.outputs.android == 'true' || github.event.inputs.build_apk == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository

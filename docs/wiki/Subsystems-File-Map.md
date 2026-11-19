@@ -20,6 +20,10 @@
 
 ## 4.1 Target PC Daemon (computer/src/)
 
+<div class="archify-embed" data-src="diagrams/repo-modules-tree.html" data-title-en="4-Subsystem & Deep-Module Repository Tree" data-title-zh="四大子系統與深層模組專案結構樹 (Archify 互動圖)">
+  <p><a href="diagrams/repo-modules-tree.html">Open Interactive Archify Diagram: 4-Subsystem & Deep-Module Repository Tree ↗</a></p>
+</div>
+
 | File | Lines | Responsibility | Key symbols |
 | :--- | :--- | :--- | :--- |
 | `lib.rs` | 1-83 | Module graph and constants | `APP_NAME`, `DEFAULT_UDP_PORT = 9877`, `MAX_COMMAND_BYTES = 1024` |
@@ -42,33 +46,6 @@
 | `web.rs` | 101-180, 405-600 | Loopback dashboard | `serve`, `/api/status`, `/api/log`, `/api/action` |
 | `web/app.html` | 1-1115 | Embedded Frost dashboard | Light/dark, reduced motion, no external assets |
 
-```mermaid
-flowchart TB
-  subgraph "computer/src/"
-    LIB["lib.rs constants"]
-    ACT["action.rs PowerAction"]
-    POW["power.rs PowerController"]
-    DIS["dispatch.rs Dispatcher"]
-    AUT["auth.rs HMAC + ReplayGuard"]
-    NET["net.rs trust CIDRs"]
-    SRV["server.rs UDP 9877"]
-    WEB["web.rs HTTP 9878"]
-    CLI["cli.rs lifecycle"]
-    CFG["config.rs + paths.rs"]
-    LOG["logging.rs + instance.rs"]
-    AUTO["autostart.rs + system_service.rs"]
-  end
-  CLI --> SRV
-  SRV --> NET
-  SRV --> AUT
-  SRV --> DIS
-  DIS --> ACT
-  DIS --> POW
-  WEB -->|"loopback UDP datagram"| SRV
-  CFG --> SRV
-  LOG --> SRV
-  AUTO --> CLI
-```
 
 Sources: [computer/src/lib.rs:1-35](../../computer/src/lib.rs#L1-L35), [computer/src/action.rs:12-110](../../computer/src/action.rs#L12-L110), [computer/src/server.rs:54-385](../../computer/src/server.rs#L54-L385), [computer/src/web.rs:405-600](../../computer/src/web.rs#L405-L600), [computer/src/paths.rs:23-140](../../computer/src/paths.rs#L23-L140)
 
@@ -179,30 +156,6 @@ Sources: [custom_components/pc_onoff/const.py:1-36](../../custom_components/pc_o
 
 The HA work was partitioned into eight non-overlapping file slices. The same rule applies to any future change: one owner per file, contract files read-only unless your slice owns them, and cross-subsystem wire changes handled sequentially.
 
-```mermaid
-flowchart LR
-  subgraph "Wave 1 — Layer 1"
-    W1["HA-1 const + translations"]
-    W2["HA-2 protocol.py"]
-    W3["HA-3 probe.py"]
-  end
-  subgraph "Wave 2 — glue"
-    W4["HA-4 validation + config_flow"]
-    W5["HA-5 state + coordinator + __init__"]
-  end
-  subgraph "Wave 3 — surface"
-    W6["HA-6 entities"]
-    W7["HA-7 HACS + docs + CI"]
-    W8["HA-8 docs/wiki"]
-  end
-  W1 --> W4
-  W2 --> W5
-  W3 --> W5
-  W4 --> W6
-  W5 --> W6
-  W6 --> W7
-  W7 --> W8
-```
 
 | Slice | Exclusive files | Depends on | Do not touch |
 | :--- | :--- | :--- | :--- |
@@ -216,14 +169,10 @@ flowchart LR
 | HA-8 | `docs/wiki/*` | all pages | any source file |
 
 <div class="decision-context">
-<div class="decision-title">Why It Works This Way / 設計決策背景 <span>(Decision Context)</span></div>
+<div class="decision-title">Why It Works This Way <span>(Decision Context)</span></div>
 <div class="lang-en">
 <p><strong>File ownership is an architectural boundary, not bureaucracy.</strong> The HA layers share exact symbols (`PowerAction`, `PcTargetConfig`, `OptimisticStateTracker`) but are implemented by different workers. If two agents edit the same file, the contract drifts silently and the entity layer starts encoding protocol. The slice map keeps each behavior owned by one file and makes cross-subsystem changes deliberate.</p>
 <p><strong>Read-only contract files prevent accidental API churn.</strong> `const.py`, `protocol.py`, `state.py`, `validation.py` and `coordinator.py` are consumed by many slices. Treating them as read-only unless your slice owns them is what allows parallel work without merge conflicts or renamed symbols.</p>
-</div>
-<div class="lang-zh">
-<p><strong>檔案所有權是架構邊界，不是官僚流程。</strong> HA 各層共用精確符號（`PowerAction`、`PcTargetConfig`、`OptimisticStateTracker`），但由不同 worker 實作。若兩個 agent 同時改同一個檔案，contract 會無聲漂移，entity 層就會開始偷渡 protocol 邏輯。Slice map 讓每個行為只有一個檔案負責，跨子系統變更必須刻意規劃。</p>
-<p><strong>唯讀 contract 檔案可避免意外 API 變動。</strong> `const.py`、`protocol.py`、`state.py`、`validation.py`、`coordinator.py` 被多個 slice 消費。除非你的 slice 擁有它，否則視為唯讀，才能平行工作而不產生合併衝突或符號改名。</p>
 </div>
 </div>
 

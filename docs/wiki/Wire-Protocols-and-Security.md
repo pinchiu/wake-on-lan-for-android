@@ -34,17 +34,6 @@ Wake-on-LAN is deliberately unauthenticated: the NIC firmware is the receiver, t
 | Home Assistant `send_magic_packet_sync` | `SO_BROADCAST` | `broadcast_ip:wol_port` (default `255.255.255.255:9`) |
 | Rust daemon | Does not send WoL | NIC handles magic packets while the OS is off |
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant SRC as Gateway or Remote Phone
-  participant NIC as Target NIC UDP 9
-  participant OS as Target OS
-  SRC->>NIC: 102-byte magic packet (6 x 0xFF + 16 x MAC)
-  Note over NIC: NIC firmware matches the MAC
-  NIC->>OS: power-on / resume
-  Note over SRC,OS: no acknowledgement exists at any layer
-```
 
 Sources: [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolUtil.kt:8-42](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolUtil.kt#L8-L42), [wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt:128-154](../../wakeonwanremotephone/app/src/main/java/com/example/wakeonwanremotephone/RemoteNetworkUtil.kt#L128-L154), [custom_components/pc_onoff/protocol.py:190-207](../../custom_components/pc_onoff/protocol.py#L190-L207), [custom_components/pc_onoff/protocol.py:360-388](../../custom_components/pc_onoff/protocol.py#L360-L388)
 
@@ -81,42 +70,7 @@ TCP 9876 is the only synchronous command channel in the system: one UTF-8 line i
 | Envelope handling | Command field extracted; HMAC is **not** verified |
 | Reconnect | Exponential 1, 2, 4 … capped at 120 s |
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant RP as Remote Phone
-  participant HP as WolListenerService TCP 9876
-  participant AUTH as CommandAuth
-  participant DSP as PcActionDispatcher
-  participant PC as pc_onoff UDP 9877
-  RP->>HP: SHUTDOWN:192.168.1.10 followed by newline
-  alt trusted source
-    HP->>DSP: bare command (or envelope field)
-  else public source
-    HP->>AUTH: verify(envelope, helperSecret, SharedReplayGuard)
-    AUTH-->>HP: Ok / Missing / Failed / NotConfigured
-    HP->>DSP: command only on Ok
-  end
-  DSP->>PC: shutdown (bare) or signed envelope
-  PC-->>DSP: no UDP acknowledgement
-  DSP-->>HP: PcActionResult
-  HP-->>RP: "SUCCESS: ..." or "ERROR: ..."
-```
 
-```mermaid
-stateDiagram-v2
-  [*] --> Disconnected
-  Disconnected --> Connecting: service start or network available
-  Connecting --> Subscribed: clean session + SUBACK
-  Connecting --> Backoff: connect / subscribe error
-  Subscribed --> Backoff: connection lost
-  Backoff --> Connecting: delaySeconds(attempt)
-  note right of Backoff
-    1, 2, 4, ... seconds
-    capped at 120 s
-  end note
-  Subscribed --> Subscribed: retained ignored / empty ignored
-```
 
 Sources: [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt:81-300](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/WolListenerService.kt#L81-L300), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt:90-180](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt#L90-L180), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt:232-458](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttWolService.kt#L232-L458), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttSupport.kt:134-150](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/MqttSupport.kt#L134-L150)
 
@@ -147,29 +101,6 @@ The daemon receives a single UTF-8 datagram, authenticates the source, parses an
 | Oversized datagram | Never a valid envelope; Windows `WSAEMSGSIZE` logged and skipped | [`server.rs:119-165`](../../computer/src/server.rs#L119-L165) |
 | Acknowledgement | None | [`server.rs:360-385`](../../computer/src/server.rs#L360-L385) |
 
-```mermaid
-sequenceDiagram
-  autonumber
-  participant APP as Android or Home Assistant or dashboard
-  participant SRV as server.rs UDP 9877
-  participant NET as net.rs
-  participant AUTH as auth.rs
-  participant DIS as Dispatcher
-  participant POW as power.rs
-  APP->>SRV: shutdown / SHUTDOWN:IP / signed envelope
-  SRV->>NET: classify source IP
-  alt trusted
-    NET-->>SRV: true
-    SRV->>DIS: bare command
-  else public
-    NET-->>SRV: false
-    SRV->>AUTH: verify_since(envelope, secret, now, not_before, replay)
-    AUTH-->>SRV: bare command or AuthError
-    SRV->>DIS: verified command
-  end
-  DIS->>POW: execute(action)
-  Note over APP,POW: no UDP response is sent back
-```
 
 Sources: [computer/src/action.rs:12-93](../../computer/src/action.rs#L12-L93), [computer/src/server.rs:54-385](../../computer/src/server.rs#L54-L385), [computer/src/auth.rs:124-200](../../computer/src/auth.rs#L124-L200), [computer/src/power.rs:34-56](../../computer/src/power.rs#L34-L56), [computer/src/lib.rs:26-31](../../computer/src/lib.rs#L26-L31)
 
@@ -201,37 +132,22 @@ Trust is evaluated on the **source** address for inbound listeners (Home Phone T
 | Rust | `is_private` + explicit `100.64/10` + `(segments[0] & 0xfe00) == 0xfc00` | [`net.rs:9-37`](../../computer/src/net.rs#L9-L37) |
 | Kotlin | IPv4-only `isSiteLocalAddress`; avoid trusting `fec0::/10` | [`CommandAuth.kt:139-180`](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt#L139-L180) |
 
-```mermaid
-flowchart TD
-  IP["Source or destination IP"] --> PARSE{"ipaddress.ip_address"}
-  PARSE -->|"invalid"| PUBLIC["Public: require HMAC"]
-  PARSE -->|"IPv4-mapped"| UNMAP["Unwrap ::ffff:a.b.c.d"]
-  PARSE --> V4{"IPv4 literal?"}
-  UNMAP --> V4
-  PARSE -->|"IPv6 literal"| V6{"::1 / fe80::/10 / fc00::/7?"}
-  V4 -->|"127/8, 10/8, 172.16/12, 192.168/16, 169.254/16, 100.64/10"| TRUST["Trusted: bare command allowed"]
-  V4 -->|"anything else"| PUBLIC
-  V6 -->|"yes"| TRUST
-  V6 -->|"no"| PUBLIC
-  TRUST --> BARE["UDP payload: action"]
-  PUBLIC --> SIGN["UDP payload: HMAC envelope"]
-```
 
 <div class="decision-context">
-<div class="decision-title">Why It Works This Way / 設計決策背景 <span>(Decision Context)</span></div>
+<div class="decision-title">Why It Works This Way <span>(Decision Context)</span></div>
 <div class="lang-en">
 <p><strong>Trust is a network fact, not a transport feature.</strong> TCP 9876, UDP 9877, IPv4 and IPv6 all use the same CIDR table. A packet from `192.168.1.20` or `fd7a:115c:a1e0::1` already crossed a private boundary; a packet from `8.8.8.8` did not. Tying the rule to the source/destination IP keeps the UX simple and prevents a new transport from accidentally bypassing the boundary.</p>
 <p><strong>Public traffic is fail-closed by design.</strong> There is no "maybe signed" mode. If the destination is public and no secret exists, the Android/HA sender refuses locally; the daemon rejects public packets without a valid envelope. This is deliberately less convenient than a plaintext fallback, because a plaintext public power command is a remote shutdown primitive.</p>
-</div>
-<div class="lang-zh">
-<p><strong>信任是網路事實，不是傳輸層特性。</strong> TCP 9876、UDP 9877、IPv4 與 IPv6 都共用同一張 CIDR 表。來自 `192.168.1.20` 或 `fd7a:115c:a1e0::1` 的封包已跨越私人邊界；來自 `8.8.8.8` 的封包則沒有。把規則綁在來源/目的 IP，可保持使用體驗簡單，也避免新增傳輸方式時意外繞過邊界。</p>
-<p><strong>公網流量刻意採 fail-closed。</strong> 沒有「也許簽章」模式。若目的地位於公網且沒有密鑰，Android / HA 發送端會在本機拒絕；daemon 也會拒絕沒有有效 envelope 的公網封包。這比明文回退更不方便，但明文公網電源指令本質上就是一個遠端關機原語。</p>
 </div>
 </div>
 
 Sources: [computer/src/net.rs:9-37](../../computer/src/net.rs#L9-L37), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt:139-180](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt#L139-L180), [custom_components/pc_onoff/protocol.py:217-245](../../custom_components/pc_onoff/protocol.py#L217-L245)
 
 ## 3.5 HMAC-SHA256 v1 Envelope, ReplayGuard & Pre-Start Cutoff
+
+<div class="archify-embed" data-src="diagrams/auth-trust-workflow.html" data-title-en="LAN/Tailscale vs Public IP HMAC-SHA256 & ReplayGuard Auth Workflow" data-title-zh="LAN/Tailscale 免密直通與公網 IP HMAC-SHA256 防重放驗證流程 (Archify 互動圖)">
+  <p><a href="diagrams/auth-trust-workflow.html">Open Interactive Archify Diagram: LAN/Tailscale vs Public IP HMAC-SHA256 Auth Workflow ↗</a></p>
+</div>
 
 ```text
 <command>|ts=<unix-seconds>|nonce=<16 lowercase hex>|sig=<64 lowercase hex>
@@ -275,26 +191,6 @@ envelope   = sign_input + "|sig=" + sig
 | Nonce | `0011223344556677` |
 | Expected signature | `6582b1c23ef97498af3f91ade1a74ce60f335dae38a2aa51f403254505fbfbdc` |
 
-```mermaid
-stateDiagram-v2
-  [*] --> Parse
-  Parse --> Malformed: bad grammar / oversized
-  Parse --> Signature: fields valid
-  Signature --> BadSignature: HMAC mismatch
-  Signature --> Window: HMAC matches
-  Window --> Expired: abs(now - ts) > 300
-  Window --> PreStart: ts < not_before
-  Window --> Replay: window and pre-start ok
-  Replay --> Replayed: nonce already seen
-  Replay --> Accepted: nonce fresh
-  Accepted --> [*]
-  Malformed --> Rejected
-  BadSignature --> Rejected
-  Expired --> Rejected
-  PreStart --> Rejected
-  Replayed --> Rejected
-  Rejected --> [*]
-```
 
 Sources: [computer/src/auth.rs:93-200](../../computer/src/auth.rs#L93-L200), [computer/src/auth.rs:251-359](../../computer/src/auth.rs#L251-L359), [wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt:56-118](../../wakeonlanhomephone/app/src/main/java/com/example/wakeonlanhomephone/CommandAuth.kt#L56-L118), [custom_components/pc_onoff/protocol.py:247-318](../../custom_components/pc_onoff/protocol.py#L247-L318)
 
