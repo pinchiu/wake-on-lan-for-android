@@ -6,8 +6,8 @@
 >
 > Everything below is self-hosted from this repository — no external documentation service:
 >
-> 1. **[Interactive Architecture Wiki Website (GitHub Pages)](https://pinchiu.github.io/wake-on-lan-for-android/)** — a 3-pane interactive architecture wiki with Mermaid diagrams, bilingual “Why / Decision Context” explanations, search, and line-level source links ([local file: docs/wiki/index.html](docs/wiki/index.html)).
-> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html)** — a validated 1-page interactive visual architecture & decision explainer with animated diagrams, step-through walkthroughs, light/dark themes, and image/PDF export ([local file: docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)).
+> 1. **[Interactive Architecture Wiki Website (GitHub Pages)](https://pinchiu.github.io/wake-on-lan-for-android/wiki/)** — a 3-pane interactive architecture wiki with Mermaid diagrams, bilingual “Why / Decision Context” explanations, search, and line-level source links ([local file: docs/wiki/index.html](docs/wiki/index.html)).
+> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/wiki/archify-explainer.html)** — a validated 1-page interactive visual architecture & decision explainer with animated diagrams, step-through walkthroughs, light/dark themes, and image/PDF export ([local file: docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)).
 > 3. **Markdown Architecture Wiki Chapters** (docs/wiki/):
 >    - [`docs/wiki/Home.md`](docs/wiki/Home.md) — 1. System Overview & Gateway Topology
 >    - [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) — 2. Architecture & Deep Modules

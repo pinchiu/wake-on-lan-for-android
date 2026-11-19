@@ -6,8 +6,8 @@
 >
 > 以下內容全部由本儲存庫自行託管，不依賴任何外部文件服務：
 >
-> 1. **[互動式架構百科網站（GitHub Pages）](https://pinchiu.github.io/wake-on-lan-for-android/)** — 三欄式互動架構百科，內含 Mermaid 圖表、雙語「Why／決策背景」說明、搜尋功能與行級原始碼連結（[本機檔案：docs/wiki/index.html](docs/wiki/index.html)）。
-> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/archify-explainer.html)** — 經校驗的單頁互動式視覺架構與決策說明，內含動畫圖表、逐步導覽、淺色／深色主題與圖片／PDF 匯出（[本機檔案：docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)）。
+> 1. **[互動式架構百科網站（GitHub Pages）](https://pinchiu.github.io/wake-on-lan-for-android/wiki/)** — 三欄式互動架構百科，內含 Mermaid 圖表、雙語「Why／決策背景」說明、搜尋功能與行級原始碼連結（[本機檔案：docs/wiki/index.html](docs/wiki/index.html)）。
+> 2. **[Archify Interactive Explainer](https://pinchiu.github.io/wake-on-lan-for-android/wiki/archify-explainer.html)** — 經校驗的單頁互動式視覺架構與決策說明，內含動畫圖表、逐步導覽、淺色／深色主題與圖片／PDF 匯出（[本機檔案：docs/wiki/archify-explainer.html](docs/wiki/archify-explainer.html)）。
 > 3. **Markdown 架構百科章節**（docs/wiki/）：
 >    - [`docs/wiki/Home.md`](docs/wiki/Home.md) — 1. System Overview & Gateway Topology
 >    - [`docs/wiki/Architecture-and-Deep-Modules.md`](docs/wiki/Architecture-and-Deep-Modules.md) — 2. Architecture & Deep Modules
