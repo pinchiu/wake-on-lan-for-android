@@ -92,6 +92,33 @@ cp -r custom_components/pc_onoff /config/custom_components/pc_onoff
 
 Then restart Home Assistant. No `configuration.yaml` edit is required.
 
+### Option C — one-command helper + AI agent skill (recommended for Google Home)
+
+The repository ships a helper that installs the integration and wires the free Google Home
+bridge in one pass:
+
+```bash
+./scripts/setup-ha-google-home.sh \
+  --ha-config ~/homeassistant/config \
+  --project-id <GOOGLE_HOME_PROJECT_ID> \
+  --entity-slug gaming_pc \
+  --pc-name "Gaming PC"
+```
+
+It installs `custom_components/pc_onoff/`, fixes Home Assistant 2026+ reverse-proxy trust,
+enables Tailscale Funnel on a free port (443 → 8443 → 10000, never overwriting an existing
+service), adds the four action scripts, appends the zero-JSON `google_assistant:` block,
+restarts Home Assistant and verifies the public endpoints. Preview everything with `--dry-run`;
+list every flag with `--help`.
+
+The exact same procedure is packaged as a reusable AI agent skill (Antigravity, Claude, Cursor,
+OpenCode):
+
+[`docs/skills/ha-google-home-pc-setup/SKILL.md`](skills/ha-google-home-pc-setup/SKILL.md)
+
+Supported flags: `--ha-config`, `--container`, `--project-id`, `--entity-slug`, `--pc-name`,
+`--https-port`, `--public-url`, `--no-funnel`, `--dry-run`, `--help`.
+
 ---
 
 ## 3. Configuration
@@ -174,7 +201,13 @@ The integration therefore holds the requested state for `OPTIMISTIC_HOLD_SECONDS
 ## 4. Google Home exposure
 
 Home Assistant is the bridge: Google Home talks to Home Assistant, and Home Assistant talks to
-the PC. Two connection options exist.
+the PC. Three connection options exist:
+
+| Option | Cost | What you need |
+| :--- | :--- | :--- |
+| **A — Home Assistant Cloud (Nabu Casa)** | Paid subscription | Nabu Casa account |
+| **B — Tailscale Funnel + Google Home Developer Console** | **Free** | Tailscale on the HA host; no domain, no Service Account JSON with `report_state: false` |
+| **C — Cloudflare Tunnel / own HTTPS reverse proxy** | Free (needs a domain) | Domain + tunnel/reverse proxy |
 
 ### Option A — Home Assistant Cloud (Nabu Casa)
 
@@ -185,12 +218,139 @@ the PC. Two connection options exist.
 4. In the Google Home app, link the **Home Assistant** account (if not linked yet), then say
    **“Hey Google, sync my devices”**.
 
-### Option B — manual Google Assistant integration
+### Option B — Free Tailscale Funnel + Google Home Developer Console (no Nabu Casa)
 
-Requires an HTTPS endpoint with a valid certificate (Nabu Casa, or your own domain/reverse
-proxy) and a Google Cloud project with the Google Assistant API. Follow the official guide
-[Google Assistant SDK → Home Assistant](https://www.home-assistant.io/integrations/google_assistant/),
-then expose the switch exactly as in Option A.
+This is the zero-cost path: Tailscale Funnel provides the public HTTPS origin, and the Google Home
+Developer Console talks to Home Assistant through it. With `report_state: false`, **no Service
+Account JSON is required**.
+
+**Prerequisites**
+
+- Home Assistant 2024.1+ (validated on **2026.9.1**) reachable at `http://127.0.0.1:8123`.
+- `pc_onoff` running on the target PC (UDP 9877).
+- Tailscale installed on the HA host; Funnel enabled for the tailnet.
+- The integration installed (§2 Option A/B/C).
+
+**1. Run the helper script**
+
+```bash
+./scripts/setup-ha-google-home.sh \
+  --ha-config ~/homeassistant/config \
+  --project-id <GOOGLE_HOME_PROJECT_ID> \
+  --entity-slug gaming_pc \
+  --pc-name "Gaming PC"
+```
+
+| Flag | When to use it |
+| :--- | :--- |
+| `--https-port 8443` | `tailscale serve status` already uses 443. The helper refuses to overwrite it and otherwise auto-selects 443 → 8443 → 10000. |
+| `--no-funnel --public-url https://ha.example.com` | You use Cloudflare Tunnel or an existing reverse proxy. |
+| `--container ""` | Home Assistant Core (no Docker). Default: `homeassistant`. |
+| `--dry-run` | Preview every file write and command without changing anything. |
+
+**2. Avoid the port 443 conflict**
+
+Tailscale Funnel supports only **443, 8443 and 10000**. The manual equivalent of the helper's
+port selection is:
+
+```bash
+sudo tailscale funnel --bg --https=8443 http://127.0.0.1:8123
+```
+
+The public URL becomes `https://<host>.<tailnet>.ts.net:8443`.
+
+**3. Home Assistant 2026+ `.storage/http` gotcha**
+
+Once `.storage/http` contains `"yaml_migration_done": true`, any `http:` block in
+`configuration.yaml` is **ignored**. Funnel requests then fail with **HTTP 400**
+(`A request from a reverse proxy was received from 127.0.0.1, but your HTTP integration is not
+set-up for reverse proxies`). The helper stops HA, patches `data.stable` with:
+
+```json
+"use_x_forwarded_for": true,
+"trusted_proxies": ["127.0.0.1/32", "::1/128", "172.16.0.0/12"]
+```
+
+and starts HA again. On older HA versions it appends the `http:` block to `configuration.yaml`
+instead.
+
+**4. Paste these exact values into the Google Home Developer Console**
+
+Open `https://console.home.google.com/projects/<PROJECT_ID>` → **Cloud-to-cloud → Add / Develop**.
+
+| Field | Exact value |
+| :--- | :--- |
+| Development / Integration name | `<PC Name>` |
+| Device types | `Switch` + `Scene` |
+| App icon | Any square PNG ≥ 144×144 (required to Save) |
+| Cloud fulfillment URL | `<PUBLIC_URL>/api/google_assistant` |
+| OAuth Client ID | `https://oauth-redirect.googleusercontent.com/r/<PROJECT_ID>` |
+| OAuth Client Secret | Any non-empty string (e.g. `ha-wol-secret-2026`) |
+| Authorization URL | `<PUBLIC_URL>/auth/authorize` |
+| Token URL | `<PUBLIC_URL>/auth/token` |
+
+> [!WARNING]
+> - Paste with **no leading or trailing spaces**; Google rejects leading spaces with *Please enter a valid https link*.
+> - Do **NOT** create an OAuth client with an `*.apps.googleusercontent.com` id (that is for the outbound Google Assistant SDK). Use the `oauth-redirect.googleusercontent.com/r/<PROJECT_ID>` value.
+> - **No Service Account JSON is needed** with `report_state: false`.
+
+**5. Save → Test → Start testing**
+
+Click **Save**, then **Test**, then **Start testing**. Do not submit for public review.
+
+**6. Link the phone Google Home app**
+
+1. Sign in with the **same Google account** used in the console.
+2. Force-close and reopen the Google Home app.
+3. Go to **Devices → + Add → Works with Google Home**.
+4. Select **`[test] <PC Name>`** and sign in to Home Assistant.
+5. Say **“Hey Google, sync my devices”**.
+
+**7. The four extra actions (Reboot, Sleep, Hibernate, Lock)**
+
+The helper idempotently appends these scripts to `scripts.yaml`:
+
+```yaml
+gaming_pc_reboot:
+  alias: "Reboot Gaming PC"
+  sequence:
+    - service: button.press
+      target:
+        entity_id: button.gaming_pc_reboot
+# ... gaming_pc_sleep     -> button.gaming_pc_sleep
+# ... gaming_pc_hibernate -> button.gaming_pc_hibernate
+# ... gaming_pc_lock      -> button.gaming_pc_lock_screen
+```
+
+They are exposed through `google_assistant: exposed_domains: [switch, script]`. After adding new
+scripts, reconnect in the phone app: **Settings → Works with Google → `[test] <PC Name>` →
+Reconnect account** (or **Check for new devices**).
+
+**8. Status detection and the 25-second hold**
+
+`ping` (ICMP), `tcp` (one port, default 445), or `none` (optimistic only). A PC needs 15–35 s to
+answer after Wake-on-LAN; the integration holds the requested state for
+`OPTIMISTIC_HOLD_SECONDS = 25.0` and reconciles once at **+26 s**, so Google Home does not bounce
+back to off while the BIOS is booting.
+
+**Verification**
+
+```bash
+curl -s -o /dev/null -w "GET / -> %{http_code}\n" <PUBLIC_URL>/
+curl -s -o /dev/null -w "GET /auth/authorize -> %{http_code}\n" <PUBLIC_URL>/auth/authorize
+curl -s -o /dev/null -w "POST /api/google_assistant -> %{http_code}\n" -X POST <PUBLIC_URL>/api/google_assistant
+```
+
+Expect **200 / 200 / 401**. The helper performs the same checks automatically.
+
+### Option C — Cloudflare Tunnel or another HTTPS reverse proxy
+
+If you own a domain, expose Home Assistant through `cloudflared` (or Caddy/NGINX) with the
+container in `network_mode: host`, then use the same Developer Console values as Option B. The
+HA 2026+ `.storage/http` trusted-proxy patch applies to every reverse proxy, not only Tailscale.
+
+Run the helper with `--no-funnel --public-url https://ha.example.com` to skip Tailscale and still
+get the action scripts, `google_assistant:` block and endpoint verification.
 
 ### Voice commands
 
@@ -348,6 +508,21 @@ cp -r custom_components/pc_onoff /config/custom_components/pc_onoff
 
 複製後重新啟動 Home Assistant，無須修改 `configuration.yaml`。
 
+**方式 C：一鍵 helper 指令碼（推薦，含免費 Google Home 設定）**
+
+```bash
+./scripts/setup-ha-google-home.sh \
+  --ha-config ~/homeassistant/config \
+  --project-id <GOOGLE_HOME_PROJECT_ID> \
+  --entity-slug gaming_pc \
+  --pc-name "Gaming PC"
+```
+
+此指令碼會安裝整合、修正 HA 2026+ 反向代理信任、在可用連接埠啟用 Tailscale Funnel、加入四個
+動作指令碼與免 JSON 的 `google_assistant:` 設定、重新啟動 HA 並驗證公開端點。可用 `--dry-run`
+預覽、`--help` 查看所有參數。相同流程也打包為可重用的 AI Agent Skill：
+[`docs/skills/ha-google-home-pc-setup/SKILL.md`](skills/ha-google-home-pc-setup/SKILL.md)。
+
 ### 設定步驟
 
 1. 前往 **設定 → 裝置與服務**。
@@ -416,6 +591,81 @@ cp -r custom_components/pc_onoff /config/custom_components/pc_onoff
 | 「Ok Google，打開 Gaming PC」 | 送出 UDP 9 魔術封包喚醒電腦 |
 | 「Ok Google，關閉 Gaming PC」 | 透過 UDP 9877 執行關機／睡眠／休眠 |
 | 「Ok Google，Gaming PC 開著嗎？」 | 依最近一次偵測結果回答 |
+
+#### 免費路線：Tailscale Funnel + Google Home Developer Console（免 Nabu Casa）
+
+不需要付費訂閱，也不需要 Service Account JSON（`report_state: false`）。
+
+**前置條件**
+
+- Home Assistant 2024.1+（已於 **2026.9.1** 驗證），可從 `http://127.0.0.1:8123` 存取。
+- 電腦執行 `pc_onoff` 並監聽 UDP 9877。
+- HA 主機已安裝 Tailscale，且 tailnet 已啟用 Funnel。
+- 已安裝本整合（見上方安裝方式）。
+
+**1. 執行 helper**
+
+```bash
+./scripts/setup-ha-google-home.sh \
+  --ha-config ~/homeassistant/config \
+  --project-id <GOOGLE_HOME_PROJECT_ID> \
+  --entity-slug gaming_pc \
+  --pc-name "Gaming PC"
+```
+
+| 參數 | 用途 |
+| :--- | :--- |
+| `--https-port 8443` | 443 已被其他 `tailscale serve` 服務占用時使用；helper 不會覆寫，會依 443 → 8443 → 10000 選擇。 |
+| `--no-funnel --public-url https://ha.example.com` | 改用 Cloudflare Tunnel 或既有反向代理。 |
+| `--container ""` | Home Assistant Core（非 Docker）。 |
+| `--dry-run` | 只預覽變更。 |
+
+**2. HA 2026+ `.storage/http` 陷阱**
+
+當 `.storage/http` 的 `"yaml_migration_done": true` 時，`configuration.yaml` 的 `http:` 區塊會被忽略，Funnel 會回傳 **HTTP 400**（`not set-up for reverse proxies`）。helper 會先停止 HA，將 `data.stable` 補上：
+
+```json
+"use_x_forwarded_for": true,
+"trusted_proxies": ["127.0.0.1/32", "::1/128", "172.16.0.0/12"]
+```
+
+再啟動 HA。較舊版本則改為在 `configuration.yaml` 加入 `http:` 區塊。
+
+**3. Google Home Developer Console 精確數值**
+
+`https://console.home.google.com/projects/<PROJECT_ID>` → **Cloud-to-cloud → Add / Develop**。
+
+| 欄位 | 精確數值 |
+| :--- | :--- |
+| 開發／整合名稱 | `<PC 名稱>` |
+| 裝置類型 | `Switch` + `Scene` |
+| 應用程式圖示 | 任何 ≥ 144×144 的方形 PNG（儲存必要） |
+| Cloud fulfillment URL | `<PUBLIC_URL>/api/google_assistant` |
+| OAuth Client ID | `https://oauth-redirect.googleusercontent.com/r/<PROJECT_ID>` |
+| OAuth Client Secret | 任何非空字串（例如 `ha-wol-secret-2026`） |
+| Authorization URL | `<PUBLIC_URL>/auth/authorize` |
+| Token URL | `<PUBLIC_URL>/auth/token` |
+
+> [!WARNING]
+> - 不要有前導或尾隨空白，否則 Google 會顯示 *Please enter a valid https link*。
+> - **不要**建立 `*.apps.googleusercontent.com` 的 OAuth 用戶端；OAuth Client ID 必須是上面的 `https://oauth-redirect.googleusercontent.com/r/<PROJECT_ID>`。
+> - `report_state: false` 時**不需要 Service Account JSON**。
+
+**4. 儲存 → 測試 → 開始測試**
+
+依序點擊 **Save → Test → Start testing**，不要提交公開發布審查。
+
+**5. 手機 Google Home App**
+
+使用相同 Google 帳號 → 強制關閉並重開 App → **裝置 → + 新增 → 與 Google Home 相容的裝置** → 選擇 **`[test] <PC 名稱>`** → 登入 Home Assistant → 說「Ok Google，同步我的裝置」。
+
+**6. 四個額外動作**
+
+helper 會加入 `script.<slug>_{reboot,sleep,hibernate,lock}`，分別按下 `button.<slug>_{reboot,sleep,hibernate,lock_screen}`，並透過 `exposed_domains: [switch, script]` 公開。新增後請在手機 App：**設定 → Works with Google → `[test] <PC 名稱>` → 重新連線帳號**。
+
+**7. 狀態判斷**
+
+`ping`（ICMP）、`tcp`（單一連接埠，預設 445）或 `none`。電腦從 Wake-on-LAN 到能回應約需 15–35 秒；整合會保持要求狀態 **25 秒**（`OPTIMISTIC_HOLD_SECONDS = 25.0`），並在 **+26 秒**對帳，避免 Google Home 跳回關閉。
 
 若要用語音執行重新啟動、睡眠或鎖定，請建立 Home Assistant 指令碼（Script）按下對應按鈕，
 再公開該指令碼並綁定 Google Home 日常安排：

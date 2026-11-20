@@ -27,8 +27,9 @@ skills-lock.json
 computer/target/
 config.ini
 
-# Local development scripts
-scripts/
+# Local development scripts (keep the shipped Home Assistant helper)
+scripts/*
+!scripts/setup-ha-google-home.sh
 
 
 # Kotlin incremental session data
